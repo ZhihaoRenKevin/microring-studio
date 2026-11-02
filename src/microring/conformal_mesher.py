@@ -186,14 +186,15 @@ def build_conformal_waveguide_mesh(
             return hw_up_top
         return hw_top
 
-    # Check whether we need a second nested control curve (e.g. narrow/wide cap or step upper core)
+    # Check whether we need a second nested control curve (e.g. twin-core DC/Y-branch, narrow/wide cap, or step upper core)
+    is_twin_core = float(getattr(spec, "twin_core_gap_um", 0.0)) > 0.0
     step_at_upper = has_upper and (spec.interlayer_h_um <= 1e-9) and (abs(hw_up_bot - hw_top) > 1e-5)
     ref_top_hw = hw_up_top if has_upper else hw_top
     step_at_cap = has_cap and (abs(hw_cap - ref_top_hw) > 1e-5)
 
     hw_ref_nom = max(0.5 * (hw_bot + hw_top), 0.05)
 
-    if not step_at_upper and not step_at_cap:
+    if not is_twin_core and not step_at_upper and not step_at_cap:
         # Single smooth conformal control curve +-hw_main(y)
         x_core_pos = _graded_1d_segment(0.0, hw_ref_nom, h_core_res, h_core_res)
         x_clad_right = _graded_1d_segment(hw_ref_nom, xmax, h_core_res, h_clad_res)
@@ -215,7 +216,12 @@ def build_conformal_waveguide_mesh(
             xx[j, :] = np.concatenate([row_left, row_cneg, row_cpos, row_right])
     else:
         # Two non-crossing positive control curves: 0 < c_in(y) < c_out(y) < min(|xmin|, xmax)
+        xc_twin = 0.5 * float(getattr(spec, "twin_core_gap_um", 0.0)) + hw_bot
+
         def _c_in_out(y_val: float) -> tuple[float, float]:
+            if is_twin_core:
+                hm = _hw_main_at_y(y_val)
+                return max(xc_twin - hm, 0.004), xc_twin + hm
             if step_at_cap and not step_at_upper:
                 hm = _hw_main_at_y(y_val)
                 ratio_cap = min(hw_cap, ref_top_hw) / max(hw_cap, ref_top_hw)

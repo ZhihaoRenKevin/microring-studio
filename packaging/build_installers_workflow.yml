@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Optional GitHub Release tag to attach built installers to (e.g. v3.5.0)"
+        description: "Optional GitHub Release tag to attach built installers to (e.g. v3.6.0)"
         required: false
         default: ""
       skip_macos:

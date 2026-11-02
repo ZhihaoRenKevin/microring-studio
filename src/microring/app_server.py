@@ -87,6 +87,13 @@ from .mrr_topologies import (
     get_default_output_root,
     simulate_mrr_topology,
 )
+from .mzi_interferometer import (
+    MZI_SPLITTER_CATALOG,
+    MZIDesignConfig,
+    export_mzi_gds,
+    export_mzi_interconnect_bundle,
+    simulate_mzi,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 from .ui_frontend import HTML_APP_PAGE
 
@@ -744,6 +751,102 @@ async def api_high_q_fdtd(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
 
+def _dict_to_mzi_config(payload: dict) -> MZIDesignConfig:
+    valid_keys = {f.name for f in fields(MZIDesignConfig)}
+    filtered = {}
+    for k, v in payload.items():
+        if k not in valid_keys:
+            continue
+        if v in ("", "auto"):
+            continue
+        filtered[k] = v
+    return MZIDesignConfig(**filtered)
+
+
+def _design_mzi_sync(payload: dict) -> dict:
+    cfg = _dict_to_mzi_config(payload.get("config", payload))
+    biases = _parse_bias_payload(payload.get("bias_values"))
+    egap_raw = payload.get("electrode_gap_um")
+    egap = float(egap_raw) if egap_raw not in (None, "", "auto", 0, "0") else None
+    res = simulate_mzi(
+        cfg,
+        include_active_tuning=bool(payload.get("include_active_tuning", True)),
+        mechanism=str(payload.get("mechanism", "auto")),
+        drive_type=str(payload.get("drive_type", "auto")),
+        drive_scheme=str(payload.get("drive_scheme", "auto")),
+        bias_values=biases,
+        heater_material=str(payload.get("heater_material", "TiN")),
+        heater_width_um=float(payload.get("heater_width_um", 1.60)),
+        heater_gap_um=float(payload.get("heater_gap_um", 0.90)),
+        box_thickness_um=float(payload.get("box_thickness_um", 2.00)),
+        electrode_gap_um=egap,
+        na_p_cm3=float(payload.get("na_p_cm3", 5.0e17)),
+        nd_n_cm3=float(payload.get("nd_n_cm3", 5.0e17)),
+        pn_offset_nm=float(payload.get("pn_offset_nm", 25.0)),
+    )
+    res["splitter_catalog"] = MZI_SPLITTER_CATALOG
+    return res
+
+
+async def api_design_mzi(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_design_mzi_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _export_mzi_gds_sync(payload: dict) -> dict:
+    mzi_res = payload.get("mzi_result")
+    if not isinstance(mzi_res, dict) or "splitter" not in mzi_res:
+        mzi_res = _design_mzi_sync(payload)
+    GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    sp_type = mzi_res["splitter"]["splitter_type"]
+    safe_mat = str(mzi_res["config"]["core_material"]).replace("-", "")
+    out_file = GDS_EXPORT_DIR / f"MicroRing_MZI_{sp_type}_{safe_mat}.gds"
+    info = export_mzi_gds(mzi_res, out_file)
+    saved = Path(info["gds_path"])
+    lyp_saved = Path(info["lyp_path"])
+    info["saved_path"] = str(saved)
+    info["gds_download_url"] = f"/api/download_file?name={saved.name}"
+    info["lyp_download_url"] = f"/api/download_file?name={lyp_saved.name}"
+    info["gds_view"] = analyze_uploaded_gds(str(saved))
+    return info
+
+
+async def api_export_mzi_gds(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_export_mzi_gds_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _export_mzi_interconnect_sync(payload: dict) -> dict:
+    mzi_res = payload.get("mzi_result")
+    if not isinstance(mzi_res, dict) or "splitter" not in mzi_res:
+        mzi_res = _design_mzi_sync(payload)
+    GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    sp_type = mzi_res["splitter"]["splitter_type"]
+    safe_mat = str(mzi_res["config"]["core_material"]).replace("-", "")
+    sub_dir = GDS_EXPORT_DIR / f"mzi_ic_{sp_type}_{safe_mat}"
+    ic = export_mzi_interconnect_bundle(mzi_res, sub_dir)
+    zp = Path(ic["zip_path"])
+    ic["zip_download_url"] = f"/api/download_file?name={zp.name}"
+    return ic
+
+
+async def api_export_mzi_interconnect(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_export_mzi_interconnect_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
 async def api_download_file(request: Request) -> Response:
     raw_name = request.query_params.get("name", "")
     safe = _safe_filename(raw_name)
@@ -884,6 +987,9 @@ def create_app() -> Starlette:
         Route("/api/export_io_gds", api_export_io_gds, methods=["POST"]),
         Route("/api/export_io_interconnect", api_export_io_interconnect, methods=["POST"]),
         Route("/api/high_q_fdtd", api_high_q_fdtd, methods=["POST"]),
+        Route("/api/design_mzi", api_design_mzi, methods=["POST"]),
+        Route("/api/export_mzi_gds", api_export_mzi_gds, methods=["POST"]),
+        Route("/api/export_mzi_interconnect", api_export_mzi_interconnect, methods=["POST"]),
         Route("/api/download_file", api_download_file, methods=["GET"]),
         Route("/api/demo_spectrum", api_demo_spectrum, methods=["GET"]),
         Route("/api/fit_spectrum", api_fit_spectrum, methods=["POST"]),

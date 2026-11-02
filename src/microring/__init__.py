@@ -1,7 +1,7 @@
-"""MicroRing Studio (`microring`) - License-Free Photonic IC, Coupler, Eigenmode, CMT & GDSII Suite."""
+"""MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.5.0"
+__version__ = "3.6.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -15,6 +15,7 @@ from .active_tuning import (
 from .agent_tools import (
     agent_active_tuning,
     agent_design_mrr,
+    agent_design_mzi,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -82,6 +83,16 @@ from .mrr_topologies import (
     export_mrr_gds,
     simulate_mrr_topology,
 )
+from .mzi_interferometer import (
+    MZI_SPLITTER_CATALOG,
+    MZIDesignConfig,
+    design_directional_coupler_eme,
+    design_mmi_coupler_eme,
+    design_y_branch_eme,
+    export_mzi_gds,
+    export_mzi_interconnect_bundle,
+    simulate_mzi,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 
 __all__ = [
@@ -90,6 +101,7 @@ __all__ = [
     "HEATER_METAL_CATALOG",
     "MATERIAL_CATALOG",
     "MICRORING_LAYERS",
+    "MZI_SPLITTER_CATALOG",
     "RESIST_TONE_CATALOG",
     "TOPOLOGY_CATALOG",
     "TUNING_MECHANISM_CATALOG",
@@ -98,9 +110,11 @@ __all__ = [
     "CMTFitSummary",
     "EigenmodeResult",
     "MRRDesignConfig",
+    "MZIDesignConfig",
     "WaveguideCrossSectionSpec",
     "agent_active_tuning",
     "agent_design_mrr",
+    "agent_design_mzi",
     "agent_fab_tolerance",
     "agent_fit_spectrum",
     "agent_high_q_fdtd",
@@ -116,7 +130,10 @@ __all__ = [
     "check_wavelength_compatibility",
     "create_initial_session",
     "design_butt_edge_coupler",
+    "design_directional_coupler_eme",
     "design_grating_coupler",
+    "design_mmi_coupler_eme",
+    "design_y_branch_eme",
     "detect_hardware_profile",
     "evaluate_material_dispersion_table",
     "export_coupler_cutout_gds",
@@ -125,6 +142,8 @@ __all__ = [
     "export_io_coupler_interconnect",
     "export_lumerical_interconnect_bundle",
     "export_mrr_gds",
+    "export_mzi_gds",
+    "export_mzi_interconnect_bundle",
     "export_sweep_array_gds",
     "fit_multi_resonance_spectrum",
     "fit_single_resonance_cmt",
@@ -140,6 +159,7 @@ __all__ = [
     "run_waveguide_width_sweep",
     "scale_preset_for_wavelength",
     "simulate_mrr_topology",
+    "simulate_mzi",
     "solve_2d_electrostatic_eo_fem",
     "solve_2d_heater_thermal_fem",
     "solve_modes_fde_tidy3d",

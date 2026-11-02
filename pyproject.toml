@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "microring-studio"
-version = "3.5.0"
-description = "License-free Photonic IC and Microring Resonator CAD (Visible 400 nm to Mid-IR 14 um): instant High-Q convergence (10^4 to 10^8+), 2D vector Maxwell eigenmodes, Butt/Edge couplers, 2D-FDFD surface grating couplers, 2D-FEM TO/EO/Si-PN modulators, GDSII masks, and Ansys Lumerical INTERCONNECT export without Lumerical MODE/FDTD, COMSOL, or RSoft."
+version = "3.6.0"
+description = "License-free Photonic IC, Microring Resonator, and Mach-Zehnder Interferometer (MZI) CAD (Visible 400 nm to Mid-IR 14 um): instant High-Q convergence (10^4 to 10^8+), 2D-FEM/EME MZI splitters (DC, MMI, Y-Branch), Butt/Edge couplers, 2D-FDFD surface grating couplers, 2D-FEM TO/EO/Si-PN modulators, GDSII masks, and Ansys Lumerical INTERCONNECT export without Lumerical MODE/FDTD, COMSOL, or RSoft."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
@@ -17,6 +17,9 @@ keywords = [
   "optical-interconnect",
   "integrated-photonics",
   "microring-resonator",
+  "mach-zehnder-interferometer",
+  "mzi-modulator",
+  "mmi-coupler",
   "grating-coupler",
   "edge-coupler",
   "butt-coupler",

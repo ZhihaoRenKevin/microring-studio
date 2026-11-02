@@ -2,6 +2,21 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.6.0] - 2026-11-02
+
+### Added
+- **2D-FEM + EME Mach-Zehnder Interferometer (`MZI`) & High-Speed Modulator Suite (`mzi_interferometer.py`, Zero 3D FDTD)**:
+  - **4 Selectable `50:50` Splitter / Combiner Topologies Solved Directly from 2D Conformal Vector Maxwell Eigenmodes**:
+    - **`directional_coupler` (`2x2` DC)**: Mirror-symmetric Twin-Core 2D conformal vector FEM Even/Odd supermodes ($n_{\mathrm{even}}(\lambda), n_{\mathrm{odd}}(\lambda)$, $L_\pi(\lambda) = \frac{\lambda}{2\Delta n}$) + S-bend transition coupling integral (`Split = 49.5/49.5%, IL = 0.044 dB` on `220 nm` SOI).
+    - **`mmi_2x2` & `mmi_1x2` (`2x2` and `1x2` Multimode Interference Couplers)**: Multi-mode 2D conformal vector FEM Eigenmode Expansion (`EME`, up to 11 guided lateral modes) + complex Poynting vector access-taper overlap + optimal self-imaging length $L_{\mathrm{MMI}}$ synthesis + top-view 2D $|E(x,z)|$ self-imaging interference field map (`IL = 0.55 dB` on `1x2 MMI`, `0.93 dB` on `2x2 MMI`).
+    - **`y_branch` (`1x2` Symmetric Adiabatic Y-Junction)**: 2D vector FEM waist-narrowed stem-to-twin-core Even supermode complex Poynting overlap across the foundry minimum lithographic apex gap (`y_apex_gap_um = 130 nm` -> `IL = 0.273 dB` on `220 nm` SOI).
+  - **Passive & Active MZI Modulator Performance (`simulate_mzi`)**:
+    - Supports balanced or unbalanced arms ($\Delta L$ or target `FSR` in `nm`/`GHz`), dual-width dispersion-engineered arms ($W_1, W_2$), and **Ring-Assisted MZI (`RAMZI`)** linearized transfer functions.
+    - Couples straight phase-shifter arms (`push_pull` differential or `single_arm`) to our native 2D-FEM active tuning cross-sections (`si_pn_depletion`, `pockels_eo`, `thermo_optic`, `si_pin_injection`) across `V`, `mA`, `mW`, `ΔT`, or `E`, extracting **`V_π·L [V·cm]`**, **`V_π [V]`**, **`P_π [mW]`**, non-cavity electrical RC / thermal **`3-dB` bandwidth**, dynamic extinction ratio **`ER [dB]`**, ON-state insertion loss **`IL_on [dB]`**, multi-bias `Bar`/`Cross` spectra, and 241-point switching transfer curves $T(u)$.
+  - **Foundry MZI `.GDS` & Ansys Lumerical INTERCONNECT Export (`export_mzi_gds`, `export_mzi_interconnect_bundle`)**:
+    - Exports complete `Y-Branch`, `DC`, or `MMI` MZI `.GDS` + KLayout `.lyp` layouts (with `TiN` heaters `10/0` or `GSG` push-pull electrodes `11/0`, recognized on upload by `analyze_uploaded_gds`), plus passive-verified N-port `SPAR .dat`, active arm `OMM .txt` lookup tables, and `.lsf` schematic builders for **Ansys Lumerical INTERCONNECT**.
+  - Wired across Stage 9 Web/Desktop UI (`🔀 MZI`), Bilingual Copilot (`EN | 中文`), CLI (`microring agent mzi`), MCP (`11` tools including `microring_design_mzi`), Cookbook `07` (`07_mzi_spectra_dc_mmi_and_modulators.py`), and Test Suite `13` (`13/13` suites passing).
+
 ## [3.5.0] - 2026-11-01
 
 ### Added

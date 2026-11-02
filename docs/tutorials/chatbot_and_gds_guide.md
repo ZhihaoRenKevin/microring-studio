@@ -1,6 +1,6 @@
 # Step-by-Step Guide: Conversational Copilot & Bidirectional GDSII Workflows
 
-This tutorial walks through the core interactive workflows in **MicroRing Studio v3.5.0**.
+This tutorial walks through the core interactive workflows in **MicroRing Studio v3.6.0**.
 
 ---
 
@@ -15,6 +15,7 @@ The **Photonics Design Copilot** (`src/microring/copilot.py`) parses physical sp
 | **Critical Coupling** | `"Apply critical coupling"` / `"临界耦合"` | Sets `gap_thru_um`, `pulley_angle_thru_deg`, or `straight_length_um` to exact critical coupling ($Q_{\mathrm{ext}} = Q_{\mathrm{int}}$). |
 | **Chip I/O Couplers (Butt & GC)** | `"Design apodized focusing grating coupler on 220 nm Si"`<br/>`"Design butt coupler to 2.5 um lensed fiber"`<br/>`"Export focusing GC 127um fiber array loopback GDS"` | Runs native 2D Full-Wave `FDFD` (Grating Coupler) or 2D Vector FEM + Poynting overlap (Butt/Edge Coupler), plots `IL(λ)` / 2D radiated $|E(z,y)|$ / alignment tolerances, and exports `.GDS` or `INTERCONNECT` `SPAR`. |
 | **High-Q Convergence vs FDTD** | `"Why is high-Q Si3N4 ring slow in Lumerical FDTD?"`<br/>`"Export high-Q coupler cutout GDS and lsf"` | Computes exact $M \to \infty$ steady-state resonance vs truncated-FDTD sinc-ringing, required `1e-5` simulation time, and exports `< 1 ps` Coupler-Only Cutout `.GDS` + `.lsf`. |
+| **MZI (`Y-Branch` / `DC` / `MMI`) & Modulators** | `"Design a 220 nm SOI 2x2 MMI push-pull PN MZI"`<br/>`"600 nm X-cut TFLN Y-branch push-pull EO MZI arm length 5 mm"`<br/>`"Export mmi_2x2 MZI GDS and INTERCONNECT"` | Solves `DC` supermodes, `MMI` multi-mode 2D-FEM `EME`, or `Y-Branch` supermode overlap without 3D FDTD, computes $V_\pi L$, $P_\pi$, non-cavity `3-dB` BW, 2D MMI $|E(x,z)|$ self-imaging, `.GDS`, and INTERCONNECT `SPAR + OMM`. |
 | **Run Tolerance Sweeps** | `"Sweep width 0.5 to 1.8 um"`<br/>`"Sweep gap 150 to 320 nm"`<br/>`"Sweep pulley angle 8 to 35 deg"` | Runs multi-point 2D FEM / CMT sweeps and plots `ER [dB]` or `n_eff(W)` on the right workbench. |
 | **Active Tuning & INTERCONNECT** | `"Si PN junction tuning spectra at 0, -2, -5 V"`<br/>`"Temperature tuning spectra at 0, 20, 50 K"`<br/>`"E-field tuning spectra at -10, 0, 10 V/um"`<br/>`"Export Lumerical INTERCONNECT compact model"` | Solves 2D-FEM cross-section multiphysics + perturbed 2D vector eigenmodes (zero COMSOL), plots multi-state spectra, and exports a turnkey `.zip` bundle (`SPAR .dat`, `OMM .txt`, `.lsf`, `lumapi`). |
 | **Create Foundry GDS** | `"Export single GDS layout"`<br/>`"Export 5-ring parameter sweep array GDS"` | Writes `.gds` + KLayout `.lyp` to `outputs/gds_exports/` and opens interactive polygon preview + download buttons. |

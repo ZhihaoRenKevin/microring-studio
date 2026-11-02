@@ -18,6 +18,7 @@ from . import __version__
 from .agent_tools import (
     agent_active_tuning,
     agent_design_mrr,
+    agent_design_mzi,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -218,6 +219,35 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_design_mzi",
+        "description": "Design & simulate a Mach-Zehnder Interferometer (MZI) with selectable 50:50 splitters (directional_coupler, mmi_2x2, mmi_1x2, y_branch), active tuning (Si PN, Pockels EO, TiN TO, PIN; push_pull or single_arm -> V_pi*L, V_pi, P_pi, 3-dB BW), RAMZI, .GDS mask, and Lumerical INTERCONNECT export without 3D FDTD.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "splitter": {"type": "string", "description": "directional_coupler | mmi_2x2 | mmi_1x2 | y_branch"},
+                "mat": {"type": "string", "description": "Core material (Si, Si3N4, LN_Xcut, AlN, 4H-SiC, etc.)"},
+                "wl_nm": {"type": "number"},
+                "pol": {"type": "string"},
+                "h_um": {"type": "number"},
+                "slab_um": {"type": "number"},
+                "w1_um": {"type": "number"},
+                "l1_um": {"type": "number"},
+                "dl_um": {"type": "number"},
+                "fsr_nm": {"type": "number"},
+                "dc_gap_um": {"type": "number"},
+                "mmi_width_um": {"type": "number"},
+                "y_apex_gap_um": {"type": "number"},
+                "ramzi_enabled": {"type": "boolean"},
+                "mechanism": {"type": "string", "description": "auto | si_pn_depletion | pockels_eo | thermo_optic | si_pin_injection"},
+                "drive_type": {"type": "string", "description": "auto | voltage_v | current_ma | power_mw | delta_temp_k | e_field_v_per_um"},
+                "drive_scheme": {"type": "string", "description": "auto | push_pull | single_arm"},
+                "bias_values": {"type": "string", "description": "Comma-separated bias points, e.g. '-1,-2,-3,-4'"},
+                "export_gds": {"type": "boolean"},
+                "export_interconnect": {"type": "boolean"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -231,6 +261,7 @@ _DISPATCH = {
     "microring_active_tuning": agent_active_tuning,
     "microring_io_coupler": agent_io_coupler,
     "microring_high_q_fdtd": agent_high_q_fdtd,
+    "microring_design_mzi": agent_design_mzi,
 }
 
 

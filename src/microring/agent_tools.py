@@ -43,6 +43,12 @@ from .mrr_topologies import (
     get_default_output_root,
     simulate_mrr_topology,
 )
+from .mzi_interferometer import (
+    MZIDesignConfig,
+    export_mzi_gds,
+    export_mzi_interconnect_bundle,
+    simulate_mzi,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
@@ -623,5 +629,105 @@ def agent_high_q_fdtd(params: dict) -> dict:
         out["cutout_gds"] = cut["gds_path"]
         out["cutout_lsf"] = cut["lsf_path"]
     return out
+
+
+def agent_design_mzi(params: dict) -> dict:
+    """Design & simulate a Mach-Zehnder Interferometer (`Y-Branch`, `DC`, `2x2/1x2 MMI`) + active tuning (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    mzi_fields = {f.name for f in fields(MZIDesignConfig)}
+    aliases = {
+        "mat": "core_material",
+        "material": "core_material",
+        "clad": "clad_material",
+        "top_clad": "top_clad_material",
+        "wl_nm": "wavelength_nm",
+        "pol": "polarization",
+        "h_um": "film_height_um",
+        "slab_um": "slab_height_um",
+        "splitter": "splitter_type",
+        "combiner": "combiner_type",
+        "w_um": "arm1_width_um",
+        "w1_um": "arm1_width_um",
+        "w2_um": "arm2_width_um",
+        "l_arm_um": "arm1_length_um",
+        "l1_um": "arm1_length_um",
+        "dl_um": "delta_length_um",
+        "fsr_nm": "target_fsr_nm",
+        "fsr_ghz": "target_fsr_ghz",
+        "loss_db_cm": "alpha_loss_db_per_cm",
+    }
+    kw: dict = {}
+    for k, v in params.items():
+        if v is None:
+            continue
+        target = aliases.get(k, k)
+        if target in mzi_fields:
+            kw[target] = v
+    cfg = MZIDesignConfig(**kw)
+
+    raw_b = params.get("bias_values") or params.get("biases")
+    bias_list: list[float] | None = None
+    if isinstance(raw_b, str) and raw_b.strip():
+        bias_list = [float(x.strip()) for x in raw_b.split(",") if x.strip()]
+    elif isinstance(raw_b, (list, tuple)) and len(raw_b) > 0:
+        bias_list = [float(x) for x in raw_b]
+
+    include_tuning = bool(params.get("include_active_tuning", True))
+    res = simulate_mzi(
+        cfg,
+        include_active_tuning=include_tuning,
+        mechanism=str(params.get("mechanism") or "auto"),
+        drive_type=str(params.get("drive_type") or params.get("drive") or "auto"),
+        drive_scheme=str(params.get("drive_scheme") or "auto"),
+        bias_values=bias_list,
+        heater_material=str(params.get("heater_material") or "TiN"),
+        electrode_gap_um=float(params["electrode_gap_um"]) if params.get("electrode_gap_um") is not None else None,
+    )
+
+    ps = res["passive_spectrum"]
+    sp = res["splitter"]
+    m = res["metrics"]
+    csv_path = AGENT_OUT_DIR / f"mzi_{sp['splitter_type']}_{cfg.core_material}.csv"
+    np.savetxt(
+        csv_path,
+        np.column_stack([ps["wavelength_nm"], ps["bar_dB"], ps["cross_dB"]]),
+        delimiter=",",
+        header="wavelength_nm,bar_dB,cross_dB",
+        comments="",
+    )
+
+    out = {
+        "splitter": sp["splitter_type"],
+        "mat": cfg.core_material,
+        "L1_um": res["arm_eigenmodes"]["arm1"]["length_um"],
+        "dL_um": res["arm_eigenmodes"]["delta_length_um"],
+        "FSR_nm": m["FSR_nm"],
+        "FSR_GHz": m["FSR_GHz"],
+        "ER_bar_dB": m["ER_bar_passive_dB"],
+        "IL_min_dB": m["IL_min_passive_dB"],
+        "splitter_IL_dB": m["splitter_excess_loss_dB"],
+        "splitter_imb_dB": m["splitter_imbalance_dB"],
+        "ms": res["elapsed_ms"],
+        "csv": str(csv_path),
+    }
+    act = res.get("active_tuning")
+    if act:
+        out["tuning"] = {
+            "mech": act["mechanism"],
+            "scheme": act["drive_scheme"],
+            "V_pi_V": act["v_pi_v"],
+            "V_pi_L_Vcm": act["v_pi_l_vcm"],
+            "P_pi_mW": act["p_pi_mw"],
+            "bw_3dB": f"{act['bandwidth_3db']} {act['bandwidth_unit']}" if act.get("bandwidth_3db") else None,
+            "dyn_ER_dB": act["dynamic_er_bar_db"],
+        }
+    if params.get("export_gds"):
+        ginfo = export_mzi_gds(res, AGENT_OUT_DIR / f"mzi_{sp['splitter_type']}_{cfg.core_material}.gds")
+        out["gds"] = ginfo["gds_path"]
+    if params.get("export_interconnect"):
+        ic = export_mzi_interconnect_bundle(res, AGENT_OUT_DIR / f"mzi_ic_{sp['splitter_type']}_{cfg.core_material}")
+        out["interconnect_zip"] = ic["zip_path"]
+    return out
+
 
 

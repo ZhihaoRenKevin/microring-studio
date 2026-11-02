@@ -1492,7 +1492,7 @@ def export_io_coupler_interconnect(
 
     spar_file = base_root / f"microring_{ctype}_{mat}_sparams.dat"
     lines = [
-        f"# MicroRing Studio v3.5.0 - {ctype} 2-Port Optical S-Parameters ({mat})",
+        f"# MicroRing Studio v3.6.0 - {ctype} 2-Port Optical S-Parameters ({mat})",
         '["port 1", "LEFT"]',
         '["port 2", "RIGHT"]',
     ]

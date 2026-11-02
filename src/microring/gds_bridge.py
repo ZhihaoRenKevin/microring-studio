@@ -226,11 +226,12 @@ def analyze_uploaded_gds(
         else [g for g in getattr(merged, "geoms", []) if isinstance(g, Polygon)]
     )
 
-    annuli = [g for g in geoms if len(g.interiors) >= 1 and g.area > 1.0]
-    buses = [g for g in geoms if len(g.interiors) == 0 and g.area > 0.5]
+    is_mzi_cell = "MZI" in target_cell.name.upper()
+    annuli = [] if is_mzi_cell else [g for g in geoms if len(g.interiors) >= 1 and g.area > 1.0]
+    buses = [g for g in geoms if (is_mzi_cell or len(g.interiors) == 0) and g.area > 0.5]
 
     if not annuli:
-        # Non-resonant I/O coupler (Butt taper / Grating Coupler) or Single-Pass Coupler Cutout GDS
+        # Non-resonant Photonic IC component: MZI, I/O coupler (Butt / Grating), or Coupler Cutout GDS
         viewer_layers = []
         for (lyr, dt), pts_list in sorted(by_layer.items()):
             polys_serialized = []
@@ -268,7 +269,11 @@ def analyze_uploaded_gds(
                     "gap_um": gap_measured,
                 })
         has_gc_etch = (40, 0) in by_layer
-        if has_gc_etch:
+        if is_mzi_cell:
+            disp_name = "Mach-Zehnder Interferometer (MZI)"
+            top_code = "mzi_interferometer"
+            n_ports = 2 if ("Y_BRANCH" in target_cell.name.upper() or "1X2" in target_cell.name.upper()) else 4
+        elif has_gc_etch:
             disp_name = "Surface Grating Coupler (I/O)"
             top_code = "grating_coupler_io"
             n_ports = 2

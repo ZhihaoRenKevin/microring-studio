@@ -789,6 +789,7 @@ def run_active_tuning_analysis(
     heavy_contact_offset_um: float = 0.85,
     carrier_lifetime_ns: float = 1.0,
     driver_impedance_ohm: float = 50.0,
+    precomputed_passive_metrics: dict | None = None,
 ) -> dict:
     """Compute device tuning efficiency & multi-state spectra via perturbed 2D-FEM eigenmodes (Zero COMSOL).
 
@@ -826,9 +827,12 @@ def run_active_tuning_analysis(
             work_cfg = replace(work_cfg, slab_height_um=auto_slab)
             slab_auto_promoted = True
 
-    # 1. Baseline passive MRR synthesis (spatial CMT couplers + cavity roundtrip)
-    passive_sim = simulate_mrr_topology(work_cfg)
-    pm = passive_sim["metrics"]
+    # 1. Baseline passive MRR synthesis (spatial CMT couplers + cavity roundtrip), or fast straight-arm metrics
+    if precomputed_passive_metrics is not None:
+        pm = precomputed_passive_metrics
+    else:
+        passive_sim = simulate_mrr_topology(work_cfg)
+        pm = passive_sim["metrics"]
     l_rt_um = float(pm["roundtrip_length_um"])
     l_act_um = f_act * l_rt_um
     neff_0_rt = float(pm["neff_ring"])

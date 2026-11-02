@@ -49,6 +49,13 @@ from .mrr_topologies import (
     export_mrr_gds,
     simulate_mrr_topology,
 )
+from .mzi_interferometer import (
+    MZI_SPLITTER_CATALOG,
+    MZIDesignConfig,
+    export_mzi_gds,
+    export_mzi_interconnect_bundle,
+    simulate_mzi,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 
 # Foundry-standard starting presets per core material
@@ -364,21 +371,21 @@ def get_welcome_chips(lang: str = "en") -> list[dict[str, str]]:
     if str(lang).lower().startswith("zh"):
         return [
             {"label": "✨ 开始逐步引导设计新微环", "prompt": "开始逐步设计微环"},
+            {"label": "🔀 设计马赫-曾德尔调制器 MZI (DC / MMI / Y分支)", "prompt": "设计 220 nm SOI 2x2 MMI 马赫曾德尔推挽 PN 调制器"},
             {"label": "🔌 设计光栅耦合器 (GC) / 端面耦合器 (Butt)", "prompt": "设计 220 nm SOI 聚焦光栅耦合器 @ 1550 nm"},
             {"label": "🚀 超高 Q (Q > 10^6) 秒级收敛 vs FDTD 振铃诊断", "prompt": "分析超高 Q 氮化硅微环 FDTD 不收敛与振铃光谱"},
             {"label": "📈 从实测光谱提取损耗 (dB/cm) 与 Q 值", "prompt": "从实测光谱提取波导损耗"},
             {"label": "📐 上传已有 .GDS 版图提取并仿真", "prompt": "上传 GDS 版图", "ui_action": "open_gds_picker"},
             {"label": "⚡ 快速体验：400nm 氮化硅 @ 1550nm", "prompt": "400 nm Si3N4 条形波导, SiO2包层, TE0 @ 1550 nm"},
-            {"label": "⚡ 快速体验：220nm SOI @ 1310nm", "prompt": "220 nm SOI 条形波导, SiO2包层, TE0 @ 1310 nm"},
         ]
     return [
         {"label": "✨ Start Step-by-Step Ring Design", "prompt": "Start step-by-step microring design"},
+        {"label": "🔀 Design MZI Modulator / Switch (DC / MMI / Y-Branch)", "prompt": "Design a 220 nm SOI 2x2 MMI push-pull PN MZI modulator at 1550 nm"},
         {"label": "🔌 Butt Coupler & 2D-FDFD Grating Coupler", "prompt": "Design a 220 nm SOI apodized focusing grating coupler at 1550 nm"},
         {"label": "🚀 High-Q (10^6+) Convergence vs Slow FDTD", "prompt": "Analyze High-Q Si3N4 microring FDTD non-convergence and ring-down"},
         {"label": "📈 Extract Loss (dB/cm) & Q from Spectrum", "prompt": "Extract waveguide loss from measured spectrum"},
         {"label": "📐 Upload & Analyze .GDS Layout", "prompt": "Upload GDS layout", "ui_action": "open_gds_picker"},
         {"label": "⚡ Quick Try: 400nm Si3N4 @ 1550nm", "prompt": "400 nm Si3N4 strip waveguide, SiO2 clad, TE0 at 1550 nm"},
-        {"label": "⚡ Quick Try: 220nm SOI @ 1310nm", "prompt": "220 nm SOI strip, SiO2 clad, TE0 at 1310 nm"},
     ]
 
 
@@ -789,6 +796,70 @@ def parse_photonics_intent(message: str) -> dict:
 
     # 10. Direct Action Triggers
     if re.search(
+        r"\bmzi\b|\bmzm\b|mach[-_\s]*zehnder|\bramzi\b|mmi[-_\s]*(?:splitter|coupler|2x2|1x2)|"
+        r"y[-_\s]*(?:branch|junction|splitter)|马赫[-_\s]*曾德|马赫曾德|多模干涉|\by\s*分支",
+        low,
+    ):
+        sp_det = "directional_coupler"
+        if re.search(r"1\s*x\s*2\s*mmi|mmi[-_\s]*1x2|1x2\s*多模", low):
+            sp_det = "mmi_1x2"
+        elif re.search(r"\bmmi\b|2\s*x\s*2\s*mmi|多模干涉", low):
+            sp_det = "mmi_2x2"
+        elif re.search(r"y[-_\s]*(?:branch|junction|splitter)|\by\s*分支", low):
+            sp_det = "y_branch"
+        elif re.search(r"\bdc\b|directional[-_\s]*coupler|定向耦合", low):
+            sp_det = "directional_coupler"
+
+        mech_mzi = "auto"
+        if re.search(r"\bpin\b|injection|注入", low):
+            mech_mzi = "si_pin_injection"
+        elif re.search(r"\bpn\b|depletion|耗尽", low):
+            mech_mzi = "si_pn_depletion"
+        elif re.search(r"\bpockels\b|electro[-_\s]*optic|\beo\b|tfln|linbo3|铌酸锂|电光", low):
+            mech_mzi = "pockels_eo"
+        elif re.search(r"thermo[-_\s]*optic|heater|\btin\b|热光|加热", low):
+            mech_mzi = "thermo_optic"
+
+        drv_mzi = "auto"
+        if re.search(r"power|\bmw\b|功率", low):
+            drv_mzi = "power_mw"
+        elif re.search(r"current|\bma\b|电流", low):
+            drv_mzi = "current_ma"
+        elif re.search(r"delta_?t|temperature|温升|温度", low) and not re.search(r"heater|加热|\bmw\b|\bv\b", low):
+            drv_mzi = "delta_temp_k"
+        elif re.search(r"v\s*/\s*(?:um|µm)|e[-_\s]*field|电场", low):
+            drv_mzi = "e_field_v_per_um"
+        elif re.search(r"voltage|volt|\bv\b|电压", low):
+            drv_mzi = "voltage_v"
+
+        scheme_mzi = "auto"
+        if re.search(r"single[-_\s]*arm|单臂", low):
+            scheme_mzi = "single_arm"
+        elif re.search(r"push[-_\s]*pull|推挽", low):
+            scheme_mzi = "push_pull"
+
+        larm_m = re.search(r"(?:arm[-_\s]*length|\bl_?arm\b|\bl1\b|臂长)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(mm|um|µm)", low)
+        larm_um = None
+        if larm_m:
+            lv, lu = float(larm_m.group(1)), larm_m.group(2)
+            larm_um = lv * 1000.0 if lu == "mm" else lv
+        dl_m = re.search(r"(?:delta[-_\s]*l(?:ength)?|\bdl\b|Δl|臂长差|光程差)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(um|µm|nm)", low)
+        dl_um = _to_um(float(dl_m.group(1)), dl_m.group(2)) if dl_m else None
+
+        out["action"] = "design_mzi"
+        out["mzi"] = {
+            "splitter_type": sp_det,
+            "arm1_length_um": larm_um,
+            "delta_length_um": dl_um,
+            "ramzi_enabled": bool(re.search(r"\bramzi\b|ring[-_\s]*assisted|微环辅助", low)),
+            "mechanism": mech_mzi,
+            "drive_type": drv_mzi,
+            "drive_scheme": scheme_mzi,
+            "include_active_tuning": not bool(re.search(r"passive[-_\s]*only|仅无源", low)),
+            "export_gds": bool(re.search(r"\bgds\b|layout|mask|版图", low)),
+            "export_interconnect": bool(re.search(r"\binterconnect\b|spar|compact[-_\s]*model", low)),
+        }
+    elif re.search(
         r"butt[-_\s]*coupl|edge[-_\s]*coupl|spot[-_\s]*size[-_\s]*convert|inverse[-_\s]*taper|lensed[-_\s]*fiber|"
         r"dfb[-_\s]*laser|grating[-_\s]*coupl|\bgc\s*(?:design|coupl|gds|loop|interconnect)|focusing[-_\s]*grating|"
         r"apodized[-_\s]*grating|fiber[-_\s]*array[-_\s]*loop|端面耦合|边缘耦合|模斑转换|倒锥|光栅耦合|聚焦光栅|光纤阵列回环",
@@ -2260,6 +2331,144 @@ def _process_chat_turn_core(
                 "gds_view": analyze_uploaded_gds(cut_exp["gds_path"]),
             }
         return ret_hq
+
+    # ------------------------------------------------------------------
+    # Direct Action 2F: Mach-Zehnder Interferometer (MZI) & Active Modulator
+    # ------------------------------------------------------------------
+    if intent["action"] == "design_mzi":
+        mzi_opts = intent.get("mzi") or {}
+        mech_req = str(mzi_opts.get("mechanism") or "auto")
+        if mech_req in ("si_pn_depletion", "si_pin_injection") and cfg.core_material != "Si":
+            preset = PLATFORM_PRESETS["Si"]
+            cfg_dict.update({
+                "core_material": "Si",
+                "film_height_um": preset["film_height_um"],
+                "slab_height_um": 0.09,
+                "ring_width_um": 0.48,
+                "bus_width_um": 0.48,
+            })
+            session["config"] = cfg_dict
+            cfg = _dict_to_cfg(cfg_dict)
+
+        default_l1 = 1500.0 if mech_req in ("si_pn_depletion", "pockels_eo") or cfg.core_material == "LN_Xcut" else 600.0
+        l1_use = float(mzi_opts["arm1_length_um"]) if mzi_opts.get("arm1_length_um") is not None else default_l1
+        dl_use = float(mzi_opts["delta_length_um"]) if mzi_opts.get("delta_length_um") is not None else 80.0
+
+        mzi_cfg = MZIDesignConfig(
+            core_material=cfg.core_material,
+            clad_material=cfg.clad_material,
+            top_clad_material=cfg.top_clad_material,
+            wavelength_nm=cfg.wavelength_nm,
+            polarization=cfg.polarization,
+            film_height_um=cfg.film_height_um,
+            slab_height_um=0.09 if (mech_req in ("si_pn_depletion", "si_pin_injection") and cfg.slab_height_um <= 0.01) else cfg.slab_height_um,
+            sidewall_deg=cfg.sidewall_deg,
+            arm1_width_um=cfg.ring_width_um,
+            arm1_length_um=l1_use,
+            delta_length_um=dl_use,
+            target_fsr_nm=intent.get("targets", {}).get("fsr_nm"),
+            target_fsr_ghz=intent.get("targets", {}).get("fsr_ghz"),
+            splitter_type=str(mzi_opts.get("splitter_type") or "directional_coupler"),
+            ramzi_enabled=bool(mzi_opts.get("ramzi_enabled", False)),
+            alpha_loss_db_per_cm=cfg.alpha_loss_db_per_cm,
+            span_nm=max(float(cfg.span_nm), 20.0),
+        )
+        mzi_res = simulate_mzi(
+            mzi_cfg,
+            include_active_tuning=bool(mzi_opts.get("include_active_tuning", True)),
+            mechanism=mech_req,
+            drive_type=str(mzi_opts.get("drive_type") or "auto"),
+            drive_scheme=str(mzi_opts.get("drive_scheme") or "auto"),
+        )
+        sp = mzi_res["splitter"]
+        sp_s = sp["summary"]
+        mm = mzi_res["metrics"]
+        act = mzi_res.get("active_tuning")
+
+        gds_mzi = None
+        if mzi_opts.get("export_gds"):
+            out_dir = Path(gds_export_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            g_raw = export_mzi_gds(mzi_res, out_dir / f"MicroRing_MZI_{sp['splitter_type']}_{cfg.core_material}.gds")
+            gds_mzi = {
+                "gds_path": g_raw["gds_path"],
+                "lyp_path": g_raw["lyp_path"],
+                "saved_path": g_raw["gds_path"],
+                "gds_download_url": f"/api/download_file?name={Path(g_raw['gds_path']).name}",
+                "lyp_download_url": f"/api/download_file?name={Path(g_raw['lyp_path']).name}",
+                "gds_view": analyze_uploaded_gds(g_raw["gds_path"]),
+            }
+
+        ic_mzi = None
+        if mzi_opts.get("export_interconnect"):
+            out_dir = Path(gds_export_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            ic_mzi = export_mzi_interconnect_bundle(mzi_res, out_dir / f"mzi_ic_{sp['splitter_type']}_{cfg.core_material}")
+            ic_mzi["zip_download_url"] = f"/api/download_file?name={Path(ic_mzi['zip_path']).name}"
+
+        if zh:
+            msg = (
+                f"🔀 **已完成无 3D-FDTD 马赫-曾德尔干涉仪 (`MZI`) 全本征模求解**（`{cfg.core_material}` @ `{cfg.wavelength_nm:g} nm`）\n"
+                f"- **分束/合束器 (`{sp['name_zh']}`)**：分光比 **`{sp_s['split_bar_pct_at_wl0']:.1f}% : {sp_s['split_cross_pct_at_wl0']:.1f}%`**，附加损耗 **`IL = {sp_s['excess_loss_db']:.2f} dB`**，不平衡度 `{sp_s['imbalance_at_wl0_db']:+.2f} dB`\n"
+                f"- **干涉臂与无源光谱**：`L_1 = {mzi_res['arm_eigenmodes']['arm1']['length_um']:.0f} µm`，`ΔL = {mzi_res['arm_eigenmodes']['delta_length_um']:.1f} µm` → **`FSR = {mm['FSR_nm'] or '宽带'} nm`**，无源消光比 **`ER = {mm['ER_bar_passive_dB']:.1f} dB`**"
+            )
+            if act:
+                fom_str = (
+                    f"`V_π·L = {act['v_pi_l_vcm']} V·cm`（`V_π = {act['v_pi_v']} V`）"
+                    if act.get("v_pi_l_vcm") is not None
+                    else f"`P_π = {act['p_pi_mw']} mW`"
+                )
+                msg += (
+                    f"\n- **有源调制性能 (`{act['mechanism_name_zh']}`, `{act['drive_scheme']}`)**：{fom_str}，"
+                    f"非谐振 **3-dB 带宽 = `{act['bandwidth_3db']} {act['bandwidth_unit']}`**，动态消光比 **`ER = {act['dynamic_er_bar_db']:.1f} dB`**"
+                )
+            chips = [
+                {"label": "🔀 切换为 2x2 DC 定向耦合器 MZI", "prompt": "设计 2x2 DC 马赫曾德尔调制器"},
+                {"label": "🔀 切换为 1x2 绝热 Y 分支 MZI", "prompt": "设计 Y 分支马赫曾德尔调制器"},
+                {"label": "⚡ X-cut TFLN 铌酸锂推挽电光 MZI", "prompt": "600 nm X切铌酸锂 Y分支推挽电光 MZI 臂长 5 mm"},
+                {"label": "💾 导出 MZI .GDS + INTERCONNECT 模型包", "prompt": f"导出 {sp['splitter_type']} MZI GDS 版图与 INTERCONNECT 模型"},
+            ]
+        else:
+            msg = (
+                f"🔀 **Solved Mach-Zehnder Interferometer (`MZI`) via 2D Vector FEM + EME (Zero 3D FDTD)** on **`{cfg.core_material}`** (`{cfg.wavelength_nm:g} nm`)\n"
+                f"- **Splitter / Combiner (`{sp['name_en']}`)**: Split **`{sp_s['split_bar_pct_at_wl0']:.1f}% : {sp_s['split_cross_pct_at_wl0']:.1f}%`**, Excess Loss **`IL = {sp_s['excess_loss_db']:.2f} dB`**, Imbalance `{sp_s['imbalance_at_wl0_db']:+.2f} dB`\n"
+                f"- **Interferometer Arms & Spectrum**: `L_1 = {mzi_res['arm_eigenmodes']['arm1']['length_um']:.0f} µm`, `ΔL = {mzi_res['arm_eigenmodes']['delta_length_um']:.1f} µm` → **`FSR = {mm['FSR_nm'] or 'Broadband'} nm`**, Passive **`ER = {mm['ER_bar_passive_dB']:.1f} dB`**"
+            )
+            if act:
+                fom_str = (
+                    f"**`V_π·L = {act['v_pi_l_vcm']} V·cm`** (`V_π = {act['v_pi_v']} V`)"
+                    if act.get("v_pi_l_vcm") is not None
+                    else f"**`P_π = {act['p_pi_mw']} mW`**"
+                )
+                msg += (
+                    f"\n- **Active Tuning (`{act['mechanism_name_en']}`, `{act['drive_scheme']}`)**: {fom_str}, "
+                    f"Non-Cavity **3-dB BW = `{act['bandwidth_3db']} {act['bandwidth_unit']}`**, Dynamic **`ER = {act['dynamic_er_bar_db']:.1f} dB`**"
+                )
+            chips = [
+                {"label": "🔀 Switch to 2x2 DC MZI", "prompt": "Design a 2x2 directional coupler MZI modulator"},
+                {"label": "🔀 Switch to 1x2 Y-Branch MZI", "prompt": "Design a 1x2 adiabatic Y-branch MZI modulator"},
+                {"label": "⚡ X-Cut TFLN Push-Pull EO MZI (5 mm)", "prompt": "Design a 600 nm X-cut TFLN Y-branch push-pull EO MZI arm length 5 mm"},
+                {"label": "💾 Export MZI .GDS + INTERCONNECT (.ZIP)", "prompt": f"Export {sp['splitter_type']} MZI GDS and INTERCONNECT compact model"},
+            ]
+
+        session["last_mzi_result"] = mzi_res
+        session["wizard_step"] = 6
+        session["ui_view"] = "mzi"
+        session["history"] = (history + [{"role": "assistant", "content": msg}])[-16:]
+        ret_mzi: dict = {
+            "session": session,
+            "assistant_message": msg,
+            "chips": chips,
+            "mzi_result": mzi_res,
+            "ui_view": "mzi",
+            "wizard_step": 6,
+            "active_tab": "tab-mzi",
+        }
+        if gds_mzi is not None:
+            ret_mzi["gds_export"] = gds_mzi
+        if ic_mzi is not None:
+            ret_mzi["interconnect_export"] = ic_mzi
+        return ret_mzi
 
     # ------------------------------------------------------------------
     # Guided Step 3 -> Step 4 Pre-Check: Material chosen, ask to confirm Wafer Stack

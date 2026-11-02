@@ -19,6 +19,7 @@ from . import __version__
 from .agent_tools import (
     agent_active_tuning,
     agent_design_mrr,
+    agent_design_mzi,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -195,6 +196,32 @@ def main() -> None:
     p_hq.add_argument("--cutout", action="store_true", dest="export_cutout")
     p_hq.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_mzi = ag_sub.add_parser("mzi", help="Design MZI (DC / MMI / Y-Branch) + Active Tuning + GDS/INTERCONNECT (<150 tokens)")
+    p_mzi.add_argument("--splitter", type=str, default="directional_coupler", dest="splitter_type", help="directional_coupler | mmi_2x2 | mmi_1x2 | y_branch")
+    p_mzi.add_argument("--mat", type=str, default="Si", dest="core_material")
+    p_mzi.add_argument("--wl", type=float, default=1550.0, dest="wavelength_nm")
+    p_mzi.add_argument("--pol", type=str, default="TE0", dest="polarization")
+    p_mzi.add_argument("--h", type=float, default=0.22, dest="film_height_um")
+    p_mzi.add_argument("--slab", type=float, default=0.0, dest="slab_height_um")
+    p_mzi.add_argument("--w1", type=float, default=0.48, dest="arm1_width_um")
+    p_mzi.add_argument("--w2", type=float, default=None, dest="arm2_width_um")
+    p_mzi.add_argument("--l-arm", type=float, default=500.0, dest="arm1_length_um")
+    p_mzi.add_argument("--dl", type=float, default=80.0, dest="delta_length_um")
+    p_mzi.add_argument("--fsr-nm", type=float, default=None, dest="target_fsr_nm")
+    p_mzi.add_argument("--dc-gap", type=float, default=0.20, dest="dc_gap_um")
+    p_mzi.add_argument("--mmi-w", type=float, default=None, dest="mmi_width_um")
+    p_mzi.add_argument("--y-gap", type=float, default=0.13, dest="y_apex_gap_um")
+    p_mzi.add_argument("--ramzi", action="store_true", dest="ramzi_enabled")
+    p_mzi.add_argument("--mech", type=str, default="auto", dest="mechanism")
+    p_mzi.add_argument("--drive", type=str, default="auto", dest="drive_type")
+    p_mzi.add_argument("--scheme", type=str, default="auto", dest="drive_scheme")
+    p_mzi.add_argument("--biases", type=str, default=None, dest="bias_values")
+    p_mzi.add_argument("--eo-gap", type=float, default=None, dest="electrode_gap_um")
+    p_mzi.add_argument("--passive-only", action="store_false", dest="include_active_tuning")
+    p_mzi.add_argument("--gds", action="store_true", dest="export_gds")
+    p_mzi.add_argument("--interconnect", action="store_true", dest="export_interconnect")
+    p_mzi.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -257,6 +284,8 @@ def main() -> None:
             _print_compact(agent_io_coupler(d))
         elif args.agent_cmd == "high-q":
             _print_compact(agent_high_q_fdtd(d))
+        elif args.agent_cmd == "mzi":
+            _print_compact(agent_design_mzi(d))
 
 
 if __name__ == "__main__":

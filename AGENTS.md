@@ -21,6 +21,7 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **2D-FEM TO/EO/Si-PN tuning & INTERCONNECT** | `uv run microring agent active-tuning --mat Si --h 0.22 --slab 0.09 --w-ring 0.48 --w-bus 0.44 --r 20 --mech si_pn_depletion --biases "0,-2,-5" --interconnect` |
 | **Butt/Edge or 2D-FDFD Grating Coupler** | `uv run microring agent io-coupler --type grating_coupler --mat Si --h 0.22 --etch 0.07 --angle 10 --loopback --interconnect` |
 | **High-Q convergence & 0.8 ps FDTD cutout** | `uv run microring agent high-q --mat Si3N4 --top pulley_ap --r 100 --loss 0.08 --gap 0.42 --cutout` |
+| **2D-FEM/EME MZI (`DC`/`MMI`/`Y`) & Modulator** | `uv run microring agent mzi --mat Si --h 0.22 --slab 0.09 --splitter mmi_2x2 --l1 1500 --dl 60 --mech si_pn_depletion --gds --interconnect` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

@@ -30,7 +30,7 @@ import numpy as np
 import scipy.constants
 import scipy.sparse.linalg
 from scipy.optimize import brentq
-from shapely.geometry import Polygon, box
+from shapely.geometry import MultiPolygon, Polygon, box
 
 from skfem import (
     Basis,
@@ -105,6 +105,8 @@ class WaveguideCrossSectionSpec:
     cap_h_um: float = 0.0                   # unit: um
     cap_w_um: float | None = None           # unit: um
     cap_material_fn: MaterialFn | None = None
+    # Optional symmetric twin-core coupler cross-section (for 2x2 DC & Y-branch supermodes; 0 = single core)
+    twin_core_gap_um: float = 0.0           # unit: um (edge-to-edge bottom gap between symmetric twin cores)
     # Simulation box extents
     domain_width_um: float = DEFAULT_DOMAIN_WIDTH_UM
     x_min_um: float | None = None           # unit: um (overrides -domain_width_um/2 if asymmetric)
@@ -162,12 +164,28 @@ class WaveguideCrossSectionSpec:
         h_s = self.h_slab_um
         h_f = self.h_film_um
         if h_f > h_s:
-            polys["core"] = Polygon([
-                (-0.5 * self.w_bottom_um, h_s),
-                (0.5 * self.w_bottom_um, h_s),
-                (0.5 * w_top, h_f),
-                (-0.5 * w_top, h_f),
-            ])
+            if self.twin_core_gap_um > 0.0:
+                xc = 0.5 * self.twin_core_gap_um + 0.5 * self.w_bottom_um
+                left_c = Polygon([
+                    (-xc - 0.5 * self.w_bottom_um, h_s),
+                    (-xc + 0.5 * self.w_bottom_um, h_s),
+                    (-xc + 0.5 * w_top, h_f),
+                    (-xc - 0.5 * w_top, h_f),
+                ])
+                right_c = Polygon([
+                    (xc - 0.5 * self.w_bottom_um, h_s),
+                    (xc + 0.5 * self.w_bottom_um, h_s),
+                    (xc + 0.5 * w_top, h_f),
+                    (xc - 0.5 * w_top, h_f),
+                ])
+                polys["core"] = MultiPolygon([left_c, right_c])
+            else:
+                polys["core"] = Polygon([
+                    (-0.5 * self.w_bottom_um, h_s),
+                    (0.5 * self.w_bottom_um, h_s),
+                    (0.5 * w_top, h_f),
+                    (-0.5 * w_top, h_f),
+                ])
         if h_s > 0:
             polys["slab"] = box(xmin, 0.0, xmax, h_s)
 
@@ -449,7 +467,12 @@ def solve_modes_fem(
     w_core_m = spec.w_bottom_um * 1e-6
 
     # Fast 1D core midline probe (61 points) for node counting
-    x_line_m = np.linspace(-0.42 * w_core_m, 0.42 * w_core_m, 61)
+    probe_half_span_m = (
+        (0.5 * spec.twin_core_gap_um + 0.92 * spec.w_bottom_um) * 1e-6
+        if spec.twin_core_gap_um > 0.0
+        else 0.42 * w_core_m
+    )
+    x_line_m = np.linspace(-probe_half_span_m, probe_half_span_m, 61)
     pts_line = np.vstack([x_line_m, np.full_like(x_line_m, y_mid_m)])
     probe_et_line = et_basis.probes(pts_line)
 

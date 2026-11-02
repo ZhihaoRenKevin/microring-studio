@@ -4,11 +4,11 @@ Builds native standalone `MicroRing Studio` desktop installers with zero Python 
 and zero GPL dependencies required on end-user machines:
   - macOS Apple Silicon / Intel:
       python -m microring.build_standalone --target macos
-      -> dist/MicroRing-Studio-v3.5.0-macOS-AppleSilicon.dmg (Drag-to-Applications .dmg)
+      -> dist/MicroRing-Studio-v3.6.0-macOS-AppleSilicon.dmg (Drag-to-Applications .dmg)
   - Windows 10/11 (CPU or CUDA):
       python -m microring.build_standalone --target windows-cpu
-      -> dist/MicroRing-Studio-v3.5.0-Windows-Setup-x64.exe (Inno Setup Wizard Installer)
-      -> dist/MicroRing-Studio-v3.5.0-Windows-Portable-x64.zip (Portable unzip-and-run)
+      -> dist/MicroRing-Studio-v3.6.0-Windows-Setup-x64.exe (Inno Setup Wizard Installer)
+      -> dist/MicroRing-Studio-v3.6.0-Windows-Portable-x64.zip (Portable unzip-and-run)
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ if str(_SRC_DIR) not in sys.path:
 try:
     from microring import __version__ as APP_VERSION
 except Exception:
-    APP_VERSION = "3.5.0"
+    APP_VERSION = "3.6.0"
 
 
 def generate_app_icons(pkg_dir: Path) -> tuple[Path | None, Path | None]:

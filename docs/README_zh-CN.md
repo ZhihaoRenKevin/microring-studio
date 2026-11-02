@@ -1,12 +1,12 @@
-# MicroRing Studio（开源光子芯片 PIC、微环谐振器、端面/光栅耦合器与超高 Q 仿真设计平台）
+# MicroRing Studio（开源光子芯片 PIC、微环谐振器、MZI 调制器、端面/光栅耦合器与超高 Q 仿真设计平台）
 
-**无需 Ansys Lumerical MODE/FDTD、Synopsys RSoft 或 COMSOL 商业许可证 —— 通过中英双语 AI 光子设计助手（Copilot）、2D 全矢量本征模与空间耦合模引擎、纯自研 2D-FEM 端面耦合器（Butt/Edge Coupler）与 2D 全波 `FDFD` 表面光栅耦合器（Grating Coupler）、超高 Q（`10^4`–`10^8+`）瞬时稳态收敛引擎、2D-FEM 有源调谐（`TO`/`EO`/`硅 PN`）、Lumerical INTERCONNECT 导出及双向 GDSII 版图桥，一站式打通光子集成电路（PIC）与光模块互连从物理仿真到流片掩膜的全流程。**
+**无需 Ansys Lumerical MODE/FDTD、Synopsys RSoft 或 COMSOL 商业许可证 —— 通过中英双语 AI 光子设计助手（Copilot）、2D 全矢量本征模与空间耦合模引擎、零 3D-FDTD 马赫-曾德尔干涉仪（`MZI`：`Y 分支` / `DC` / `MMI`）与高速调制器分析、纯自研 2D-FEM 端面耦合器（Butt/Edge Coupler）与 2D 全波 `FDFD` 表面光栅耦合器（Grating Coupler）、超高 Q（`10^4`–`10^8+`）瞬时稳态收敛引擎、2D-FEM 有源调谐（`TO`/`EO`/`硅 PN`）、Lumerical INTERCONNECT 导出及双向 GDSII 版图桥，一站式打通光子集成电路（PIC）与光模块互连从物理仿真到流片掩膜的全流程。**
 
 [English](../README.md) | [简体中文](./README_zh-CN.md) | [求解器交叉验证与基准](./VERIFICATION_AND_BENCHMARKS.md) | [对话与 GDS 进阶教程](./tutorials/chatbot_and_gds_guide.md) | [Codex 与 Claude 极省 Token 接入指南](./tutorials/ai_agents_codex_claude.md) | [llms.txt](./llms.txt) | [更新日志](../CHANGELOG.md)
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.5.0](https://img.shields.io/badge/release-v3.5.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.5.0)
+[![Release: v3.6.0](https://img.shields.io/badge/release-v3.6.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.6.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
@@ -19,7 +19,10 @@
 
 ## 核心亮点
 
-1. **解决高 Q 微环在 Lumerical FDTD 中极慢且无法收敛的痛点（`v3.5.0` 新增）**：
+1. **零 3D-FDTD 马赫-曾德尔干涉仪（`MZI`）与高速电光/热光调制器套件（`v3.6.0` 新增）**：
+   - **可选 4 类 `50:50` 分束/合束器，全部由原生 2D 保形全矢量 FEM + 多模本征模展开（`EME`）直接求解**：**`2x2 DC` 定向耦合器**采用严格镜像对称双芯奇偶超模色散（$n_{\mathrm{even}}, n_{\mathrm{odd}}$，插损 `0.044 dB`）；**`1x2` / `2x2 MMI` 多模干涉仪**采用多阶导模 2D-FEM `EME` + 复坡印廷锥形波导重叠积分 + 自成像长度自动寻优（输出二维 `|E(x,z)|` 干涉自成像场图）；**`1x2 Y 分支`**采用分叉缩腰尖端偶超模重叠积分（`130 nm` 工艺最小间距下插损 `0.273 dB`）。
+   - **完整调制器指标、微环辅助 `RAMZI` 与 INTERCONNECT / GDS 导出**：支持平衡/非平衡臂（给定 $\Delta L$ 或目标 `FSR`）、微环辅助线性化 `RAMZI`，以及推挽（`push-pull`）/ 单臂驱动下的 `硅 PN 耗尽`、`X切 TFLN / SiC / ScAlN Pockels 电光`、`TiN 热光` 与 `硅 PIN 注入` 调制分析（直接输出 $V_\pi L$、$V_\pi$、$P_\pi$、非谐振 RC/热学 `3-dB` 带宽、开关传递曲线 $T(u)$、流片 `.GDS` 版图与 **Ansys Lumerical INTERCONNECT** `SPAR + OMM + .lsf` 模型包）。
+2. **解决高 Q 微环在 Lumerical FDTD 中极慢且无法收敛的痛点（`v3.5.0`）**：
    - 对于低损耗 `Si3N4`、`TFLN` 或 `4H-SiC` 高 Q 微环（如 `Q_loaded = 3.02 × 10^6`，腔内光子寿命 `τ_ph = 2487 ps`），时域 3D-FDTD 要达到 `auto shutoff = 1e-5` 需仿真 **`28.64 ns`（超过 `8,200` 圈往返！）**；提前截断会导致严重的 FFT `sinc` 振铃伪影并使表观消光比从 `64.8 dB` 坍塌至 `< 2 dB`。
    - **MicroRing Studio** 采用亚飞米级（`0.1 fm`）双曲正弦谐振加密与解析无限圈稳态传递矩阵（$M \to \infty$），在 **`~1 秒`** 内精确求解任意 `Q = 10^4` 至 `10^8+` 谐振谱，并支持一键导出 **单程耦合区 3D-FDTD 切片（`.GDS` + `.lsf`，仅需 `0.67 ps`，提速 `> 40,000×`）**。
 2. **100% 免商业软件的芯片端面耦合器（Butt/Edge Coupler）与二维全波 `FDFD` 表面光栅耦合器（Grating Coupler，`v3.5.0` 新增）**：
@@ -56,8 +59,8 @@
 
 | 操作系统 | 安装包文件 | 安装与首次打开方法 |
 | :--- | :--- | :--- |
-| **macOS（Apple Silicon）** | [**`MicroRing-Studio-v3.5.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | 双击打开 `.dmg`，将 **`MicroRing Studio.app`** 拖入 **`Applications（应用程序）`**。*（首次打开开源未公证应用时，请右键点击 **`MicroRing Studio.app`** $\rightarrow$ 选择 **打开（Open）**，或在 **系统设置 $\rightarrow$ 隐私与安全性** 中点击“仍要打开”。）* |
-| **Windows 10 / 11（64位）** | **`MicroRing-Studio-v3.5.0-Windows-Setup-x64.exe`** *（或免安装 `.zip`）* | 双击运行 **`Setup.exe`** 安装向导（无需管理员密码，自动创建桌面与开始菜单快捷方式）；也可按下方“方式三”下载源码 ZIP 后双击 `launchers\MicroRing_Windows.bat` 一键自动配置。 |
+| **macOS（Apple Silicon）** | [**`MicroRing-Studio-v3.6.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | 双击打开 `.dmg`，将 **`MicroRing Studio.app`** 拖入 **`Applications（应用程序）`**。*（首次打开开源未公证应用时，请右键点击 **`MicroRing Studio.app`** $\rightarrow$ 选择 **打开（Open）**，或在 **系统设置 $\rightarrow$ 隐私与安全性** 中点击“仍要打开”。）* |
+| **Windows 10 / 11（64位）** | **`MicroRing-Studio-v3.6.0-Windows-Setup-x64.exe`** *（或免安装 `.zip`）* | 双击运行 **`Setup.exe`** 安装向导（无需管理员密码，自动创建桌面与开始菜单快捷方式）；也可按下方“方式三”下载源码 ZIP 后双击 `launchers\MicroRing_Windows.bat` 一键自动配置。 |
 
 *（独立桌面版导出的 `.gds` 版图、`.lyp` 图层配色与 `.csv` 光谱默认保存在本地 `~/Documents/MicroRing_Studio/` 目录。）*
 
@@ -185,6 +188,9 @@ python examples/01_devices_and_sweeps/05_active_tuning_pn_eo_to_interconnect.py
 # 3e. 零商业软件端面耦合器 (Butt)、二维全波 FDFD 光栅耦合器 (GC) 与超高 Q 收敛诊断：
 python examples/01_devices_and_sweeps/06_butt_gc_couplers_and_high_q_fdtd.py
 
+# 3f. 零 3D-FDTD 马赫-曾德尔干涉仪 (DC / MMI / Y分支)、推挽电光调制器与 INTERCONNECT 导出：
+python examples/01_devices_and_sweeps/07_mzi_spectra_dc_mmi_and_modulators.py
+
 # 4. 生成单微环版图及 5 器件 MPW 扫参阵列 .gds + KLayout .lyp：
 python examples/02_gds_roundtrip/01_create_mrr_and_sweep_array_gds.py
 
@@ -194,7 +200,7 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. 实验透射谱拟合（背向散射双峰劈裂 Q_int / Q_ext / 2g 与多 FSR 群折射率提取）：
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# 运行全套 12 项自动化物理与接口验证测试：
+# 运行全套 13 项自动化物理与接口验证测试：
 python tests/test_microring_all.py
 ```
 

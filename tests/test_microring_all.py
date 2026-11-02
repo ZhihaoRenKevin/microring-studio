@@ -1,4 +1,4 @@
-"""Comprehensive Automated Test Suite for MicroRing Studio v3.5.0.
+"""Comprehensive Automated Test Suite for MicroRing Studio v3.6.0.
 
 Can be executed either with `pytest` (`uv run pytest`) or directly as a standalone
 verification script (`python tests/test_microring_all.py`).
@@ -23,12 +23,15 @@ from microring import (
     FIBER_LASER_CATALOG,
     MATERIAL_CATALOG,
     MRRDesignConfig,
+    MZI_SPLITTER_CATALOG,
+    MZIDesignConfig,
     RESIST_TONE_CATALOG,
     TUNING_MECHANISM_CATALOG,
     T_REF_K,
     WaveguideCrossSectionSpec,
     agent_active_tuning,
     agent_design_mrr,
+    agent_design_mzi,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -48,6 +51,8 @@ from microring import (
     export_io_coupler_interconnect,
     export_lumerical_interconnect_bundle,
     export_mrr_gds,
+    export_mzi_gds,
+    export_mzi_interconnect_bundle,
     export_sweep_array_gds,
     fit_single_resonance_cmt,
     get_material_fn,
@@ -60,6 +65,7 @@ from microring import (
     run_mrr_parameter_sweep,
     run_waveguide_width_sweep,
     simulate_mrr_topology,
+    simulate_mzi,
     solve_modes_fem,
 )
 import microring.app_server as srv
@@ -352,7 +358,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 10
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 11
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -930,6 +936,189 @@ def test_io_couplers_and_high_q_fdtd_convergence() -> None:
     assert len(hq_txt) < 620, f"MCP high_q_fdtd too verbose ({len(hq_txt)} chars): {hq_txt}"
 
 
+def test_mzi_splitters_tuning_gds_and_interconnect() -> None:
+    assert {"directional_coupler", "mmi_2x2", "mmi_1x2", "y_branch"}.issubset(MZI_SPLITTER_CATALOG.keys())
+
+    # 1. All 4 MZI 50:50 splitters without 3D FDTD (2D-FEM Supermode + Multi-Mode EME + Apex Overlap)
+    for sp_key in ("directional_coupler", "mmi_2x2", "mmi_1x2", "y_branch"):
+        res_sp = simulate_mzi(
+            MZIDesignConfig(
+                core_material="Si",
+                film_height_um=0.22,
+                slab_height_um=0.0,
+                arm1_width_um=0.45,
+                arm1_length_um=300.0,
+                delta_length_um=80.0,
+                splitter_type=sp_key,
+                span_nm=24.0,
+                num_spectrum_points=1001,
+            ),
+            include_active_tuning=False,
+        )
+        ss = res_sp["splitter"]["summary"]
+        mm = res_sp["metrics"]
+        assert ss["excess_loss_db"] < 1.35, f"{sp_key} excess loss too high: {ss['excess_loss_db']} dB"
+        assert 35.0 <= ss["split_bar_pct_at_wl0"] <= 52.0
+        assert 5.5 <= mm["FSR_nm"] <= 9.0
+        assert mm["ER_bar_passive_dB"] > 22.0
+        # Strict passivity check across entire spectrum
+        bar_t = np.asarray(res_sp["passive_spectrum"]["bar_T"], dtype=float)
+        cross_t = (
+            np.asarray(res_sp["passive_spectrum"]["cross_T"], dtype=float)
+            if res_sp["has_cross_port"]
+            else np.zeros_like(bar_t)
+        )
+        assert float(np.max(bar_t + cross_t)) <= 1.0001
+        if sp_key in ("mmi_2x2", "mmi_1x2"):
+            fmap = res_sp["splitter"]["field_map"]
+            assert fmap is not None and len(fmap["E_norm"]) > 20 and ss["guided_modes_solved"] >= 4
+
+    # 2. Active MZI Modulators: Si PN Push-Pull, X-Cut TFLN EO Push-Pull, & Si3N4 Thermo-Optic + RAMZI
+    pn_mzi = simulate_mzi(
+        MZIDesignConfig(
+            core_material="Si",
+            film_height_um=0.22,
+            slab_height_um=0.09,
+            arm1_width_um=0.48,
+            arm1_length_um=1500.0,
+            delta_length_um=60.0,
+            splitter_type="mmi_2x2",
+            span_nm=18.0,
+        ),
+        include_active_tuning=True,
+        mechanism="si_pn_depletion",
+        drive_scheme="push_pull",
+        bias_values=[0.0, -2.0, -4.0],
+    )
+    act_pn = pn_mzi["active_tuning"]
+    assert act_pn is not None
+    assert 0.45 < act_pn["v_pi_l_vcm"] < 2.20
+    assert act_pn["bandwidth_3db"] > 3.5
+    assert act_pn["dynamic_er_bar_db"] > 18.0
+
+    tfln_mzi = simulate_mzi(
+        MZIDesignConfig(
+            core_material="LN_Xcut",
+            film_height_um=0.60,
+            slab_height_um=0.30,
+            arm1_width_um=1.20,
+            arm1_length_um=5000.0,
+            delta_length_um=120.0,
+            splitter_type="y_branch",
+            span_nm=20.0,
+        ),
+        include_active_tuning=True,
+        mechanism="pockels_eo",
+        drive_scheme="push_pull",
+        bias_values=[-4.0, 0.0, 4.0],
+    )
+    act_ln = tfln_mzi["active_tuning"]
+    assert act_ln is not None
+    assert 1.20 < act_ln["v_pi_l_vcm"] < 3.40
+    assert act_ln["bandwidth_3db"] > 8.0
+    assert act_ln["dynamic_er_bar_db"] > 20.0
+
+    sin_ramzi = simulate_mzi(
+        MZIDesignConfig(
+            core_material="Si3N4",
+            film_height_um=0.40,
+            arm1_width_um=1.10,
+            arm1_length_um=800.0,
+            delta_length_um=90.0,
+            splitter_type="directional_coupler",
+            ramzi_enabled=True,
+            ramzi_ring_radius_um=45.0,
+            ramzi_ring_gap_um=0.25,
+            span_nm=16.0,
+        ),
+        include_active_tuning=True,
+        mechanism="thermo_optic",
+        drive_type="power_mw",
+        drive_scheme="single_arm",
+        bias_values=[0.0, 40.0, 80.0],
+    )
+    assert sin_ramzi["ramzi"] is not None and sin_ramzi["ramzi"]["ring_Q_loaded"] > 2000
+    assert sin_ramzi["active_tuning"]["p_pi_mw"] > 20.0
+    assert sin_ramzi["active_tuning"]["bandwidth_3db"] > 2.0
+
+    # 3. GDS round-trip recognition + Lumerical INTERCONNECT SPAR/OMM/.lsf + Copilot + HTTP + Agent/MCP
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        gds_mzi = export_mzi_gds(pn_mzi, tmp_path / "mzi_pn_test.gds")
+        assert Path(gds_mzi["gds_path"]).is_file() and Path(gds_mzi["lyp_path"]).is_file()
+        insp = analyze_uploaded_gds(gds_mzi["gds_path"])
+        assert insp["extracted_geometry"]["topology"] == "mzi_interferometer"
+        assert insp["extracted_geometry"]["is_non_ring"] is True
+
+        ic_mzi = export_mzi_interconnect_bundle(pn_mzi, tmp_path / "mzi_ic_test")
+        assert ic_mzi["passivity_verified"] is True
+        assert Path(ic_mzi["spar_path"]).is_file() and Path(ic_mzi["omm_path"]).is_file()
+        assert Path(ic_mzi["lsf_path"]).is_file() and Path(ic_mzi["zip_path"]).is_file()
+
+        # Copilot EN + ZH MZI turns
+        c_mzi_en = process_chat_turn(
+            create_initial_session(lang="en"),
+            "Design a 220 nm SOI 2x2 MMI push-pull PN MZI modulator and export GDS and INTERCONNECT",
+            gds_export_dir=tmp_path,
+        )
+        assert c_mzi_en["ui_view"] == "mzi" and "mzi_result" in c_mzi_en
+        assert "gds_export" in c_mzi_en and "interconnect_export" in c_mzi_en
+
+        c_mzi_zh = process_chat_turn(
+            create_initial_session(lang="zh"),
+            "设计 Y 分支马赫曾德尔调制器",
+            gds_export_dir=tmp_path,
+        )
+        assert c_mzi_zh["ui_view"] == "mzi" and c_mzi_zh["mzi_result"]["splitter"]["splitter_type"] == "y_branch"
+
+        async def _check_mzi_http() -> None:
+            old_exp = srv.GDS_EXPORT_DIR
+            srv.GDS_EXPORT_DIR = tmp_path / "srv_mzi"
+            try:
+                st0, b0 = await _asgi_request("GET", "/")
+                assert st0 == 200 and b"pill-mzi" in b0
+
+                st1, b1 = await _asgi_request(
+                    "POST",
+                    "/api/design_mzi",
+                    json_body={
+                        "config": {"core_material": "Si", "film_height_um": 0.22, "slab_height_um": 0.09, "arm1_width_um": 0.48, "arm1_length_um": 1200.0, "delta_length_um": 70.0, "splitter_type": "directional_coupler"},
+                        "include_active_tuning": True,
+                        "mechanism": "si_pn_depletion",
+                    },
+                )
+                d1 = json.loads(b1)
+                assert st1 == 200 and d1["splitter"]["splitter_type"] == "directional_coupler"
+                assert d1["active_tuning"]["v_pi_l_vcm"] > 0.3
+
+                st2, b2 = await _asgi_request("POST", "/api/export_mzi_gds", json_body={"mzi_result": d1})
+                assert st2 == 200 and "gds_download_url" in json.loads(b2)
+
+                st3, b3 = await _asgi_request("POST", "/api/export_mzi_interconnect", json_body={"mzi_result": d1})
+                d3 = json.loads(b3)
+                assert st3 == 200 and d3["passivity_verified"] is True and "zip_download_url" in d3
+            finally:
+                srv.GDS_EXPORT_DIR = old_exp
+
+        asyncio.run(_check_mzi_http())
+
+    a_mzi = agent_design_mzi({"mat": "Si", "h_um": 0.22, "slab_um": 0.09, "splitter": "mmi_2x2", "l1_um": 1200.0, "dl_um": 80.0, "export_gds": True})
+    assert a_mzi["tuning"]["V_pi_L_Vcm"] > 0.3 and Path(a_mzi["gds"]).is_file()
+
+    mcp_mzi = handle_mcp_request({
+        "jsonrpc": "2.0",
+        "id": 114,
+        "method": "tools/call",
+        "params": {
+            "name": "microring_design_mzi",
+            "arguments": {"mat": "LN_Xcut", "h_um": 0.60, "slab_um": 0.30, "w_um": 1.20, "splitter": "y_branch", "l1_um": 4000.0, "dl_um": 100.0, "export_interconnect": True},
+        },
+    })
+    assert mcp_mzi is not None and not mcp_mzi["result"]["isError"]
+    mzi_txt = mcp_mzi["result"]["content"][0]["text"]
+    assert len(mzi_txt) < 620, f"MCP design_mzi too verbose ({len(mzi_txt)} chars): {mzi_txt}"
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -944,9 +1133,10 @@ def main() -> None:
         ("Cleanroom Lithography Positive/Negative PR Dose & OPC Bias GDS", test_fabrication_dose_and_pr_tolerance),
         ("2D-FEM TO/EO/Si-PN Active Tuning, T/E/V/I Spectra & Lumerical INTERCONNECT", test_active_tuning_2d_fem_and_interconnect),
         ("Photonic IC Butt/2D-FDFD Grating Couplers & High-Q FDTD Convergence", test_io_couplers_and_high_q_fdtd_convergence),
+        ("2D-FEM/EME Mach-Zehnder Interferometers (Y-Branch/DC/MMI), Modulators & INTERCONNECT", test_mzi_splitters_tuning_gds_and_interconnect),
     ]
     print("=" * 72)
-    print("Running MicroRing Studio v3.5.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.6.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

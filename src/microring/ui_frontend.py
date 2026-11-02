@@ -465,6 +465,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         <button class="stage-pill" id="pill-fab" onclick="setStageView('fab'); if(!lastFabResult) runFabToleranceUI();" data-i18n="pill_fab">🧪 Fab &amp; Dose</button>
         <button class="stage-pill" id="pill-tuning" onclick="setStageView('tuning'); if(!lastTuningResult) runActiveTuningUI();" data-i18n="pill_tuning">⚡ Tuning &amp; IC</button>
         <button class="stage-pill" id="pill-io" onclick="setStageView('io'); if(!lastIoResult && !lastHighQResult) runIoCouplerUI();" data-i18n="pill_io">🔌 I/O &amp; High-Q</button>
+        <button class="stage-pill" id="pill-mzi" onclick="setStageView('mzi'); if(!lastMziResult) runMziUI();" data-i18n="pill_mzi">🔀 MZI</button>
       </div>
       <span class="stage-status" id="spec-status" data-i18n="status_ready">Ready · 400 nm – 14 µm</span>
     </div>
@@ -1083,6 +1084,161 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         </div>
       </div>
 
+      <!-- ==================== STAGE 9: MACH-ZEHNDER INTERFEROMETER (Y-BRANCH / DC / MMI) & MODULATOR ==================== -->
+      <div class="stage-view" id="view-mzi">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="mzi_card_title">2D-FEM + EME Mach-Zehnder Interferometer (Y-Branch / DC / MMI) &amp; Active Modulator (Zero 3D FDTD)</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <button class="btn primary sm" onclick="runMziUI()" data-i18n="mzi_btn_run">▶ Solve MZI &amp; Tuning</button>
+              <button class="btn sm" onclick="exportMziGdsUI()" data-i18n="mzi_btn_gds">💾 Export MZI .GDS</button>
+              <button class="btn amber sm" onclick="exportMziInterconnectUI()" data-i18n="mzi_btn_ic">📦 INTERCONNECT (.ZIP)</button>
+              <span id="mzi-download-slot"></span>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.9fr repeat(5,1fr);gap:10px;align-items:end;">
+            <div class="field">
+              <label data-i18n="mzi_lbl_splitter">50:50 Splitter / Combiner (2D-FEM Supermode / EME)</label>
+              <select id="mzi-splitter" onchange="onMziSplitterChange()">
+                <option value="directional_coupler" data-i18n="mzi_opt_dc">2×2 Directional Coupler (Twin-Core 2D-FEM Supermodes)</option>
+                <option value="mmi_2x2" data-i18n="mzi_opt_mmi2">2×2 MMI Coupler (Multi-Mode 2D-FEM EME + Self-Imaging)</option>
+                <option value="mmi_1x2" data-i18n="mzi_opt_mmi1">1×2 MMI Splitter (Symmetric 2D-FEM EME)</option>
+                <option value="y_branch" data-i18n="mzi_opt_y">1×2 Adiabatic Y-Branch (2D-FEM Apex Supermode Overlap)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="mzi_lbl_l1">Arm 1 Length L₁ [µm]</label>
+              <input id="mzi-l1" type="number" step="50" value="1000"/>
+            </div>
+            <div class="field">
+              <label data-i18n="mzi_lbl_dl">Imbalance ΔL [µm]</label>
+              <input id="mzi-dl" type="number" step="5" value="80"/>
+            </div>
+            <div class="field">
+              <label data-i18n="mzi_lbl_fsr">Target FSR [nm]</label>
+              <input id="mzi-fsr" type="number" step="0.5" placeholder="Auto from ΔL"/>
+            </div>
+            <div class="field">
+              <label id="mzi-lbl-sp-param">DC Gap [µm]</label>
+              <input id="mzi-sp-param" type="number" step="0.02" placeholder="Auto 50:50"/>
+            </div>
+            <div class="field">
+              <label data-i18n="mzi_lbl_ramzi">Ring-Assisted (RAMZI)</label>
+              <select id="mzi-ramzi">
+                <option value="off">Standard MZI</option>
+                <option value="on">RAMZI (+ All-Pass Ring)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.7fr 1.2fr 1.2fr 1.3fr 1fr;gap:10px;align-items:end;margin-top:9px;">
+            <div class="field">
+              <label data-i18n="mzi_lbl_mech">Active Phase-Shifter Physics</label>
+              <select id="mzi-mech">
+                <option value="auto" data-i18n="tune_opt_auto">Auto-Select by Platform (Si PN / Pockels EO / TO Heater)</option>
+                <option value="passive_only" data-i18n="mzi_opt_passive">Passive MZI Spectrum Only (Fastest)</option>
+                <option value="si_pn_depletion" data-i18n="tune_opt_pn">Silicon Lateral PN Depletion (Soref-Bennett + 2D FEM)</option>
+                <option value="pockels_eo" data-i18n="tune_opt_eo">Anisotropic Pockels EO (2D Laplace FEM / Direct E)</option>
+                <option value="thermo_optic" data-i18n="tune_opt_to">Thermo-Optic Microheater (2D Fourier FEM / Direct ΔT)</option>
+                <option value="si_pin_injection" data-i18n="tune_opt_pin">Silicon PIN Forward Injection (Carrier Plasma + FCA)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="mzi_lbl_scheme">Electrode Drive Scheme</label>
+              <select id="mzi-scheme">
+                <option value="auto">Auto (Push-Pull EO/PN · Single-Arm TO)</option>
+                <option value="push_pull">Push-Pull Differential (±Δφ/2)</option>
+                <option value="single_arm">Single-Arm Unbalanced</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="tune_lbl_drive">Input Drive / Physical Field</label>
+              <select id="mzi-drive">
+                <option value="auto" data-i18n="tune_drv_auto">Auto Default Drive</option>
+                <option value="voltage_v" data-i18n="tune_drv_v">Voltage V [V] (2D Geometry-Coupled)</option>
+                <option value="power_mw" data-i18n="tune_drv_p">Heater Power P [mW] (2D Fourier FEM)</option>
+                <option value="current_ma" data-i18n="tune_drv_i">Current I [mA] (2D Geometry-Coupled)</option>
+                <option value="delta_temp_k" data-i18n="tune_drv_t">Direct Temperature Shift ΔT [K]</option>
+                <option value="e_field_v_per_um" data-i18n="tune_drv_e">Direct Electric Field E [V/µm]</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="tune_lbl_biases">Bias / T / E Sweep Values</label>
+              <input id="mzi-biases" type="text" placeholder="Auto (e.g. 0, -2, -4 or 0, 25, 50)"/>
+            </div>
+            <div class="field">
+              <label data-i18n="mzi_lbl_egap">EO / Heater Gap [µm]</label>
+              <input id="mzi-egap" type="number" step="0.1" placeholder="Auto"/>
+            </div>
+          </div>
+
+          <div id="mzi-banner" style="margin-top:10px;padding:9px 12px;border-radius:8px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.28);font-size:12px;color:#cbd5e1;line-height:1.5;">
+            Predicts complete MZI broadband spectra &amp; modulator performance without 3D FDTD: <strong>DC</strong> via mirror-symmetric Twin-Core 2D-FEM Even/Odd Supermodes, <strong>MMI</strong> via Multi-Mode 2D-FEM Eigenmode Expansion (<code>EME</code> + complex Poynting taper overlap), and <strong>Y-Branch</strong> via 2D-FEM waist-narrowed apex supermode overlap.
+          </div>
+        </div>
+
+        <div class="kpi-row four">
+          <div class="kpi-card">
+            <div class="kpi-lbl" data-i18n="mzi_kpi1">50:50 Splitter Ratio &amp; IL</div>
+            <div class="kpi-val green" id="mzi-kpi1-val">--</div>
+            <div class="kpi-sub" id="mzi-kpi1-sub">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-lbl" data-i18n="mzi_kpi2">MZI FSR &amp; Passive ER</div>
+            <div class="kpi-val cyan" id="mzi-kpi2-val">--</div>
+            <div class="kpi-sub" id="mzi-kpi2-sub">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-lbl" data-i18n="mzi_kpi3">Modulator V_π·L / P_π</div>
+            <div class="kpi-val amber" id="mzi-kpi3-val">--</div>
+            <div class="kpi-sub" id="mzi-kpi3-sub">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-lbl" data-i18n="mzi_kpi4">Non-Cavity 3-dB BW &amp; Dyn. ER</div>
+            <div class="kpi-val" id="mzi-kpi4-val">--</div>
+            <div class="kpi-sub" id="mzi-kpi4-sub">--</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="mzi-plot1-title" data-i18n="mzi_plot1_title">Broadband MZI Bar &amp; Cross Transmission Spectra</span>
+              <span class="card-sub" id="mzi-plot1-sub">2D-FEM Supermode / EME + Dispersive Arms</span>
+            </div>
+            <canvas class="plot-cv" id="cv-mzi-spec"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="mzi-plot2-title">Switching Transfer Curve T(u) @ λ₀</span>
+              <div style="display:flex;gap:5px;align-items:center;">
+                <button class="btn sm subtle" id="btn-mzi-aux-tf" style="display:none;padding:2px 7px;font-size:10.5px;" onclick="setMziAuxMode('transfer')">T(V/P)</button>
+                <button class="btn sm subtle" id="btn-mzi-aux-mmi" style="display:none;padding:2px 7px;font-size:10.5px;" onclick="setMziAuxMode('mmi_field')">MMI |E(x,z)|</button>
+                <span class="card-sub" id="mzi-plot2-sub">Bar &amp; Cross Power</span>
+              </div>
+            </div>
+            <canvas class="plot-cv" id="cv-mzi-aux"></canvas>
+          </div>
+        </div>
+
+        <div class="card" id="mzi-table-card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="mzi_tbl_title">State-by-State MZI Phase Shift, Arm Loss &amp; Port Extinction Breakdown</span>
+            <span class="card-sub" id="mzi-tbl-sub">Lumerical INTERCONNECT SPAR + Active Arm OMM Ready</span>
+          </div>
+          <table class="clean-tbl" id="mzi-table">
+            <thead>
+              <tr>
+                <th>Drive State</th><th>Δn_eff (Arm 1 / Arm 2)</th><th>Differential Δφ [π rad]</th>
+                <th>Arm α₁ / α₂ [dB/cm]</th><th>Power [mW]</th><th>Bar @ λ₀ [dB]</th><th>Cross @ λ₀ [dB]</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -1189,6 +1345,9 @@ let lastTuningResult = null;
 let lastIoResult = null;
 let lastHighQResult = null;
 let ioBusy = false;
+let lastMziResult = null;
+let mziBusy = false;
+let mziAuxMode = 'auto';
 let aiBackendStatus = { offline: true, ollama_available: false, claude_cli_available: false, claude_env_key: false, codex_cli_available: false, codex_env_key: false };
 
 const UI_I18N = {
@@ -1203,7 +1362,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 Online · Codex / OpenAI (CLI / API)',
     chat_placeholder: "Type an answer or spec (e.g. 'loss = 0.8 dB/cm, FSR 150 GHz, pulley')...",
     btn_send: 'Send →',
-    pill_overview: '📋 Blueprint', pill_mode: '🔬 2D Mode', pill_mrr: '📊 Ring Spectrum', pill_gds: '📐 GDS Mask', pill_fit: '📈 Loss & Q Fit', pill_fab: '🧪 Fab & Dose', pill_tuning: '⚡ Tuning & IC', pill_io: '🔌 Butt/GC & High-Q',
+    pill_overview: '📋 Blueprint', pill_mode: '🔬 2D Mode', pill_mrr: '📊 Ring Spectrum', pill_gds: '📐 GDS Mask', pill_fit: '📈 Loss & Q Fit', pill_fab: '🧪 Fab & Dose', pill_tuning: '⚡ Tuning & IC', pill_io: '🔌 Butt/GC & High-Q', pill_mzi: '🔀 MZI',
     status_ready: 'Ready · 400 nm – 14 µm',
     wf1_title: '1. Design a New Ring Step-by-Step',
     wf1_desc: 'Answer one simple question at a time — waveband, material, wafer stack, propagation loss (<code>dB/cm</code>), and target FSR.',
@@ -1269,7 +1428,22 @@ const UI_I18N = {
     io_opt_gc: 'Surface Grating Coupler (Bragg + Native 2D Full-Wave FDFD)',
     io_opt_butt: 'Butt / Edge Coupler (2D Vector FEM + Poynting Overlap + EME)',
     io_opt_hq: 'High-Q Ring-Down Convergence vs Truncated 3D-FDTD',
-    io_lbl_fiber: 'Target Optical Fiber / Laser Diode'
+    io_lbl_fiber: 'Target Optical Fiber / Laser Diode',
+    mzi_card_title: '2D-FEM + EME Mach-Zehnder Interferometer (Y-Branch / DC / MMI) & Active Modulator (Zero 3D FDTD)',
+    mzi_btn_run: '▶ Solve MZI & Tuning', mzi_btn_gds: '💾 Export MZI .GDS', mzi_btn_ic: '📦 INTERCONNECT (.ZIP)',
+    mzi_lbl_splitter: '50:50 Splitter / Combiner (2D-FEM Supermode / EME)',
+    mzi_opt_dc: '2×2 Directional Coupler (Twin-Core 2D-FEM Supermodes)',
+    mzi_opt_mmi2: '2×2 MMI Coupler (Multi-Mode 2D-FEM EME + Self-Imaging)',
+    mzi_opt_mmi1: '1×2 MMI Splitter (Symmetric 2D-FEM EME)',
+    mzi_opt_y: '1×2 Adiabatic Y-Branch (2D-FEM Apex Supermode Overlap)',
+    mzi_lbl_l1: 'Arm 1 Length L₁ [µm]', mzi_lbl_dl: 'Imbalance ΔL [µm]', mzi_lbl_fsr: 'Target FSR [nm]',
+    mzi_lbl_ramzi: 'Ring-Assisted (RAMZI)', mzi_lbl_mech: 'Active Phase-Shifter Physics',
+    mzi_opt_passive: 'Passive MZI Spectrum Only (Fastest)', mzi_lbl_scheme: 'Electrode Drive Scheme',
+    mzi_lbl_egap: 'EO / Heater Gap [µm]',
+    mzi_kpi1: '50:50 Splitter Ratio & IL', mzi_kpi2: 'MZI FSR & Passive ER',
+    mzi_kpi3: 'Modulator V_π·L / P_π', mzi_kpi4: 'Non-Cavity 3-dB BW & Dyn. ER',
+    mzi_plot1_title: 'Broadband MZI Bar & Cross Transmission Spectra',
+    mzi_tbl_title: 'State-by-State MZI Phase Shift, Arm Loss & Port Extinction Breakdown'
   },
   zh: {
     step1: '选择目标', step2: '工作波段', step3: '芯层材料', step4: '叠层与模式', step5: '损耗与微环', step6: '耦合优化与版图',
@@ -1282,7 +1456,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 在线模式 · Codex / OpenAI (CLI / API)',
     chat_placeholder: '输入您的需求或参数（例如：损耗 0.8 dB/cm, FSR 150 GHz, 滑轮耦合）...',
     btn_send: '发送 →',
-    pill_overview: '📋 设计蓝图', pill_mode: '🔬 二维模式', pill_mrr: '📊 微环光谱', pill_gds: '📐 GDS 版图', pill_fit: '📈 损耗与Q拟合', pill_fab: '🧪 工艺与剂量', pill_tuning: '⚡ 调谐与 IC', pill_io: '🔌 端面/光栅与高Q',
+    pill_overview: '📋 设计蓝图', pill_mode: '🔬 二维模式', pill_mrr: '📊 微环光谱', pill_gds: '📐 GDS 版图', pill_fit: '📈 损耗与Q拟合', pill_fab: '🧪 工艺与剂量', pill_tuning: '⚡ 调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 调制',
     status_ready: '就绪 · 400 nm – 14 µm',
     wf1_title: '1. 逐步引导设计新微环',
     wf1_desc: '每次只问一个清晰问题——工作波段、波导材料、晶圆叠层、传播损耗 (<code>dB/cm</code>) 与目标 FSR。',
@@ -1348,7 +1522,22 @@ const UI_I18N = {
     io_opt_gc: '表面光栅耦合器 (Bragg 变迹综合 + 原生二维全波 FDFD)',
     io_opt_butt: '端面模斑转换耦合器 (2D 全矢量 FEM + 复坡印廷重叠 + EME)',
     io_opt_hq: '超高 Q 值谐振振铃收敛诊断 vs 截断 3D-FDTD',
-    io_lbl_fiber: '目标光纤 / 半导体激光器模斑'
+    io_lbl_fiber: '目标光纤 / 半导体激光器模斑',
+    mzi_card_title: '零 3D-FDTD 马赫-曾德尔干涉仪 (Y 分支 / DC / MMI) 与高速调制器分析 (2D-FEM + EME)',
+    mzi_btn_run: '▶ 求解 MZI 与有源调制', mzi_btn_gds: '💾 导出 MZI .GDS', mzi_btn_ic: '📦 INTERCONNECT (.ZIP)',
+    mzi_lbl_splitter: '50:50 分束/合束器 (2D-FEM 超模 / 多模干涉 EME)',
+    mzi_opt_dc: '2×2 定向耦合器 DC (双芯对称 2D-FEM 奇偶超模)',
+    mzi_opt_mmi2: '2×2 多模干涉仪 MMI (多模 2D-FEM EME + 自成像)',
+    mzi_opt_mmi1: '1×2 对称 MMI 分束器 (2D-FEM EME)',
+    mzi_opt_y: '1×2 绝热 Y 分支 (2D-FEM 分叉尖端超模重叠)',
+    mzi_lbl_l1: '第一臂长 L₁ [µm]', mzi_lbl_dl: '臂长差 ΔL [µm]', mzi_lbl_fsr: '目标 FSR [nm]',
+    mzi_lbl_ramzi: '微环辅助 (RAMZI)', mzi_lbl_mech: '相移臂有源物理机制',
+    mzi_opt_passive: '仅计算无源 MZI 光谱 (最快)', mzi_lbl_scheme: '电极驱动拓扑',
+    mzi_lbl_egap: '电极/加热器间距 [µm]',
+    mzi_kpi1: '50:50 分光比与附加损耗', mzi_kpi2: 'MZI 自由光谱范围与消光比',
+    mzi_kpi3: '调制器 V_π·L / P_π 指标', mzi_kpi4: '非谐振 3-dB 带宽与动态 ER',
+    mzi_plot1_title: '宽谱 MZI 直通 (Bar) 与交叉 (Cross) 透射光谱',
+    mzi_tbl_title: '逐驱动态相移臂 Δn_eff、相移量与端口消光比明细表'
   }
 };
 
@@ -1437,6 +1626,10 @@ function setStageView(viewName) {
       if (m === 'high_q_fdtd' && lastHighQResult) renderHighQResult(lastHighQResult);
       else if (m !== 'high_q_fdtd' && lastIoResult) renderIoResult(lastIoResult);
       else if (!ioBusy) runIoCouplerUI();
+    }
+    if (viewName === 'mzi') {
+      if (lastMziResult) renderMziResult(lastMziResult);
+      else if (!mziBusy) runMziUI();
     }
   }, 25);
 }
@@ -1796,6 +1989,24 @@ async function sendChatPrompt(promptText) {
       document.getElementById('io-mode').value = 'high_q_fdtd';
       onIoModeChange(true);
       renderHighQResult(data.high_q_result);
+    }
+    if (data.mzi_result) {
+      lastMziResult = data.mzi_result;
+      const mCfg = data.mzi_result.config || {};
+      if (mCfg.splitter_type) {
+        document.getElementById('mzi-splitter').value = mCfg.splitter_type;
+        onMziSplitterChange(true);
+      }
+      if (mCfg.arm1_length_um) document.getElementById('mzi-l1').value = mCfg.arm1_length_um;
+      if (mCfg.delta_length_um !== undefined) document.getElementById('mzi-dl').value = mCfg.delta_length_um;
+      document.getElementById('mzi-ramzi').value = mCfg.ramzi_enabled ? 'on' : 'off';
+      if (data.mzi_result.active_tuning) {
+        document.getElementById('mzi-mech').value = data.mzi_result.active_tuning.mechanism || 'auto';
+        document.getElementById('mzi-scheme').value = data.mzi_result.active_tuning.drive_scheme || 'auto';
+      } else {
+        document.getElementById('mzi-mech').value = 'passive_only';
+      }
+      renderMziResult(data.mzi_result);
     }
     if (data.interconnect_export && data.interconnect_export.zip_download_url) {
       showInterconnectDownload(data.interconnect_export);
@@ -3601,6 +3812,420 @@ function drawHighQShutoffPlot(res) {
     { x: xs, y: ers, color: '#f59e0b', label: 'Truncated FDTD Apparent ER [dB]' },
     { x: xs, y: trueLine, color: '#34d399', label: `True Infinite-RT ER (${res.true_converged_er_db.toFixed(1)} dB)`, dashed: true }
   ], 'FDTD Simulation Cutoff Time t_sim [ps]', 'Extinction Ratio ER [dB]', null);
+}
+
+// ==================== STAGE 9: MACH-ZEHNDER INTERFEROMETER (MZI) & MODULATOR ====================
+function onMziSplitterChange(skipRun) {
+  const st = document.getElementById('mzi-splitter').value;
+  const lbl = document.getElementById('mzi-lbl-sp-param');
+  const inp = document.getElementById('mzi-sp-param');
+  const zh = currentLang === 'zh';
+  inp.value = '';
+  if (st === 'directional_coupler') {
+    lbl.textContent = zh ? 'DC 间距 [µm]' : 'DC Gap [µm]';
+    inp.placeholder = 'Auto (~0.20)';
+  } else if (st === 'mmi_2x2' || st === 'mmi_1x2') {
+    lbl.textContent = zh ? 'MMI 宽 W_MMI [µm]' : 'MMI Width [µm]';
+    inp.placeholder = 'Auto 50:50';
+  } else {
+    lbl.textContent = zh ? 'Y 尖端缝隙 [µm]' : 'Y Apex Gap [µm]';
+    inp.placeholder = '0.13 µm';
+  }
+  mziAuxMode = 'auto';
+  if (!skipRun) runMziUI();
+}
+
+function buildMziPayload() {
+  const cfg = readConfigFromForm();
+  const st = document.getElementById('mzi-splitter').value || 'directional_coupler';
+  const mechSel = document.getElementById('mzi-mech').value || 'auto';
+  const includeActive = mechSel !== 'passive_only';
+  const mech = includeActive ? mechSel : 'auto';
+  const l1 = parseFloat(document.getElementById('mzi-l1').value);
+  const dl = parseFloat(document.getElementById('mzi-dl').value);
+  const fsrRaw = parseFloat(document.getElementById('mzi-fsr').value);
+  const spParam = parseFloat(document.getElementById('mzi-sp-param').value);
+  const egapRaw = parseFloat(document.getElementById('mzi-egap').value);
+  const ramziOn = document.getElementById('mzi-ramzi').value === 'on';
+  const biasTxt = (document.getElementById('mzi-biases').value || '').trim();
+
+  // Auto-ensure 90 nm slab when Si lateral PN/PIN is selected on strip SOI
+  let slabUse = cfg.slab_height_um;
+  if (includeActive && (mech === 'si_pn_depletion' || mech === 'si_pin_injection' || (mech === 'auto' && cfg.core_material === 'Si')) && slabUse <= 0.01) {
+    slabUse = 0.09;
+  }
+
+  const mziCfg = {
+    core_material: cfg.core_material,
+    clad_material: cfg.clad_material,
+    top_clad_material: cfg.top_clad_material,
+    wavelength_nm: cfg.wavelength_nm,
+    polarization: cfg.polarization,
+    film_height_um: cfg.film_height_um,
+    slab_height_um: slabUse,
+    sidewall_deg: cfg.sidewall_deg,
+    arm1_width_um: cfg.ring_width_um,
+    arm1_length_um: Number.isFinite(l1) ? l1 : 1000.0,
+    delta_length_um: Number.isFinite(dl) ? dl : 80.0,
+    target_fsr_nm: (Number.isFinite(fsrRaw) && fsrRaw > 0) ? fsrRaw : null,
+    splitter_type: st,
+    ramzi_enabled: ramziOn,
+    ramzi_ring_radius_um: cfg.ring_radius_um,
+    ramzi_ring_gap_um: cfg.gap_thru_um,
+    alpha_loss_db_per_cm: cfg.alpha_loss_db_per_cm,
+    span_nm: Math.max(cfg.span_nm || 12.0, 20.0)
+  };
+  if (Number.isFinite(spParam) && spParam > 0) {
+    if (st === 'directional_coupler') mziCfg.dc_gap_um = spParam;
+    else if (st === 'mmi_2x2' || st === 'mmi_1x2') mziCfg.mmi_width_um = spParam;
+    else mziCfg.y_apex_gap_um = spParam;
+  }
+
+  return {
+    config: mziCfg,
+    include_active_tuning: includeActive,
+    mechanism: mech,
+    drive_scheme: document.getElementById('mzi-scheme').value || 'auto',
+    drive_type: document.getElementById('mzi-drive').value || 'auto',
+    bias_values: biasTxt || null,
+    heater_gap_um: (Number.isFinite(egapRaw) && egapRaw > 0) ? egapRaw : 0.90,
+    electrode_gap_um: (Number.isFinite(egapRaw) && egapRaw > 0) ? egapRaw : null
+  };
+}
+
+async function runMziUI() {
+  if (mziBusy) return;
+  mziBusy = true;
+  const zh = currentLang === 'zh';
+  const payload = buildMziPayload();
+  document.getElementById('spec-status').textContent = zh
+    ? '正在求解 2D-FEM 超模 / EME 分束器与 MZI 调制光谱...'
+    : 'Solving 2D-FEM Supermode / EME Splitter & MZI Spectra...';
+  try {
+    const r = await fetch('/api/design_mzi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (data.error) {
+      document.getElementById('mzi-banner').innerHTML = `<span style="color:#f87171;">⚠️ ${data.error}</span>`;
+      document.getElementById('spec-status').textContent = 'Solver notice';
+      return;
+    }
+    lastMziResult = data;
+    renderMziResult(data);
+    document.getElementById('spec-status').textContent = zh
+      ? `MZI 求解完成 (${data.elapsed_ms} ms)`
+      : `MZI Solved in ${data.elapsed_ms} ms`;
+  } catch (err) {
+    document.getElementById('spec-status').textContent = 'Error: ' + err;
+  } finally {
+    mziBusy = false;
+  }
+}
+
+async function exportMziGdsUI() {
+  const payload = buildMziPayload();
+  if (lastMziResult && lastMziResult.splitter && lastMziResult.splitter.splitter_type === payload.config.splitter_type && lastMziResult.config.core_material === payload.config.core_material) {
+    payload.mzi_result = lastMziResult;
+  }
+  document.getElementById('spec-status').textContent = currentLang === 'zh' ? '正在导出 MZI .GDS 版图...' : 'Exporting MZI GDSII mask...';
+  try {
+    const r = await fetch('/api/export_mzi_gds', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    const res = await r.json();
+    if (res.error) { alert('MZI GDS Error: ' + res.error); return; }
+    document.getElementById('mzi-download-slot').innerHTML =
+      `<a class="btn green sm" href="${res.gds_download_url}" download>⬇ .GDS</a> ` +
+      `<a class="btn sm" href="${res.lyp_download_url}" download>⬇ .LYP</a>`;
+    showGdsExportResult(res);
+    setStageView('gds');
+  } catch (err) {
+    alert('MZI GDS export failed: ' + err);
+  }
+}
+
+async function exportMziInterconnectUI() {
+  const payload = buildMziPayload();
+  if (lastMziResult && lastMziResult.splitter && lastMziResult.splitter.splitter_type === payload.config.splitter_type && lastMziResult.config.core_material === payload.config.core_material) {
+    payload.mzi_result = lastMziResult;
+  }
+  document.getElementById('spec-status').textContent = currentLang === 'zh' ? '正在导出 Lumerical INTERCONNECT MZI 模型包...' : 'Exporting Lumerical INTERCONNECT MZI bundle...';
+  try {
+    const r = await fetch('/api/export_mzi_interconnect', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    const ic = await r.json();
+    if (ic.error) { alert('INTERCONNECT Export Error: ' + ic.error); return; }
+    document.getElementById('mzi-download-slot').innerHTML =
+      `<a class="btn amber sm" href="${ic.zip_download_url}" download>⬇ INTERCONNECT .ZIP</a>`;
+    showInterconnectDownload(ic);
+    if (ic.zip_download_url) {
+      const a = document.createElement('a');
+      a.href = ic.zip_download_url;
+      a.download = ic.zip_name || 'MicroRing_MZI_INTERCONNECT.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  } catch (err) {
+    alert('INTERCONNECT export failed: ' + err);
+  }
+}
+
+function setMziAuxMode(mode) {
+  mziAuxMode = mode;
+  if (lastMziResult) renderMziResult(lastMziResult);
+}
+
+function renderMziResult(res) {
+  if (!res || !res.splitter || !res.metrics) return;
+  const zh = currentLang === 'zh';
+  const sp = res.splitter;
+  const ss = sp.summary || {};
+  const mm = res.metrics;
+  const act = res.active_tuning;
+  const arms = res.arm_eigenmodes || {};
+
+  // KPI 1: Splitter Ratio & Excess Loss
+  document.getElementById('mzi-kpi1-val').textContent = `${ss.split_bar_pct_at_wl0.toFixed(1)} : ${ss.split_cross_pct_at_wl0.toFixed(1)}%`;
+  document.getElementById('mzi-kpi1-sub').textContent = `IL ${ss.excess_loss_db.toFixed(2)} dB · Imb ${ss.imbalance_at_wl0_db >= 0 ? '+' : ''}${ss.imbalance_at_wl0_db.toFixed(2)} dB`;
+
+  // KPI 2: MZI FSR & Passive ER
+  document.getElementById('mzi-kpi2-val').textContent = mm.FSR_nm ? `${mm.FSR_nm.toFixed(2)} nm` : (zh ? '对称平衡臂' : 'Balanced');
+  document.getElementById('mzi-kpi2-sub').textContent = `${mm.FSR_GHz ? mm.FSR_GHz.toFixed(1) + ' GHz · ' : ''}ER ${mm.ER_bar_passive_dB.toFixed(1)} dB`;
+
+  // KPI 3 & 4: Active Modulator V_pi*L / P_pi / 3-dB BW / Dynamic ER
+  if (act) {
+    if (act.v_pi_l_vcm !== null && act.v_pi_l_vcm !== undefined) {
+      document.getElementById('mzi-kpi3-val').textContent = `${act.v_pi_l_vcm.toFixed(3)} V·cm`;
+      document.getElementById('mzi-kpi3-sub').textContent = `V_π = ${act.v_pi_v.toFixed(2)} V (${act.drive_scheme})`;
+    } else if (act.p_pi_mw !== null && act.p_pi_mw !== undefined) {
+      document.getElementById('mzi-kpi3-val').textContent = `${act.p_pi_mw.toFixed(1)} mW`;
+      document.getElementById('mzi-kpi3-sub').textContent = act.v_pi_v ? `V_π = ${act.v_pi_v.toFixed(2)} V` : `${act.drive_scheme} heater`;
+    } else if (act.delta_t_pi_k !== null && act.delta_t_pi_k !== undefined) {
+      document.getElementById('mzi-kpi3-val').textContent = `ΔT_π = ${act.delta_t_pi_k.toFixed(1)} K`;
+      document.getElementById('mzi-kpi3-sub').textContent = `L_act = ${act.active_length_um.toFixed(0)} µm`;
+    } else {
+      document.getElementById('mzi-kpi3-val').textContent = act.v_pi_v ? `${act.v_pi_v.toFixed(2)} ${act.drive_unit}` : '--';
+      document.getElementById('mzi-kpi3-sub').textContent = `L_act = ${act.active_length_um.toFixed(0)} µm`;
+    }
+    const bwStr = act.bandwidth_3db ? `${Number(act.bandwidth_3db).toFixed(2)} ${act.bandwidth_unit}` : 'Broadband';
+    document.getElementById('mzi-kpi4-val').textContent = bwStr;
+    document.getElementById('mzi-kpi4-sub').textContent = `Dyn ER ${act.dynamic_er_bar_db.toFixed(1)} dB · IL_on ${act.on_state_il_db.toFixed(2)} dB`;
+  } else {
+    document.getElementById('mzi-kpi3-val').textContent = zh ? '无源模式' : 'Passive Only';
+    document.getElementById('mzi-kpi3-sub').textContent = `n_eff = ${mm.neff_arm1.toFixed(4)} · n_g = ${mm.ng_arm1.toFixed(3)}`;
+    document.getElementById('mzi-kpi4-val').textContent = `IL_min ${mm.IL_min_passive_dB.toFixed(2)} dB`;
+    document.getElementById('mzi-kpi4-sub').textContent = `1-dB Split BW ${(ss.bw_1db_imbalance_nm || 0).toFixed(1)} nm`;
+  }
+
+  // Banner summary with splitter geometry details
+  let geomDetail = '';
+  if (sp.splitter_type === 'directional_coupler') {
+    geomDetail = `Gap <code>${(ss.dc_gap_um*1000).toFixed(0)} nm</code>, 50:50 Length <code>L_dc = ${ss.dc_length_um} µm</code> (<code>L_π = ${ss.l_pi_um} µm</code>)`;
+  } else if (sp.splitter_type === 'mmi_2x2' || sp.splitter_type === 'mmi_1x2') {
+    geomDetail = `<code>W_MMI = ${ss.mmi_width_um} µm</code>, Self-Imaging <code>L_MMI = ${ss.mmi_length_um} µm</code> (<code>${ss.guided_modes_solved}</code> guided 2D-FEM modes, capture <code>${ss.input_modal_capture_pct}%</code>)`;
+  } else {
+    geomDetail = `Stem <code>W = ${ss.stem_width_um} µm</code>, Apex Gap <code>${(ss.y_apex_gap_um*1000).toFixed(0)} nm</code>, Supermode Overlap <code>${ss.apex_supermode_overlap_pct}%</code>`;
+  }
+  const ramziNote = res.ramzi ? ` | <strong>RAMZI Ring</strong>: <code>R = ${res.ramzi.ring_radius_um} µm</code>, <code>Q_L = ${Math.round(res.ramzi.ring_Q_loaded).toLocaleString()}</code>` : '';
+  document.getElementById('mzi-banner').innerHTML = zh
+    ? `<strong>${sp.name_zh}</strong>（<code>${ss.solver}</code>）：${geomDetail}；干涉臂 <code>L₁ = ${arms.arm1.length_um} µm</code>, <code>L₂ = ${arms.arm2.length_um} µm</code> (<code>ΔL = ${arms.delta_length_um} µm</code>)${ramziNote}。`
+    : `<strong>${sp.name_en}</strong> (<code>${ss.solver}</code>): ${geomDetail} | Arms <code>L₁ = ${arms.arm1.length_um} µm</code>, <code>L₂ = ${arms.arm2.length_um} µm</code> (<code>ΔL = ${arms.delta_length_um} µm</code>)${ramziNote}.`;
+
+  // Left Plot: Broadband MZI Spectra
+  drawMziSpectraPlot(res);
+
+  // Right Plot: Switching Transfer Curve OR 2D MMI Self-Imaging |E(x,z)| OR Splitter Bandwidth
+  const hasMmiField = !!(sp.field_map && sp.field_map.E_norm && sp.field_map.E_norm.length);
+  const hasTransfer = !!(act && act.transfer_curve && act.transfer_curve.drive_values);
+  const btnTf = document.getElementById('btn-mzi-aux-tf');
+  const btnMmi = document.getElementById('btn-mzi-aux-mmi');
+  btnTf.style.display = (hasMmiField && hasTransfer) ? 'inline-flex' : 'none';
+  btnMmi.style.display = hasMmiField ? 'inline-flex' : 'none';
+
+  let showMode = mziAuxMode;
+  if (showMode === 'auto') {
+    showMode = hasTransfer ? 'transfer' : (hasMmiField ? 'mmi_field' : 'splitter_bw');
+  } else if (showMode === 'mmi_field' && !hasMmiField) {
+    showMode = hasTransfer ? 'transfer' : 'splitter_bw';
+  } else if (showMode === 'transfer' && !hasTransfer) {
+    showMode = hasMmiField ? 'mmi_field' : 'splitter_bw';
+  }
+
+  btnTf.classList.toggle('primary', showMode === 'transfer');
+  btnMmi.classList.toggle('primary', showMode === 'mmi_field');
+
+  if (showMode === 'mmi_field') {
+    document.getElementById('mzi-plot2-title').textContent = sp.field_map.title;
+    document.getElementById('mzi-plot2-sub').textContent = `L_MMI = ${ss.mmi_length_um} µm`;
+    drawMmiSelfImagingHeatmap(res);
+  } else if (showMode === 'transfer') {
+    document.getElementById('mzi-plot2-title').textContent = zh
+      ? `调制器开关传递曲线 T(${act.drive_unit}) @ ${res.config.wavelength_nm} nm`
+      : `Switching Transfer Curve T(${act.drive_unit}) @ ${res.config.wavelength_nm} nm`;
+    document.getElementById('mzi-plot2-sub').textContent = `${act.drive_scheme} · ER ${act.dynamic_er_bar_db.toFixed(1)} dB`;
+    drawMziTransferPlot(res);
+  } else {
+    document.getElementById('mzi-plot2-title').textContent = zh ? '分束器宽谱分光比 P_bar(λ), P_cross(λ)' : 'Broadband Splitter Power Ratio P_bar(λ), P_cross(λ)';
+    document.getElementById('mzi-plot2-sub').textContent = `IL = ${ss.excess_loss_db.toFixed(2)} dB`;
+    drawSplitterBandwidthPlot(res);
+  }
+
+  // State-by-state table
+  const tblCard = document.getElementById('mzi-table-card');
+  const tbody = document.querySelector('#mzi-table tbody');
+  tbody.innerHTML = '';
+  if (act && act.states && act.states.length) {
+    tblCard.style.display = 'block';
+    act.states.forEach(stRow => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${stRow.label}</strong></td>
+        <td>${(stRow.delta_neff_arm1*1e4).toFixed(2)} / ${(stRow.delta_neff_arm2*1e4).toFixed(2)} ×10⁻⁴</td>
+        <td style="color:#38bdf8;font-weight:700;">${stRow.delta_phase_pi >= 0 ? '+' : ''}${stRow.delta_phase_pi.toFixed(3)} π</td>
+        <td>${stRow.alpha_arm1_db_per_cm.toFixed(2)} / ${stRow.alpha_arm2_db_per_cm.toFixed(2)}</td>
+        <td>${stRow.power_mw.toFixed(2)}</td>
+        <td style="color:#34d399;">${stRow.bar_dB_at_wl0.toFixed(2)} dB</td>
+        <td style="color:#f59e0b;">${res.has_cross_port ? stRow.cross_dB_at_wl0.toFixed(2) + ' dB' : 'N/A (1×2)'}</td>`;
+      tbody.appendChild(tr);
+    });
+  } else {
+    tblCard.style.display = 'none';
+  }
+}
+
+function drawMziSpectraPlot(res) {
+  const ps = res.passive_spectrum || {};
+  const wl = ps.wavelength_nm || [];
+  if (!wl.length) return;
+  const act = res.active_tuning;
+  const palette = ['#38bdf8', '#34d399', '#f59e0b', '#f472b6', '#a78bfa'];
+  const series = [];
+
+  if (act && act.spectra && act.spectra.length) {
+    act.spectra.slice(0, 5).forEach((cv, i) => {
+      series.push({
+        x: wl,
+        y: cv.bar_dB,
+        color: palette[i % palette.length],
+        label: `Bar @ ${cv.label} (${cv.delta_phase_pi >= 0 ? '+' : ''}${cv.delta_phase_pi.toFixed(2)}π)`
+      });
+    });
+    if (res.has_cross_port && act.spectra[0]) {
+      series.push({
+        x: wl,
+        y: act.spectra[0].cross_dB,
+        color: '#94a3b8',
+        label: `Cross @ ${act.spectra[0].label}`,
+        dashed: true
+      });
+    }
+    document.getElementById('mzi-plot1-sub').textContent = `${act.mechanism_name_en} (${res.elapsed_ms} ms)`;
+  } else {
+    series.push({ x: wl, y: ps.bar_dB, color: '#38bdf8', label: 'Bar Port S21 [dB]' });
+    if (res.has_cross_port) {
+      series.push({ x: wl, y: ps.cross_dB, color: '#f59e0b', label: 'Cross Port S31 [dB]', dashed: true });
+    }
+    document.getElementById('mzi-plot1-sub').textContent = `2D-FEM + EME (${res.elapsed_ms} ms)`;
+  }
+  drawLinePlot('cv-mzi-spec', series, currentLang === 'zh' ? '波长 Wavelength [nm]' : 'Wavelength [nm]', 'Transmission [dB]', res.config.wavelength_nm);
+}
+
+function drawMziTransferPlot(res) {
+  const act = res.active_tuning;
+  if (!act || !act.transfer_curve) return;
+  const tc = act.transfer_curve;
+  const xs = tc.drive_values || [];
+  const series = [{ x: xs, y: tc.bar_T, color: '#38bdf8', label: 'Bar Port T_bar (Linear)' }];
+  if (res.has_cross_port && tc.cross_T) {
+    series.push({ x: xs, y: tc.cross_T, color: '#f59e0b', label: 'Cross Port T_cross (Linear)', dashed: true });
+  }
+  drawLinePlot('cv-mzi-aux', series, `Drive (${tc.drive_unit})`, 'Normalized Optical Power T', 0.0);
+}
+
+function drawSplitterBandwidthPlot(res) {
+  const sp = res.splitter || {};
+  const wl = sp.wavelength_nm || [];
+  if (!wl.length) return;
+  drawLinePlot('cv-mzi-aux', [
+    { x: wl, y: (sp.power_bar || []).map(v => v * 100), color: '#34d399', label: 'Splitter Bar [%]' },
+    { x: wl, y: (sp.power_cross || []).map(v => v * 100), color: '#f59e0b', label: 'Splitter Cross [%]', dashed: true }
+  ], 'Wavelength [nm]', 'Split Power Ratio [%]', res.config.wavelength_nm);
+}
+
+function drawMmiSelfImagingHeatmap(res) {
+  const f = res.splitter && res.splitter.field_map;
+  const { ctx, w, h } = setupCanvas('cv-mzi-aux');
+  ctx.fillStyle = '#070b14';
+  ctx.fillRect(0, 0, w, h);
+  if (!f || !f.E_norm || !f.E_norm.length) return;
+
+  const pad = { l: 48, r: 16, t: 18, b: 34 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  const zArr = f.z_um, xArr = f.x_um, eMat = f.E_norm; // shape (Nz, Nx)
+  const nz = eMat.length, nx = eMat[0].length;
+
+  const off = document.createElement('canvas');
+  off.width = nz; off.height = nx;
+  const octx = off.getContext('2d');
+  const img = octx.createImageData(nz, nx);
+  for (let ix = 0; ix < nx; ix++) {
+    const srcIx = nx - 1 - ix;
+    for (let iz = 0; iz < nz; iz++) {
+      const v = Math.max(0, Math.min(1, eMat[iz][srcIx]));
+      const g = Math.pow(v, 0.72);
+      let rC, gC, bC;
+      if (g < 0.33) {
+        const u = g / 0.33;
+        rC = 8 + 30 * u; gC = 14 + 95 * u; bC = 32 + 165 * u;
+      } else if (g < 0.68) {
+        const u = (g - 0.33) / 0.35;
+        rC = 38 + 205 * u; gC = 109 + 85 * u; bC = 197 - 125 * u;
+      } else {
+        const u = (g - 0.68) / 0.32;
+        rC = 243 + 12 * u; gC = 194 + 58 * u; bC = 72 + 170 * u;
+      }
+      const p = 4 * (ix * nz + iz);
+      img.data[p] = rC; img.data[p + 1] = gC; img.data[p + 2] = bC; img.data[p + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, pad.l, pad.t, pw, ph);
+
+  const zMin = zArr[0], zMax = zArr[zArr.length - 1];
+  const xMin = xArr[0], xMax = xArr[xArr.length - 1];
+  const ty = xv => pad.t + ph - ((xv - xMin) / Math.max(xMax - xMin, 1e-6)) * ph;
+
+  // Overlay MMI multimode core sidewalls (±W_MMI / 2) in crisp structural dashed white
+  const hwMmi = 0.5 * (f.w_mmi_um || 6.0);
+  ctx.strokeStyle = 'rgba(248,250,252,0.78)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([5, 3]);
+  [-hwMmi, +hwMmi].forEach(xv => {
+    if (xv >= xMin && xv <= xMax) {
+      ctx.beginPath(); ctx.moveTo(pad.l, ty(xv)); ctx.lineTo(pad.l + pw, ty(xv)); ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.1;
+  ctx.strokeRect(pad.l, pad.t, pw, ph);
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '10.5px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  [zMin, 0.5 * (zMin + zMax), zMax].forEach(zv => {
+    const px = pad.l + ((zv - zMin) / Math.max(zMax - zMin, 1e-6)) * pw;
+    ctx.fillText(zv.toFixed(1), px, h - 17);
+  });
+  ctx.fillText('MMI Propagation z [µm]', pad.l + pw / 2, h - 4);
+  ctx.textAlign = 'right';
+  [-hwMmi, 0.0, +hwMmi].forEach(xv => {
+    if (xv >= xMin && xv <= xMax) ctx.fillText(xv.toFixed(1), pad.l - 5, ty(xv) + 3.5);
+  });
 }
 
 // ==================== BOOTSTRAP ====================

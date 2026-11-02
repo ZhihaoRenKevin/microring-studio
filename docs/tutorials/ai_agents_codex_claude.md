@@ -28,7 +28,7 @@ Above the chat box in MicroRing Studio, select any of the 4 AI modes at any time
    ```
 
 ### Claude Code & Claude Desktop
-1. Opening `microring-studio` in `claude` automatically detects [`.mcp.json`](../../.mcp.json), exposing all 10 `microring_*` MCP tools (`microring_status`, `microring_width_cutoff`, `microring_design_mrr`, `microring_sweep_mrr`, `microring_fab_tolerance`, `microring_active_tuning`, `microring_io_coupler`, `microring_high_q_fdtd`, `microring_inspect_gds`, `microring_fit_spectrum`).
+1. Opening `microring-studio` in `claude` automatically detects [`.mcp.json`](../../.mcp.json), exposing all 11 `microring_*` MCP tools (`microring_status`, `microring_width_cutoff`, `microring_design_mrr`, `microring_sweep_mrr`, `microring_fab_tolerance`, `microring_active_tuning`, `microring_io_coupler`, `microring_high_q_fdtd`, `microring_design_mzi`, `microring_inspect_gds`, `microring_fit_spectrum`).
 2. For Claude Desktop (`claude_desktop_config.json`):
    ```json
    {

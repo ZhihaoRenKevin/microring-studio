@@ -1,12 +1,12 @@
 # MicroRing Studio
 
-**License-free Photonic IC and Optical Interconnect CAD for microring resonators, Butt/Edge couplers, 2D Full-Wave `FDFD` Grating Couplers, instant Ultra-High-Q (`10^4` to `10^8+`) convergence, 2D-FEM modulators, bidirectional GDSII masks, and Ansys Lumerical INTERCONNECT export, with zero Lumerical MODE/FDTD, Synopsys RSoft, or COMSOL licenses.**
+**License-free Photonic IC and Optical Interconnect CAD for microring resonators, Mach-Zehnder Interferometers (`MZI`: `Y-Branch` / `DC` / `MMI`), Butt/Edge couplers, 2D Full-Wave `FDFD` Grating Couplers, instant Ultra-High-Q (`10^4` to `10^8+`) convergence, 2D-FEM modulators, bidirectional GDSII masks, and Ansys Lumerical INTERCONNECT export, with zero Lumerical MODE/FDTD, Synopsys RSoft, or COMSOL licenses.**
 
 [English](./README.md) | [简体中文](./docs/README_zh-CN.md) | [Verification & Benchmarks](./docs/VERIFICATION_AND_BENCHMARKS.md) | [Chatbot & GDS Tutorial](./docs/tutorials/chatbot_and_gds_guide.md) | [Codex & Claude MCP Guide](./docs/tutorials/ai_agents_codex_claude.md) | [llms.txt](./docs/llms.txt) | [Changelog](./CHANGELOG.md)
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.5.0](https://img.shields.io/badge/release-v3.5.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.5.0)
+[![Release: v3.6.0](https://img.shields.io/badge/release-v3.6.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.6.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./docs/VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./docs/tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -24,7 +24,10 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
 2. **High-Q microring non-convergence in time-domain FDTD**: For a low-loss `Si3N4`, `TFLN`, or `SiC` ring (`Q_loaded = 3 x 10^6`, `tau_ph = 2.49 ns`), reaching `auto shutoff min = 1e-5` in 3D FDTD requires **`28.6 ns` (`> 8,200` cavity round-trips)**; stopping FDTD early produces severe FFT sinc-ringing and collapses the apparent extinction ratio from `64 dB` down to `< 2 dB`.
 3. **Layout-to-circuit disconnect**: A `.gds` mask drawn in KLayout or `gdsfactory` has to be manually re-measured for simulation, while device sweeps rarely export directly into `127 um` fiber-array test loops or `Ansys Lumerical INTERCONNECT` circuit compact models.
 
-**MicroRing Studio (`v3.5.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app:
+**MicroRing Studio (`v3.6.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app:
+- **Mach-Zehnder Interferometer (`MZI`) & High-Speed Modulator Suite (`🔀 MZI`, Zero 3D FDTD)**:
+  - **Selectable `50:50` Splitters (`DC`, `2x2 MMI`, `1x2 MMI`, `Y-Branch`) Solved Directly from 2D Vector FEM + EME**: Solves `2x2` Directional Couplers via mirror-symmetric Twin-Core Even/Odd supermodes ($n_{\mathrm{even}}, n_{\mathrm{odd}}$), `1x2` & `2x2` Multimode Interference (`MMI`) couplers via Multi-Mode 2D-FEM Eigenmode Expansion (`EME`, up to 11 guided modes + complex Poynting access-taper overlap + 2D $|E(x,z)|$ self-imaging map), and `1x2` adiabatic Y-Branches via waist-narrowed apex supermode overlap across the foundry minimum gap.
+  - **Passive, `RAMZI` & Push-Pull Modulator Tuning (`V_π·L`, `P_π`, Non-Cavity `3-dB` BW)**: Evaluates balanced/unbalanced MZI spectra, Ring-Assisted MZIs (`RAMZI`), and push-pull / single-arm `Si PN`, `X-cut TFLN / SiC / ScAlN Pockels EO`, `TiN Thermo-Optic`, and `Si PIN` modulators (`V`, `mA`, `mW`, `ΔT`, `E`), exporting foundry `.GDS` masks and passive-verified **Ansys Lumerical INTERCONNECT** `SPAR .dat` + `OMM .txt` + `.lsf` `.zip` bundles.
 - **Instant Ultra-High-Q (`Q = 10^4` to `10^8+`) Convergence & 0.8 ps FDTD Cutout (`🔌 Butt/GC & High-Q`)**:
   - Solves exact steady-state infinite-roundtrip ($M \to \infty$) spectra in `~1 s` on a Lorentzian-graded sub-femtometer (`0.1 fm`) `sinh` grid for any $Q$ up to $10^8+$, with zero time-domain ring-down stall.
   - Quantifies exact photon lifetime $\tau_{\mathrm{ph}}$, required `1e-5` FDTD simulation time, and finite-roundtrip truncation artifacts, and exports a single-pass **Coupler-Only 3D-FDTD Cutout (`.GDS` + `.lsf`)** requiring `< 1 ps` (`> 10,000x` faster than full-ring 3D FDTD).
@@ -60,9 +63,12 @@ flowchart LR
     B1 --> C
     C --> M["2D Conformal FEM<br/>Bent n_eff(λ), n_g(λ),<br/>Single-Mode Cutoff W_SM"]
     M --> S["Spatial CMT + High-Q TMM<br/>7 Topologies · Q=10^4-10^8+<br/>PR Dose & 0.8 ps FDTD Cutout"]
+    M --> MZ["MZI & Modulator Suite<br/>DC Supermode · MMI EME · Y-Branch<br/>Push-Pull V_pi*L, P_pi & RAMZI"]
     C --> IO["Chip I/O Couplers<br/>2D-FEM Butt/Edge &<br/>2D Full-Wave FDFD Grating"]
     M --> A["2D-FEM Active Tuning<br/>TO Heat · Laplace EO · Si PN/PIN<br/>Perturbed n_eff(V, I, ΔT, E)"]
-    A --> IC["Ansys Lumerical INTERCONNECT<br/>Ring + Coupler SPAR .dat · OMM .txt"]
+    A --> IC["Ansys Lumerical INTERCONNECT<br/>Ring + MZI + Coupler SPAR · OMM"]
+    MZ --> IC
+    MZ --> G2
     IO --> IC
     IO --> G2["Foundry .GDS + .LYP<br/>127 µm FA Loopback, MPW or OPC"]
     S --> G2
@@ -81,8 +87,8 @@ Download the pre-built desktop installer from [**GitHub Releases**](https://gith
 
 | Operating System | Download Package | How to Install & Open |
 | :--- | :--- | :--- |
-| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.5.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
-| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.5.0-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
+| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.6.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
+| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.6.0-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
 
 *(Exported `.gds` masks, `.lyp` color maps, and `.csv` spectra from the standalone desktop app are saved locally in `~/Documents/MicroRing_Studio/`.)*
 
@@ -212,6 +218,9 @@ python examples/01_devices_and_sweeps/05_active_tuning_pn_eo_to_interconnect.py
 # 3e. License-free Butt/Edge coupler, 2D-FDFD Grating Coupler & High-Q (Q > 3e6) FDTD convergence:
 python examples/01_devices_and_sweeps/06_butt_gc_couplers_and_high_q_fdtd.py
 
+# 3f. 2D-FEM/EME Mach-Zehnder Interferometers (DC, MMI, Y-Branch), push-pull modulators & INTERCONNECT:
+python examples/01_devices_and_sweeps/07_mzi_spectra_dc_mmi_and_modulators.py
+
 # 4. Create single-device & 5-ring MPW sweep array .GDS + KLayout .lyp:
 python examples/02_gds_roundtrip/01_create_mrr_and_sweep_array_gds.py
 
@@ -221,7 +230,7 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. Fit CW/CCW split-doublet & multi-FSR experimental spectra via CMT:
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# Run all 12 automated verification suites:
+# Run all 13 automated verification suites:
 python tests/test_microring_all.py
 ```
 
@@ -288,6 +297,9 @@ uv run microring agent io-coupler --type grating_coupler --mat Si --h 0.22 --etc
 
 # High-Q convergence diagnostic vs truncated 3D-FDTD + 0.8 ps Coupler-Only Cutout .GDS/.lsf (<140 tokens):
 uv run microring agent high-q --mat Si3N4 --top pulley_ap --r 100 --loss 0.08 --gap 0.42 --cutout
+
+# 2D-FEM/EME Mach-Zehnder Interferometer (Y-Branch / DC / MMI) + Modulator V_pi*L + INTERCONNECT (<145 tokens):
+uv run microring agent mzi --mat Si --h 0.22 --slab 0.09 --splitter mmi_2x2 --l1 1500 --dl 60 --mech si_pn_depletion --gds --interconnect
 ```
 
 ---
@@ -306,6 +318,7 @@ microring-studio/
 │   ├── eigenmode_solver.py                2D full-vector Nedelec1/Lagrange FEM (bent + straight) & FDE
 │   ├── mrr_cmt_spatial.py                 Cylindrical vector overlap & pulley spatial CMT integrator
 │   ├── mrr_topologies.py                  7 MRR topologies, High-Q convergence, coupler cutout & GDS
+│   ├── mzi_interferometer.py              2D-FEM/EME MZI splitters (DC/MMI/Y-Branch), modulators & GDS/IC
 │   ├── io_couplers.py                     2D-FEM Butt/Edge couplers & 2D Full-Wave FDFD Grating Couplers
 │   ├── active_tuning.py                   2D-FEM TO/EO/Si-PN active tuning & Lumerical INTERCONNECT export
 │   ├── fab_tolerance.py                   Positive/Negative PR over/under-dose & CD-bias error analyzer
@@ -318,10 +331,10 @@ microring-studio/
 │   ├── ui_frontend.py                     Zero-CDN Retina 2x Canvas + SVG split-screen workbench
 │   ├── desktop_app.py  cli.py             Native pywebview launcher & `microring` CLI
 │   └── build_standalone.py                PyInstaller packager for macOS .dmg & Windows Setup .exe
-├── examples/                              10 self-contained cookbook scripts (Visible -> 1310/1550 -> Mid-IR)
+├── examples/                              11 self-contained cookbook scripts (Visible -> 1310/1550 -> Mid-IR)
 ├── benchmarks/                            FEM vs Yee-FDE audit, Lumerical runner & hero figure generator
 ├── docs/                                  Chinese README, tutorials, benchmarks, contributing & llms.txt
-└── tests/                                 12-suite automated verification tests
+└── tests/                                 13-suite automated verification tests
 ```
 
 ---
@@ -347,7 +360,7 @@ python -m microring.build_standalone --target windows-cuda
 ## Physical Scope, Verification & Limitations
 
 - **2D Eigenmode + Spatial CMT + Instant High-Q Accuracy**: On standard weakly-to-moderately coupled integrated microrings (`gap >= 150 nm`), the 2D conformal vector FEM (`Nedelec1` transverse + `Lagrange P2` longitudinal with conformal cylindrical coordinate mapping) matches mesh-converged commercial FEM solvers to $|\Delta n_{\mathrm{eff}}| < 5 \times 10^{-4}$ while solving steady-state High-Q resonances ($Q = 10^4$ to $10^8+$) in `~1 s` without time-domain ring-down error.
-- **2D Sagittal FDFD Grating Couplers & 2D-FEM Butt Couplers**: `design_grating_coupler` solves full-wave 2D Maxwell `FDFD` across etched grooves, `BOX`, and bottom Si substrate combined with analytical lateral width-to-Gaussian overlap, which accurately captures uniform and apodized curved-focusing gratings (`W_gc ~ 10-14 um`) in `~2.5 s`. Subwavelength metamaterial (`SWG` 2D pillar) gratings, dual-polarization 2D GCs, and ultra-short non-adiabatic 3D spot-size converters still require 3D FDTD verification before final tape-out.
+- **2D Sagittal FDFD Grating Couplers, 2D-FEM Butt Couplers & 2D-FEM/EME MZI Splitters**: `design_grating_coupler` solves full-wave 2D Maxwell `FDFD` across etched grooves, `BOX`, and bottom Si substrate (`~2.5 s`). `simulate_mzi` solves `DC` (twin-core supermodes), conventional `1x2`/`2x2 MMI` (multi-mode 2D-FEM `EME` + Poynting taper overlap), and adiabatic `Y-Branch` splitters without 3D FDTD. Subwavelength metamaterial (`SWG`) MMIs/gratings, pixelated inverse-designed splitters, dual-polarization 2D GCs, and non-tapered corner back-reflections still require 3D FDTD verification before final tape-out.
 - **When Full 3D FDTD Is Still Needed**: Ultra-tight sub-`120 nm` gaps, abrupt pulley transition tapers, substrate leakage through thin buried oxide (`BOX`), and vertical scattering radiation loss ($Q_{\mathrm{rad}}$ in ultra-sharp bends) require 3D FDTD verification (for High-Q rings, use `export_coupler_cutout_gds` to run a `< 1 ps` single-pass 3D FDTD on the coupler region only).
 - **2D Planar GDSII Scope**: GDSII/OASIS files encode in-plane `(x, y)` polygons only; vertical film thickness (`H_film`), partial-etch slab (`H_slab`), and sidewall angle must always be confirmed against your foundry's PDK design manual.
 

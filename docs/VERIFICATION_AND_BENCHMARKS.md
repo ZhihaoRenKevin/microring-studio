@@ -86,16 +86,40 @@ python examples/01_devices_and_sweeps/06_butt_gc_couplers_and_high_q_fdtd.py
 
 ---
 
-## 5. Physical Scope Boundaries
+## 5. 2D-FEM + EME Mach-Zehnder Interferometer (`MZI`) Splitters & Modulators (`v3.6.0`)
 
-- **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + 2D Multiphysics FEM)**:
+Reproducible locally with zero 3D FDTD, Lumerical, or COMSOL licenses via:
+
+```bash
+python examples/01_devices_and_sweeps/07_mzi_spectra_dc_mmi_and_modulators.py
+```
+
+### Verified Benchmarks (`Darwin-arm64`, Python 3.12, `ΔL = 80 µm` on `220 nm` SOI)
+
+| Module & Benchmark Case | Numerical Formulation | Wall Time | Key Physical Outputs |
+| :--- | :--- | :---: | :--- |
+| **`2x2` Directional Coupler (`DC`) MZI** | Mirror-Symmetric Twin-Core 2D-FEM Even/Odd Supermodes + S-Bend Integral | `4.2 s` | Split `49.50 / 49.50%`, $\mathrm{IL} = 0.044\text{ dB}$, $\mathrm{Imb} = 0.000\text{ dB}$, $\mathrm{FSR} = 7.048\text{ nm}$, $\mathrm{ER} = 42.4\text{ dB}$ |
+| **`2x2` Multimode Interference (`MMI`) MZI** | Multi-Mode 2D-FEM Eigenmode Expansion (`EME`, up to 11 modes) + Poynting Overlap | `6.8 s` | Split `39.79 / 40.89%`, $\mathrm{IL} = 0.932\text{ dB}$, $\mathrm{Imb} = -0.119\text{ dB}$, 2D $|E(x,z)|$ self-imaging map |
+| **`1x2` Symmetric `MMI` MZI** | Symmetric Center-Fed Multi-Mode 2D-FEM `EME` + Taper Poynting Overlap | `5.9 s` | Split `44.04 / 44.04%`, $\mathrm{IL} = 0.551\text{ dB}$, $\mathrm{Imb} = 0.000\text{ dB}$, $\mathrm{ER} = 29.7\text{ dB}$ |
+| **`1x2` Adiabatic `Y-Branch` MZI** | 2D-FEM Waist-Narrowed Stem-to-Twin-Core Supermode Overlap (`130 nm` apex gap) | `5.8 s` | Split `46.96 / 46.96%`, $\mathrm{IL} = 0.273\text{ dB}$ (cf. Zhang *et al.*, *Opt. Express* 2013: `0.28 dB`) |
+| **`Si` Lateral `PN` Push-Pull MZI (`1.5 mm`)** | 2D-FEM Soref-Bennett Depletion + `2x2 MMI` + INTERCONNECT `SPAR` + `OMM` | `14.5 s` | $V_\pi L = 0.826\text{ V}\cdot\text{cm}$ ($V_\pi = 5.74\text{ V}$), Non-Cavity $f_{3\mathrm{dB}} = 7.08\text{ GHz}$, `passivity = True` |
+| **`X-Cut TFLN` `GSG` Push-Pull EO MZI (`5 mm`)** | 2D Anisotropic Laplace FEM + Tensor $r_{33}$ + `Y-Branch` | `15.8 s` | $V_\pi L = 2.079\text{ V}\cdot\text{cm}$ ($V_\pi = 4.29\text{ V}$), RC $f_{3\mathrm{dB}} = 16.59\text{ GHz}$ |
+| **`Si3N4` `TiN` Thermo-Optic MZI + `RAMZI`** | 2D Fourier Heat FEM + `2x2 DC` + All-Pass Ring Assisted Phase Arm | `13.7 s` | $P_\pi = 159.4\text{ mW}$, Thermal $f_{3\mathrm{dB}} = 19.11\text{ kHz}$, `RAMZI` $Q_L = 7,364$ |
+
+---
+
+## 6. Physical Scope Boundaries
+
+- **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + EME + 2D Multiphysics FEM)**:
   - Guided straight and moderately bent waveguide dispersion ($n_{\mathrm{eff}}$, $n_g$, FSR, single-mode cutoff $W_{\mathrm{SM}}$) and steady-state High-$Q$ resonance spectra ($Q = 10^4$ to $10^8+$);
   - Weak-to-moderate evanescent couplers (`gap >= 150 nm` in NIR, `>= 300 nm` in Mid-IR) including phase-mismatched wrap-around pulley couplers;
+  - Conventional MZI `50:50` splitters and combiners: `2x2` Directional Couplers (twin-core supermodes), tapered rectangular `1x2` and `2x2` `MMI` couplers (multi-mode 2D-FEM `EME`), and adiabatic `1x2` `Y-Branch` splitters;
   - Inverse-taper Butt/Edge couplers (`2D Vector FEM` + complex Poynting overlap) and 1D-periodic uniform or apodized curved-focusing Surface Grating Couplers (`2D Full-Wave Sagittal FDFD` + lateral width overlap);
   - Cross-sectional 2D Fourier thermo-optic (`TiN`/`Pt`/`W` microheaters), 2D Laplace Pockels electro-optic (`GSG`/vertical electrodes), and Silicon PN depletion / PIN injection perturbed eigenmode shifts;
   - Positive vs. negative photoresist exposure-dose / CD-bias coupling drift and 5-cell pre-biased mask synthesis;
   - Post-fabrication Lorentzian, CW/CCW Split-Doublet, Fano, and Multi-FSR transmission fitting.
 - **Regimes Requiring Full `3D FDTD` / `3D TCAD` Before Final Foundry Tape-Out**:
+  - Subwavelength-grating (`SWG`) metamaterial MMIs, pixelated / topology-optimized inverse-designed splitters, or abrupt non-tapered MMI corner back-reflections ($S_{11}$);
   - Ultra-tight sub-`120 nm` high-index-contrast gaps where strong supermode distortion and parasitic coupler radiation loss ($1 - |S_{21}|^2 - |S_{31}|^2 > 1\%$) occur (use `export_coupler_cutout_gds` to simulate only the `< 1 ps` single-pass coupler region in 3D FDTD);
   - 2D pillar subwavelength metamaterial (`SWG`) grating couplers, polarization-splitting 2D gratings, or ultra-short non-adiabatic 3D multi-tip spot-size converters;
   - Abrupt straight-to-bend racetrack junctions without adiabatic Euler transitions, or 3D in-plane longitudinal heat spreading near short heater corners / thermal isolation trenches;
