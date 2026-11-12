@@ -30,10 +30,14 @@ MICRORING_LAYERS: dict[str, tuple[int, int, str, str]] = {
     "core": (1, 0, "#38bdf8", "Waveguide Core Etch"),
     "slab": (2, 0, "#0284c7", "Partial Rib Slab"),
     "shallow_etch": (4, 0, "#0ea5e9", "Grating Coupler Shallow Etch Grooves"),
-    "heater": (10, 0, "#f59e0b", "TiN Thermo-Optic Heater"),
-    "electrode": (11, 0, "#eab308", "GSG Electro-Optic Pads"),
+    "p_implant": (5, 0, "#f472b6", "Silicon P / P++ Doping Window"),
+    "n_implant": (6, 0, "#a78bfa", "Silicon N / N++ Doping Window"),
+    "heater": (10, 0, "#f59e0b", "TiN Thermo-Optic Heater / 50-Ohm Load"),
+    "electrode": (11, 0, "#eab308", "RF Metal-1 GSG / T-Rail Electrodes & Pads"),
+    "via": (12, 0, "#22d3ee", "Inter-Metal / Contact Via Array"),
+    "metal2": (13, 0, "#fde047", "RF Metal-2 Crossover / Airbridge"),
     "facet_trench": (40, 0, "#f43f5e", "Deep Facet Dicing / Undercut Trench"),
-    "pin": (65, 0, "#34d399", "Optical Port Pin"),
+    "pin": (65, 0, "#34d399", "Optical / RF Port Pin"),
     "label": (66, 0, "#e2e8f0", "Annotation Text"),
 }
 
@@ -226,17 +230,18 @@ def analyze_uploaded_gds(
         else [g for g in getattr(merged, "geoms", []) if isinstance(g, Polygon)]
     )
 
-    is_mzi_cell = "MZI" in target_cell.name.upper()
+    is_eom_cell = "EOM" in target_cell.name.upper()
+    is_mzi_cell = "MZI" in target_cell.name.upper() or (is_eom_cell and "RING" not in target_cell.name.upper() and "RACETRACK" not in target_cell.name.upper())
     annuli = [] if is_mzi_cell else [g for g in geoms if len(g.interiors) >= 1 and g.area > 1.0]
     buses = [g for g in geoms if (is_mzi_cell or len(g.interiors) == 0) and g.area > 0.5]
 
     if not annuli:
-        # Non-resonant Photonic IC component: MZI, I/O coupler (Butt / Grating), or Coupler Cutout GDS
+        # Non-resonant Photonic IC component: EOM, MZI, I/O coupler (Butt / Grating), or Coupler Cutout GDS
         viewer_layers = []
         for (lyr, dt), pts_list in sorted(by_layer.items()):
             polys_serialized = []
-            for pts in pts_list[:160]:
-                stride = max(1, len(pts) // 180)
+            for pts in pts_list[:260]:
+                stride = max(1, len(pts) // 220)
                 polys_serialized.append(np.round(pts[::stride], 3).tolist())
             viewer_layers.append({
                 "layer": lyr,
@@ -268,8 +273,12 @@ def analyze_uploaded_gds(
                     "bus_pt": [round(p2.x, 4), round(p2.y, 4)],
                     "gap_um": gap_measured,
                 })
-        has_gc_etch = (40, 0) in by_layer
-        if is_mzi_cell:
+        has_gc_etch = (40, 0) in by_layer and not is_eom_cell and not is_mzi_cell
+        if is_eom_cell:
+            disp_name = "Electro-Optic Modulator (EOM) + RF Electrodes"
+            top_code = "eom_traveling_wave"
+            n_ports = 2 if ("Y_BRANCH" in target_cell.name.upper() or "1X2" in target_cell.name.upper()) else 4
+        elif is_mzi_cell:
             disp_name = "Mach-Zehnder Interferometer (MZI)"
             top_code = "mzi_interferometer"
             n_ports = 2 if ("Y_BRANCH" in target_cell.name.upper() or "1X2" in target_cell.name.upper()) else 4

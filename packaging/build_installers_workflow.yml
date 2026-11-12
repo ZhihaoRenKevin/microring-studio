@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Optional GitHub Release tag to attach built installers to (e.g. v3.6.0)"
+        description: "Optional GitHub Release tag to attach built installers to (e.g. v3.7.0)"
         required: false
         default: ""
       skip_macos:
@@ -38,7 +38,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[desktop]" pillow pyinstaller
 
-      - name: Run 12-Suite Verification Tests
+      - name: Run 14-Suite Verification Tests
         run: python tests/test_microring_all.py
 
       - name: Build & Smoke-Test macOS .app + .dmg
@@ -75,7 +75,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[desktop]" pillow pyinstaller
 
-      - name: Run 12-Suite Verification Tests
+      - name: Run 14-Suite Verification Tests
         shell: pwsh
         run: python tests/test_microring_all.py
 

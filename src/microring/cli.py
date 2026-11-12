@@ -20,6 +20,7 @@ from .agent_tools import (
     agent_active_tuning,
     agent_design_mrr,
     agent_design_mzi,
+    agent_eom_multiphysics,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -222,6 +223,37 @@ def main() -> None:
     p_mzi.add_argument("--interconnect", action="store_true", dest="export_interconnect")
     p_mzi.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_eom = ag_sub.add_parser("eom", help="2D-FEM RF EOM Electrode, EO Wafer Orientation, Si PN Doping TCAD, or Thermal FEM (<150 tokens)")
+    p_eom.add_argument("--mode", type=str, default="rf_electrode", help="rf_electrode | wafer_orientation | pn_doping | thermal_fem")
+    p_eom.add_argument("--topology", type=str, default=None, help="gsg_cpw | t_rail_cpw | gs_coplanar | vertical_microstrip | lumped_ring_gsg")
+    p_eom.add_argument("--wafer-cut", type=str, default=None, dest="wafer_cut", help="auto | x_cut_ln | y_cut_ln | z_cut_ln | x_cut_lt | z_cut_lt | a_cut_bto_si | c_cut_bto | inplane_poled_pzt | c_plane_6mm | a_plane_6mm | cubic_001_43m | cubic_110_43m")
+    p_eom.add_argument("--azimuth", type=float, default=None, dest="azimuth_deg", help="Waveguide propagation azimuth phi [deg]")
+    p_eom.add_argument("--pol", type=str, default=None, dest="pol", help="TE0 | TM0")
+    p_eom.add_argument("--field-axis", type=str, default=None, dest="electrode_field_axis", help="auto | horizontal_ex | vertical_ey")
+    p_eom.add_argument("--junction", type=str, default=None, dest="junction_type", help="lateral_pn | l_shaped_pn | u_shaped_pn | pin_diode")
+    p_eom.add_argument("--structure", type=str, default=None, dest="thermal_structure", help="top_heater | deep_trench | undercut_suspended | doped_si_rib")
+    p_eom.add_argument("--mat", type=str, default=None)
+    p_eom.add_argument("--substrate", type=str, default=None)
+    p_eom.add_argument("--metal", type=str, default=None)
+    p_eom.add_argument("--t-metal", type=float, default=None, dest="t_metal_um")
+    p_eom.add_argument("--wl", type=float, default=None, dest="wl_nm")
+    p_eom.add_argument("--h", type=float, default=None, dest="h_um")
+    p_eom.add_argument("--slab", type=float, default=None, dest="slab_um")
+    p_eom.add_argument("--w", type=float, default=None, dest="w_um")
+    p_eom.add_argument("--l", type=float, default=None, dest="l_um")
+    p_eom.add_argument("--gap", type=float, default=None, dest="gap_um")
+    p_eom.add_argument("--ws", type=float, default=None, dest="ws_um")
+    p_eom.add_argument("--l-rail", type=float, default=None, dest="l_rail_um")
+    p_eom.add_argument("--t-period", type=float, default=None, dest="t_period_um")
+    p_eom.add_argument("--t-cap-w", type=float, default=None, dest="t_cap_w_um")
+    p_eom.add_argument("--fmax", type=float, default=None, dest="f_max_ghz")
+    p_eom.add_argument("--na", type=float, default=None, dest="na_core_cm3")
+    p_eom.add_argument("--nd", type=float, default=None, dest="nd_core_cm3")
+    p_eom.add_argument("--pn-offset", type=float, default=None, dest="pn_offset_nm")
+    p_eom.add_argument("--gds", action="store_true", dest="export_gds")
+    p_eom.add_argument("--bundle", action="store_true", dest="export_bundle")
+    p_eom.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -286,6 +318,8 @@ def main() -> None:
             _print_compact(agent_high_q_fdtd(d))
         elif args.agent_cmd == "mzi":
             _print_compact(agent_design_mzi(d))
+        elif args.agent_cmd == "eom":
+            _print_compact(agent_eom_multiphysics(d))
 
 
 if __name__ == "__main__":

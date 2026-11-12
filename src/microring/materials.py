@@ -587,6 +587,144 @@ def n_linbo3_xcut(
     )
 
 
+def _litao3_no_ne(wavelength_m: float, temperature_k: float = T_REF_K) -> tuple[float, float]:
+    """Optical-grade Lithium Tantalate (LiTaO3 / TFLT) Sellmeier dispersion (0.28 - 5.5 um).
+
+    Sources: Bruner et al., J. Appl. Phys. 94, 4950 (2003); Casson et al., Appl. Opt. 43, 6412 (2004);
+    Wang et al., Nature 629, 788-794 (2024) (Ultra-low birefringence n_e - n_o = +0.0038 at 1550 nm).
+    """
+    u = min(max(_check_wl(wavelength_m), 0.28), 5.6)
+    x = u * u
+    dt = temperature_k - T_REF_K
+    no = math.sqrt(max(1.0 + 3.4839 * x / (x - 0.1338 ** 2) + 0.0884 * x / (x - 0.2950 ** 2) - 0.0235 * x, 1.5))
+    ne = math.sqrt(max(1.0 + 3.5020 * x / (x - 0.1342 ** 2) + 0.0865 * x / (x - 0.2980 ** 2) - 0.0242 * x, 1.5))
+    return no + 0.70e-5 * dt, ne + 4.20e-5 * dt
+
+
+def n_litao3_zcut(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """Z-cut Thin-Film Lithium Tantalate (TFLT): optic Z-axis vertical (y)."""
+    no, ne = _litao3_no_ne(wavelength_m, temperature_k)
+    return MaterialIndexTensor(
+        nx=no, ny=ne, nz=no,
+        dn_dt_per_k=4.20e-5,
+        r33_pm_per_v=30.5,
+        r13_pm_per_v=8.4,
+        n2_m2_per_w=1.5e-19,
+        crystal_symmetry="trigonal_3m_Zcut_vertical",
+        validity_um=(0.28, 5.5),
+        source="Bruner et al. JAP 2003 + Wang et al. Nature 2024 (Z-cut TFLT, r33=30.5 pm/V)",
+        is_anisotropic=True,
+    )
+
+
+def n_litao3_xcut(
+    wavelength_m: float,
+    temperature_k: float = T_REF_K,
+    inplane_propagation_angle_deg: float = 0.0,
+) -> MaterialIndexTensor:
+    """X-cut Thin-Film Lithium Tantalate (TFLT): optic Z-axis horizontal in wafer plane.
+
+    Ultra-low birefringence (`Delta_n = +0.0038`, 19x lower than LiNbO3!) eliminates leaky
+    TE0-TM0 slab hybridization across tight bends while preserving `r_33 = 30.5 pm/V`.
+    """
+    no, ne = _litao3_no_ne(wavelength_m, temperature_k)
+    phi = math.radians(inplane_propagation_angle_deg)
+    c2 = math.cos(phi) ** 2
+    s2 = math.sin(phi) ** 2
+    nx_eff = 1.0 / math.sqrt(c2 / (ne * ne) + s2 / (no * no))
+    nz_eff = 1.0 / math.sqrt(s2 / (ne * ne) + c2 / (no * no))
+    return MaterialIndexTensor(
+        nx=nx_eff, ny=no, nz=nz_eff,
+        dn_dt_per_k=4.20e-5 * c2 + 0.70e-5 * s2,
+        r33_pm_per_v=30.5,
+        r13_pm_per_v=8.4,
+        n2_m2_per_w=1.5e-19,
+        crystal_symmetry="trigonal_3m_Xcut_inplane",
+        validity_um=(0.28, 5.5),
+        source="Wang et al. Nature 629, 788 (2024) + Bruner JAP 2003 (X-cut TFLT, ultra-low birefringence)",
+        is_anisotropic=True,
+    )
+
+
+def _bto_no_ne(wavelength_m: float, temperature_k: float = T_REF_K) -> tuple[float, float]:
+    """Tetragonal Ferroelectric Barium Titanate (BaTiO3 / BTO, 4mm) Sellmeier (0.42 - 6.5 um).
+
+    Sources: Wemple, DiDomenico & Camlibel, J. Phys. Chem. Solids 29, 1797 (1968);
+    Abel et al., Nature Materials 18, 42-47 (2019); Eltes et al., Nature Materials 19, 1164 (2020).
+    """
+    u = min(max(_check_wl(wavelength_m), 0.42), 6.6)
+    x = u * u
+    dt = temperature_k - T_REF_K
+    no = math.sqrt(max(1.0 + 4.239 * x / (x - 0.2228 ** 2) - 0.0155 * x, 1.8))
+    ne = math.sqrt(max(1.0 + 4.095 * x / (x - 0.2155 ** 2) - 0.0150 * x, 1.8))
+    return no - 4.20e-5 * dt, ne - 4.20e-5 * dt
+
+
+def n_bto_acut(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """Epitaxial a-oriented Tetragonal BaTiO3 (BTO-on-Si via SrTiO3 buffer, 4mm).
+
+    Along the optimal Si [110] propagation azimuth (~45-51 deg to in-plane BTO c-axis),
+    coplanar GSG TE0 waveguides unlock the giant shear Pockels tensor `r_42`:
+      - Clamped high-speed RF (>5 GHz) `r_42^S ~ 360 pm/V` -> `r_eff ~ 285 pm/V`
+      - Low-frequency unclamped DC `r_42^T ~ 923 pm/V` -> `r_eff ~ 730 pm/V` (Abel et al. 2019).
+    Here we report the conservative clamped high-speed RF `r_eff = 285 pm/V` for EOM design.
+    """
+    no, ne = _bto_no_ne(wavelength_m, temperature_k)
+    n_inplane = 0.5 * (no + ne)  # nanoscale 90-deg a1/a2 twin-domain / 45-deg [110] effective index
+    return MaterialIndexTensor(
+        nx=n_inplane, ny=no, nz=n_inplane,
+        dn_dt_per_k=-4.20e-5,
+        r33_pm_per_v=285.0,
+        r13_pm_per_v=45.0,
+        n2_m2_per_w=8.0e-19,
+        crystal_symmetry="tetragonal_4mm_BTO_inplane",
+        validity_um=(0.42, 6.5),
+        source="Abel et al. Nat. Mater. 2019 + Eltes et al. Nat. Mater. 2020 (Epitaxial a-BTO on Si, clamped RF r42)",
+        is_anisotropic=True,
+    )
+
+
+def n_bto_ccut(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """Out-of-plane c-oriented Tetragonal BaTiO3 (4mm, vertical c-axis)."""
+    no, ne = _bto_no_ne(wavelength_m, temperature_k)
+    return MaterialIndexTensor(
+        nx=no, ny=ne, nz=no,
+        dn_dt_per_k=-4.20e-5,
+        r33_pm_per_v=105.0,
+        r13_pm_per_v=19.5,
+        n2_m2_per_w=8.0e-19,
+        crystal_symmetry="tetragonal_4mm_Zcut_vertical",
+        validity_um=(0.42, 6.5),
+        source="Abel et al. Nat. Mater. 2019 + Wemple 1968 (c-oriented tetragonal BTO)",
+        is_anisotropic=True,
+    )
+
+
+def n_pzt_poled(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """Lanthanide-seeded Thin-Film Lead Zirconate Titanate (PbZr0.52Ti0.48O3 / PZT, 0.45 - 6.5 um).
+
+    Source: Alexander et al., Nature Communications 9, 3444 (2018) (Ghent / Van Thourhout
+    CSD PZT on SiO2/SiN: post-fabrication electrical poling across coplanar GSG / ring electrodes
+    aligns remnant polarization P_s || E_RF, yielding high-speed flat EO r_eff ~ 110 pm/V in PZT).
+    """
+    u = min(max(_check_wl(wavelength_m), 0.45), 6.6)
+    x = u * u
+    dt = temperature_k - T_REF_K
+    no = math.sqrt(max(1.0 + 4.695 * x / (x - 0.238 ** 2) - 0.012 * x, 1.8)) + 3.50e-5 * dt
+    ne = math.sqrt(max(1.0 + 4.598 * x / (x - 0.235 ** 2) - 0.012 * x, 1.8)) + 3.50e-5 * dt
+    return MaterialIndexTensor(
+        nx=ne, ny=no, nz=no,
+        dn_dt_per_k=3.50e-5,
+        r33_pm_per_v=110.0,
+        r13_pm_per_v=28.0,
+        n2_m2_per_w=6.0e-19,
+        crystal_symmetry="poled_4mm_PZT_inplane",
+        validity_um=(0.45, 6.5),
+        source="Alexander et al. Nat. Commun. 9, 3444 (2018) (In-plane electrode-poled MPB PZT thin film)",
+        is_anisotropic=True,
+    )
+
+
 # ==============================================================================
 # 6. Active Phase-Change Materials (Low-Loss Chalcogenide GSST)
 # ==============================================================================
@@ -749,13 +887,13 @@ WAVEBAND_PRESETS: dict[str, dict] = {
     "oband_1310": {
         "label": "Datacom O-Band (1310 nm)",
         "wavelength_nm": 1310.0,
-        "recommended_cores": ["Si", "Si3N4", "LN_Xcut", "4H-SiC", "AlN", "ScAlN_20", "a-Si"],
+        "recommended_cores": ["Si", "Si3N4", "LN_Xcut", "LT_Xcut", "BTO", "PZT", "4H-SiC", "AlN", "ScAlN_20", "a-Si"],
         "recommended_clads": ["SiO2", "Air"],
     },
     "cband_1550": {
         "label": "Telecom C-Band (1550 nm)",
         "wavelength_nm": 1550.0,
-        "recommended_cores": ["Si", "Si3N4", "4H-SiC", "LN_Xcut", "LN_Zcut", "AlN", "ScAlN_20"],
+        "recommended_cores": ["Si", "Si3N4", "LN_Xcut", "LT_Xcut", "BTO", "PZT", "4H-SiC", "LN_Zcut", "AlN", "ScAlN_20"],
         "recommended_clads": ["SiO2", "Air"],
     },
     "swir_2000": {
@@ -898,6 +1036,41 @@ MATERIAL_CATALOG: dict[str, dict] = {
         "default_band_nm": 1550.0,
         "typical_loss_db_cm": 0.10,
         "fn": lambda wl, t=T_REF_K: n_linbo3_xcut(wl, t, inplane_propagation_angle_deg=0.0),
+    },
+    "LT_Xcut": {
+        "name": "Lithium Tantalate (TFLT X-cut, Low-Biref 0.28-5.5 um)",
+        "category": "Ferroelectric",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.08,
+        "fn": lambda wl, t=T_REF_K: n_litao3_xcut(wl, t, inplane_propagation_angle_deg=0.0),
+    },
+    "LT_Zcut": {
+        "name": "Lithium Tantalate (TFLT Z-cut, UV-MIR 0.28-5.5 um)",
+        "category": "Ferroelectric",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.08,
+        "fn": n_litao3_zcut,
+    },
+    "BTO": {
+        "name": "Barium Titanate (Epitaxial a-BTO on Si, Giant r42, 0.42-6.5 um)",
+        "category": "Ferroelectric",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 1.50,
+        "fn": n_bto_acut,
+    },
+    "BTO_ccut": {
+        "name": "Barium Titanate (c-Oriented Tetragonal BTO, 0.42-6.5 um)",
+        "category": "Ferroelectric",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 1.50,
+        "fn": n_bto_ccut,
+    },
+    "PZT": {
+        "name": "Lead Zirconate Titanate (Poled Thin-Film PZT, 0.45-6.5 um)",
+        "category": "Ferroelectric",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 1.20,
+        "fn": n_pzt_poled,
     },
     "Al2O3": {
         "name": "Alumina / Sapphire (Al2O3, 0.25-5.5 um)",

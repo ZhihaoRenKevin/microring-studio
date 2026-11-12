@@ -108,7 +108,28 @@ python examples/01_devices_and_sweeps/07_mzi_spectra_dc_mmi_and_modulators.py
 
 ---
 
-## 6. Physical Scope Boundaries
+## 6. Sub-THz `300+ GHz` Slow-Wave T-Rail EOM Electrodes, Si PN TCAD & Transient Thermal FEM (`v3.7.0`)
+
+Reproducible locally with zero Ansys HFSS, Lumerical CHARGE/HEAT, or COMSOL licenses via:
+
+```bash
+python examples/01_devices_and_sweeps/08_eom_rf_electrode_pn_tcad_and_thermal.py
+```
+
+### Verified Benchmarks (`Darwin-arm64`, Python 3.12)
+
+| Module & Benchmark Case | Numerical Formulation | Key Physical Outputs |
+| :--- | :--- | :--- |
+| **`X-Cut TFLN` Slow-Wave `T-Rail` on Quartz (`Λ = 25 µm`, `t_Au = 1.5 µm`, `L = 4.5 mm`)** | 2D Laplace FEM + Ghione Conformal Skin Loss + ABCD Bloch-Floquet + Cherenkov Check | $W_S = 81.7\,\mu\text{m}$, $L_{\mathrm{rail}} = 10.6\,\mu\text{m}$, $Z_0 = 50.25\,\Omega$, $n_{\mathrm{RF}} = 2.264$ vs $n_g = 2.266$, $\alpha_{\mathrm{RF}}(40/300\text{G}) = 1.43 / 6.47\text{ dB/cm}$, $S_{21,\mathrm{EO}}(300\text{ GHz}) = -1.56\text{ dBe}$, $f_{3\mathrm{dBe}} = 522.4\text{ GHz}$, $V_\pi L = 2.43\text{ V}\cdot\text{cm}$ |
+| **`X-Cut TFLN` Slow-Wave `T-Rail` on Quartz (`Λ = 220 µm` Coarse Pitch)** | Multi-Zone Unwrapped ABCD Bloch-Floquet Unit-Cell Stopband | $f_{\mathrm{Bragg}} = 301\text{ GHz}$, $S_{21,\mathrm{EO}}(300\text{ GHz}) = -8.22\text{ dBe}$, $f_{3\mathrm{dBe}} = 255.2\text{ GHz}$ (`bragg_periodic_cutoff`) |
+| **`X-Cut TFLN` Slow-Wave `T-Rail` on Undercut-Si vs Unthinned HR-Si** | Gap-Localized $\mathrm{XeF}_2$ Air Cavity vs Frankel-Rutledge $f^3$ Cherenkov Shockwave | Undercut-Si: $f_{3\mathrm{dBe}} = 571.4\text{ GHz}$ (`0 dB/cm` Cherenkov) vs HR-Si: $f_{3\mathrm{dBe}} = 94.0\text{ GHz}$ ($\alpha_{\mathrm{RF}}(300\text{G}) = 21.8\text{ dB/cm}$) |
+| **`BTO` Microring Modulator (`Q_L = 12,000`, Detuning $\delta = 0.577 \rightarrow 1.45$)** | Two-Sideband Detuned CMT Lorentzian Optical Peaking | $f_{3\mathrm{dBe}} = 7.20 \rightarrow 16.44\text{ GHz}$ (`+0.58 dBe` optical peaking) |
+| **`220 nm` SOI `L-Shaped` PN Doping TCAD (`0 -> -3 V`)** | 2D Damped Newton-Raphson Poisson-Boltzmann + Caughey-Thomas $R_s$ | $V_\pi L = 0.598\text{ V}\cdot\text{cm}$, $\alpha_{\mathrm{FCA}}(-3\text{V}) = 7.62\text{ dB/cm}$, $f_{\mathrm{RC,intr}} = 60.1\text{ GHz}$, $f_{\mathrm{TW,3dBo}} = 116.9\text{ GHz}$ |
+| **`XeF2` Undercut Suspended vs Top `TiN` Thermal Phase Shifter** | 2D Steady + Crank-Nicolson Transient Thermal FEM ($\mathbf{K}_{\mathrm{th}}, \mathbf{M}_{\mathrm{th}}$) | Top: $P_\pi = 17.05\text{ mW}$ ($f_{3\mathrm{dB}} = 31.0\text{ kHz}$) vs Undercut: $P_\pi = 0.58\text{ mW}$ (`0.06%` crosstalk @ `20 µm`) |
+
+---
+
+## 7. Physical Scope Boundaries
 
 - **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + EME + 2D Multiphysics FEM)**:
   - Guided straight and moderately bent waveguide dispersion ($n_{\mathrm{eff}}$, $n_g$, FSR, single-mode cutoff $W_{\mathrm{SM}}$) and steady-state High-$Q$ resonance spectra ($Q = 10^4$ to $10^8+$);

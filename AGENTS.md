@@ -22,10 +22,11 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **Butt/Edge or 2D-FDFD Grating Coupler** | `uv run microring agent io-coupler --type grating_coupler --mat Si --h 0.22 --etch 0.07 --angle 10 --loopback --interconnect` |
 | **High-Q convergence & 0.8 ps FDTD cutout** | `uv run microring agent high-q --mat Si3N4 --top pulley_ap --r 100 --loss 0.08 --gap 0.42 --cutout` |
 | **2D-FEM/EME MZI (`DC`/`MMI`/`Y`) & Modulator** | `uv run microring agent mzi --mat Si --h 0.22 --slab 0.09 --splitter mmi_2x2 --l1 1500 --dl 60 --mech si_pn_depletion --gds --interconnect` |
+| **EOM RF Electrode / Si PN TCAD / Thermal FEM** | `uv run microring agent eom --mode rf_electrode --topology t_rail_cpw --mat LN_Xcut --substrate quartz --t-metal 1.5 --t-period 25 --l 4500 --fmax 360 --gds --bundle` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`
-- **24 Multi-Waveband Materials (`--mat`, `--clad`, `--top-clad` from `400 nm` Visible to `14 um` Mid-IR)**:
-  - *Visible / VNIR (`400–950 nm`)*: `TiO2`, `Ta2O5`, `GaN`, `Diamond`, `Al2O3`, `AlN`, `Si3N4`, `4H-SiC`, `LN_Zcut`, `LN_Xcut`
-  - *O-Band (`1310 nm`), C-Band (`1550 nm`) & SWIR (`2000 nm`)*: `Si`, `a-Si`, `Si3N4`, `SiRich_SiNx`, `4H-SiC`, `3C-SiC`, `AlN`, `ScAlN_10`, `ScAlN_20`, `ScAlN_30`, `LN_Zcut`, `LN_Xcut`, `GSST_amorphous`, `GSST_crystalline`
+- **29 Multi-Waveband Materials (`--mat`, `--clad`, `--top-clad` from `400 nm` Visible to `14 um` Mid-IR)**:
+  - *Visible / VNIR (`400–950 nm`)*: `TiO2`, `Ta2O5`, `GaN`, `Diamond`, `Al2O3`, `AlN`, `Si3N4`, `4H-SiC`, `LN_Zcut`, `LN_Xcut`, `LT_Zcut`, `LT_Xcut`
+  - *O-Band (`1310 nm`), C-Band (`1550 nm`) & SWIR (`2000 nm`)*: `Si`, `a-Si`, `Si3N4`, `SiRich_SiNx`, `4H-SiC`, `3C-SiC`, `AlN`, `ScAlN_10`, `ScAlN_20`, `ScAlN_30`, `LN_Zcut`, `LN_Xcut`, `LT_Zcut`, `LT_Xcut`, `BTO`, `BTO_ccut`, `PZT`, `GSST_amorphous`, `GSST_crystalline`
   - *Mid-IR (`3.0–14.0 um`)*: `Ge`, `Diamond`, `Si`, `CaF2`, `MgF2`, `SiO2`, `Air`

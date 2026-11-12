@@ -94,6 +94,28 @@ from .mzi_interferometer import (
     export_mzi_interconnect_bundle,
     simulate_mzi,
 )
+from .eom_electrode import (
+    ELECTRODE_METAL_CATALOG,
+    EO_WAFER_CUT_CATALOG,
+    EOM_ELECTRODE_CATALOG,
+    RF_SUBSTRATE_CATALOG,
+    EOMElectrodeConfig,
+    analyze_eo_wafer_orientation,
+    design_eom_electrode,
+    export_eom_electrode_gds,
+    export_eom_rf_interconnect_bundle,
+)
+from .multiphysics_tcad import (
+    PN_JUNCTION_CATALOG,
+    THERMAL_STRUCTURE_CATALOG,
+    PNDopingTCADConfig,
+    ThermalSimConfig,
+    export_pn_doping_gds,
+    export_tcad_data_bundle,
+    export_thermal_shifter_gds,
+    simulate_pn_doping_tcad,
+    simulate_thermal_phase_shifter,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 from .ui_frontend import HTML_APP_PAGE
 
@@ -847,6 +869,195 @@ async def api_export_mzi_interconnect(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
 
+def _filter_dataclass_kwargs(dc_cls, payload: dict) -> dict:
+    valid_keys = {f.name for f in fields(dc_cls)}
+    out = {}
+    for k, v in payload.items():
+        if k not in valid_keys or v in ("", None):
+            continue
+        if v == "auto" and k not in ("electrode_topology", "wafer_cut"):
+            continue
+        out[k] = v
+    return out
+
+
+def _eom_multiphysics_sync(payload: dict) -> dict:
+    mode = str(payload.get("mode") or "rf_electrode").lower().strip()
+    if mode in ("wafer_orientation", "orientation", "wafer_cut"):
+        q_raw = payload.get("query_azimuth_deg", payload.get("waveguide_azimuth_deg"))
+        q_deg = None if q_raw in (None, "", "auto") else float(q_raw)
+        ovl_raw = payload.get("eo_overlap_factor")
+        ovl_val = None if ovl_raw in (None, "", "auto") else float(ovl_raw)
+
+        def _opt_flt(key: str) -> float | None:
+            v = payload.get(key)
+            return None if v in (None, "", "auto") else float(v)
+
+        res = analyze_eo_wafer_orientation(
+            core_material=str(payload.get("core_material") or "LN_Xcut"),
+            wafer_cut=str(payload.get("wafer_cut") or "auto"),
+            polarization=str(payload.get("polarization") or "TE0"),
+            electrode_field_axis=str(payload.get("electrode_field_axis") or "auto"),
+            wavelength_nm=float(payload.get("wavelength_nm") or 1550.0),
+            electrode_gap_um=float(payload.get("electrode_gap_um") or 5.0),
+            eo_overlap_factor=ovl_val,
+            push_pull=bool(payload.get("push_pull", True)),
+            query_azimuth_deg=q_deg,
+            film_height_um=_opt_flt("film_height_um"),
+            slab_height_um=_opt_flt("slab_height_um"),
+            waveguide_width_um=_opt_flt("waveguide_width_um"),
+            sidewall_deg=float(payload.get("sidewall_deg") or 80.0),
+            clad_material=str(payload.get("clad_material") or "SiO2"),
+            top_clad_material=str(payload.get("top_clad_material") or "SiO2"),
+            box_thickness_um=float(payload.get("box_thickness_um") or 2.0),
+            metal_thickness_um=float(payload.get("metal_thickness_um") or 1.0),
+            custom_r33_pm_v=_opt_flt("custom_r33_pm_v"),
+            custom_r13_pm_v=_opt_flt("custom_r13_pm_v"),
+            custom_r51_pm_v=_opt_flt("custom_r51_pm_v"),
+            custom_r22_pm_v=_opt_flt("custom_r22_pm_v"),
+            custom_no=_opt_flt("custom_no"),
+            custom_ne=_opt_flt("custom_ne"),
+            custom_eps_rf_perp=_opt_flt("custom_eps_rf_perp"),
+            custom_eps_rf_c=_opt_flt("custom_eps_rf_c"),
+        )
+        res["cuts"] = EO_WAFER_CUT_CATALOG
+        return res
+
+    if mode in ("pn_doping", "pn_doping_tcad"):
+        kw = _filter_dataclass_kwargs(PNDopingTCADConfig, payload)
+        if "bias_voltages_v" in payload:
+            bv = _parse_bias_payload(payload.get("bias_voltages_v"))
+            if bv:
+                kw["bias_voltages_v"] = bv
+        res = simulate_pn_doping_tcad(PNDopingTCADConfig(**kw))
+        res["catalog"] = PN_JUNCTION_CATALOG
+        return res
+
+    if mode in ("thermal_fem", "thermal"):
+        kw = _filter_dataclass_kwargs(ThermalSimConfig, payload)
+        res = simulate_thermal_phase_shifter(ThermalSimConfig(**kw))
+        res["catalog"] = THERMAL_STRUCTURE_CATALOG
+        return res
+
+    kw = _filter_dataclass_kwargs(EOMElectrodeConfig, payload)
+    if payload.get("signal_width_um") in (None, "", "auto", 0, "0"):
+        kw.pop("signal_width_um", None)
+    if payload.get("t_rail_length_um") in (None, "", "auto", 0, "0"):
+        kw.pop("t_rail_length_um", None)
+    if payload.get("t_rail_cap_width_um") in (None, "", "auto", 0, "0"):
+        kw.pop("t_rail_cap_width_um", None)
+    if payload.get("waveguide_azimuth_deg") in (None, "", "auto"):
+        kw.pop("waveguide_azimuth_deg", None)
+    elif "waveguide_azimuth_deg" in kw:
+        kw["waveguide_azimuth_deg"] = float(kw["waveguide_azimuth_deg"])
+    res = design_eom_electrode(EOMElectrodeConfig(**kw))
+    res["mode"] = "rf_electrode"
+    res["catalog"] = EOM_ELECTRODE_CATALOG
+    res["substrates"] = RF_SUBSTRATE_CATALOG
+    res["metals"] = ELECTRODE_METAL_CATALOG
+    res["cuts"] = EO_WAFER_CUT_CATALOG
+    return res
+
+
+async def api_eom_multiphysics(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_eom_multiphysics_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _upgrade_wafer_orientation_to_rf(payload: dict, sim_res: dict) -> dict:
+    if sim_res.get("mode") != "wafer_orientation":
+        return sim_res
+    cmat = str(sim_res.get("core_material") or payload.get("core_material") or "LN_Xcut")
+    is_si = cmat == "Si"
+    kw_rf = _filter_dataclass_kwargs(EOMElectrodeConfig, payload)
+    kw_rf.update({
+        "core_material": cmat,
+        "wafer_cut": str(sim_res.get("wafer_cut") or payload.get("wafer_cut") or "auto"),
+        "waveguide_azimuth_deg": float(sim_res["metrics"]["active_azimuth_deg"]),
+        "polarization": str(sim_res.get("polarization") or payload.get("polarization") or "TE0"),
+        "wavelength_nm": float(payload.get("wavelength_nm") or 1550.0),
+        "film_height_um": float(payload.get("film_height_um") or (0.22 if is_si else 0.50)),
+        "slab_height_um": float(payload["slab_height_um"]) if payload.get("slab_height_um") not in (None, "") else (0.09 if is_si else 0.20),
+        "waveguide_width_um": float(payload.get("waveguide_width_um") or (0.45 if is_si else 1.00)),
+        "electrode_gap_um": float(payload.get("electrode_gap_um") or 5.0),
+        "run_gap_sweep": False,
+    })
+    return design_eom_electrode(EOMElectrodeConfig(**kw_rf))
+
+
+def _export_eom_multiphysics_gds_sync(payload: dict) -> dict:
+    mode = str(payload.get("mode") or "rf_electrode").lower().strip()
+    sim_res = payload.get("sim_result")
+    if not isinstance(sim_res, dict) or "metrics" not in sim_res:
+        sim_res = _eom_multiphysics_sync(payload)
+    sim_res = _upgrade_wafer_orientation_to_rf(payload, sim_res)
+
+    GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    if mode in ("pn_doping", "pn_doping_tcad") or sim_res.get("mode") == "pn_doping_tcad":
+        jtype = sim_res["config"]["junction_type"]
+        info = export_pn_doping_gds(sim_res, GDS_EXPORT_DIR / f"MicroRing_Si_PN_{jtype}.gds")
+    elif mode in ("thermal_fem", "thermal") or sim_res.get("mode") == "thermal_fem":
+        ts = sim_res["config"]["thermal_structure"]
+        smat = str(sim_res["config"]["core_material"]).replace("-", "")
+        info = export_thermal_shifter_gds(sim_res, GDS_EXPORT_DIR / f"MicroRing_Thermal_{ts}_{smat}.gds")
+    else:
+        etop = sim_res["resolved_topology"]
+        smat = str(sim_res["config"]["core_material"]).replace("-", "")
+        info = export_eom_electrode_gds(sim_res, GDS_EXPORT_DIR / f"MicroRing_EOM_{etop}_{smat}.gds")
+
+    saved = Path(info["gds_path"])
+    lyp_saved = Path(info["lyp_path"])
+    info["saved_path"] = str(saved)
+    info["gds_download_url"] = f"/api/download_file?name={saved.name}"
+    info["lyp_download_url"] = f"/api/download_file?name={lyp_saved.name}"
+    info["gds_view"] = analyze_uploaded_gds(str(saved))
+    return info
+
+
+async def api_export_eom_multiphysics_gds(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_export_eom_multiphysics_gds_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _export_eom_multiphysics_bundle_sync(payload: dict) -> dict:
+    mode = str(payload.get("mode") or "rf_electrode").lower().strip()
+    sim_res = payload.get("sim_result")
+    if not isinstance(sim_res, dict) or "metrics" not in sim_res:
+        sim_res = _eom_multiphysics_sync(payload)
+    sim_res = _upgrade_wafer_orientation_to_rf(payload, sim_res)
+
+    GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    if mode in ("pn_doping", "pn_doping_tcad", "thermal_fem", "thermal") or sim_res.get("mode") in ("pn_doping_tcad", "thermal_fem"):
+        sub = GDS_EXPORT_DIR / f"tcad_{sim_res.get('mode', mode)}"
+        bundle = export_tcad_data_bundle(sim_res, sub)
+    else:
+        etop = sim_res["resolved_topology"]
+        smat = str(sim_res["config"]["core_material"]).replace("-", "")
+        sub = GDS_EXPORT_DIR / f"eom_rf_{etop}_{smat}"
+        bundle = export_eom_rf_interconnect_bundle(sim_res, sub)
+
+    zp = Path(bundle["zip_path"])
+    bundle["zip_download_url"] = f"/api/download_file?name={zp.name}"
+    return bundle
+
+
+async def api_export_eom_multiphysics_bundle(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_export_eom_multiphysics_bundle_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
 async def api_download_file(request: Request) -> Response:
     raw_name = request.query_params.get("name", "")
     safe = _safe_filename(raw_name)
@@ -990,6 +1201,9 @@ def create_app() -> Starlette:
         Route("/api/design_mzi", api_design_mzi, methods=["POST"]),
         Route("/api/export_mzi_gds", api_export_mzi_gds, methods=["POST"]),
         Route("/api/export_mzi_interconnect", api_export_mzi_interconnect, methods=["POST"]),
+        Route("/api/eom_multiphysics", api_eom_multiphysics, methods=["POST"]),
+        Route("/api/export_eom_multiphysics_gds", api_export_eom_multiphysics_gds, methods=["POST"]),
+        Route("/api/export_eom_multiphysics_bundle", api_export_eom_multiphysics_bundle, methods=["POST"]),
         Route("/api/download_file", api_download_file, methods=["GET"]),
         Route("/api/demo_spectrum", api_demo_spectrum, methods=["GET"]),
         Route("/api/fit_spectrum", api_fit_spectrum, methods=["POST"]),

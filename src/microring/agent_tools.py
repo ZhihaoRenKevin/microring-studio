@@ -49,6 +49,22 @@ from .mzi_interferometer import (
     export_mzi_interconnect_bundle,
     simulate_mzi,
 )
+from .eom_electrode import (
+    EOMElectrodeConfig,
+    analyze_eo_wafer_orientation,
+    design_eom_electrode,
+    export_eom_electrode_gds,
+    export_eom_rf_interconnect_bundle,
+)
+from .multiphysics_tcad import (
+    PNDopingTCADConfig,
+    ThermalSimConfig,
+    export_pn_doping_gds,
+    export_tcad_data_bundle,
+    export_thermal_shifter_gds,
+    simulate_pn_doping_tcad,
+    simulate_thermal_phase_shifter,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
@@ -728,6 +744,168 @@ def agent_design_mzi(params: dict) -> dict:
         ic = export_mzi_interconnect_bundle(res, AGENT_OUT_DIR / f"mzi_ic_{sp['splitter_type']}_{cfg.core_material}")
         out["interconnect_zip"] = ic["zip_path"]
     return out
+
+
+def agent_eom_multiphysics(params: dict) -> dict:
+    """Run local 2D-FEM RF EOM Electrode (`rf_electrode`), EO Wafer Orientation (`wafer_orientation`), Si PN Doping TCAD (`pn_doping`), or Steady+Transient Thermal FEM (`thermal_fem`) (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    mode = str(params.get("mode") or "rf_electrode").lower().strip()
+
+    if mode in ("wafer_orientation", "orientation", "wafer_cut"):
+        q_raw = params.get("query_azimuth_deg", params.get("azimuth_deg"))
+        q_deg = None if q_raw in (None, "", "auto") else float(q_raw)
+        ovl_raw = params.get("eo_overlap_factor")
+        ovl_val = None if ovl_raw in (None, "", "auto") else float(ovl_raw)
+        h_raw = params.get("film_height_um", params.get("h_um"))
+        s_raw = params.get("slab_height_um", params.get("slab_um"))
+        w_raw = params.get("waveguide_width_um", params.get("w_um"))
+        res = analyze_eo_wafer_orientation(
+            core_material=str(params.get("core_material") or params.get("mat") or "LN_Xcut"),
+            wafer_cut=str(params.get("wafer_cut") or "auto"),
+            polarization=str(params.get("polarization") or params.get("pol") or "TE0"),
+            electrode_field_axis=str(params.get("electrode_field_axis") or "auto"),
+            wavelength_nm=float(params.get("wavelength_nm") or params.get("wl_nm") or 1550.0),
+            electrode_gap_um=float(params.get("electrode_gap_um") or params.get("gap_um") or 5.0),
+            eo_overlap_factor=ovl_val,
+            query_azimuth_deg=q_deg,
+            film_height_um=float(h_raw) if h_raw is not None else None,
+            slab_height_um=float(s_raw) if s_raw is not None else None,
+            waveguide_width_um=float(w_raw) if w_raw is not None else None,
+            custom_r33_pm_v=float(params["custom_r33_pm_v"]) if params.get("custom_r33_pm_v") is not None else None,
+            custom_r13_pm_v=float(params["custom_r13_pm_v"]) if params.get("custom_r13_pm_v") is not None else None,
+            custom_r51_pm_v=float(params["custom_r51_pm_v"]) if params.get("custom_r51_pm_v") is not None else None,
+            custom_r22_pm_v=float(params["custom_r22_pm_v"]) if params.get("custom_r22_pm_v") is not None else None,
+            custom_eps_rf_perp=float(params["custom_eps_rf_perp"]) if params.get("custom_eps_rf_perp") is not None else None,
+            custom_eps_rf_c=float(params["custom_eps_rf_c"]) if params.get("custom_eps_rf_c") is not None else None,
+        )
+        m = res["metrics"]
+        return {
+            "mode": "wafer_orientation",
+            "mat": res["core_material"],
+            "wafer_cut": res["wafer_cut"],
+            "point_group": res["point_group"],
+            "opt_azimuth_deg": m["optimal_azimuth_deg"],
+            "r_eff_opt_pm_V": m["r_eff_optimal_pm_per_v"],
+            "V_pi_L_opt_Vcm": m["V_pi_L_optimal_Vcm"],
+            "active_azimuth_deg": m["active_azimuth_deg"],
+            "r_eff_act_pm_V": m["r_eff_active_pm_per_v"],
+            "ring_unsplit_pct": m["ring_unsplit_efficiency_pct"],
+            "ring_split_pct": m["ring_split_pushpull_efficiency_pct"],
+            "flat_label": res["crystal_axes"]["flat_label"],
+            "ms": res["elapsed_ms"],
+        }
+
+    if mode in ("pn_doping", "pn_doping_tcad", "pn_tcad", "pn"):
+        pn_fields = {f.name for f in fields(PNDopingTCADConfig)}
+        aliases = {"wl_nm": "wavelength_nm", "pol": "polarization", "h_um": "film_height_um", "slab_um": "slab_height_um", "w_um": "waveguide_width_um", "l_um": "active_length_um"}
+        kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in pn_fields}
+        res = simulate_pn_doping_tcad(PNDopingTCADConfig(**kw))
+        m = res["metrics"]
+        out = {
+            "mode": "pn_doping_tcad",
+            "junction": res["config"]["junction_type"],
+            "bias_V": m["operating_bias_V"],
+            "V_pi_L_Vcm": m["V_pi_L_Vcm"],
+            "V_pi_V": m["V_pi_V"],
+            "FCA_dB_cm": m["alpha_FCA_bias_dB_per_cm"],
+            "VpiL_alpha_VdB": m["V_pi_L_alpha_V_dB"],
+            "Cj_fF_um": m["Cj_bias_fF_per_um"],
+            "Rs_ohm_cm": m["R_series_ohm_cm"],
+            "f_RC_GHz": m["f_RC_GHz"],
+            "f_TW_3dBo_GHz": m["f_TW_3dBo_GHz"],
+            "ms": res["elapsed_ms"],
+        }
+        if params.get("export_gds"):
+            out["gds"] = export_pn_doping_gds(res, AGENT_OUT_DIR / f"eom_pn_{res['config']['junction_type']}.gds")["gds_path"]
+        if params.get("export_bundle"):
+            out["bundle_zip"] = export_tcad_data_bundle(res, AGENT_OUT_DIR / "tcad_pn")["zip_path"]
+        return out
+
+    if mode in ("thermal", "thermal_fem", "heater"):
+        th_fields = {f.name for f in fields(ThermalSimConfig)}
+        aliases = {"mat": "core_material", "wl_nm": "wavelength_nm", "pol": "polarization", "h_um": "film_height_um", "slab_um": "slab_height_um", "w_um": "waveguide_width_um", "l_um": "active_length_um", "structure": "thermal_structure"}
+        kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in th_fields}
+        res = simulate_thermal_phase_shifter(ThermalSimConfig(**kw))
+        m = res["metrics"]
+        out = {
+            "mode": "thermal_fem",
+            "structure": res["config"]["thermal_structure"],
+            "mat": res["config"]["core_material"],
+            "P_pi_mW": m["P_pi_mW"],
+            "V_pi_V": m["V_pi_V"],
+            "R_ohm": m["R_heater_ohm"],
+            "f_3dB_kHz": m["f_3dB_thermal_kHz"],
+            "t_rise_us": m["t_rise_10_90_us"],
+            "t_fall_us": m["t_fall_90_10_us"],
+            "Ppi_tau_mW_us": m["FOM_Ppi_tau_mW_us"],
+            "xtalk_pct": m["crosstalk_at_neighbor_pct"],
+            "ms": res["elapsed_ms"],
+        }
+        if params.get("export_gds"):
+            out["gds"] = export_thermal_shifter_gds(res, AGENT_OUT_DIR / f"eom_thermal_{res['config']['thermal_structure']}.gds")["gds_path"]
+        if params.get("export_bundle"):
+            out["bundle_zip"] = export_tcad_data_bundle(res, AGENT_OUT_DIR / "tcad_thermal")["zip_path"]
+        return out
+
+    rf_fields = {f.name for f in fields(EOMElectrodeConfig)}
+    aliases = {
+        "topology": "electrode_topology",
+        "mat": "core_material",
+        "substrate": "substrate_type",
+        "metal": "metal_material",
+        "wl_nm": "wavelength_nm",
+        "pol": "polarization",
+        "h_um": "film_height_um",
+        "slab_um": "slab_height_um",
+        "w_um": "waveguide_width_um",
+        "l_um": "active_length_um",
+        "gap_um": "electrode_gap_um",
+        "ws_um": "signal_width_um",
+        "l_rail_um": "t_rail_length_um",
+        "t_period_um": "t_rail_period_um",
+        "t_cap_w_um": "t_rail_cap_width_um",
+        "t_metal_um": "metal_thickness_um",
+        "f_max_ghz": "max_freq_ghz",
+        "azimuth_deg": "waveguide_azimuth_deg",
+    }
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in rf_fields}
+    kw.setdefault("run_gap_sweep", False)
+    res = design_eom_electrode(EOMElectrodeConfig(**kw))
+    m = res["metrics"]
+    d = res["dimensions"]
+    wo_m = res["wafer_orientation"]["metrics"]
+    out = {
+        "mode": "rf_electrode",
+        "topology": res["resolved_topology"],
+        "mat": res["config"]["core_material"],
+        "wafer_cut": res["wafer_orientation"]["wafer_cut"],
+        "azimuth_deg": wo_m["active_azimuth_deg"],
+        "WS_um": d["signal_width_um"],
+        "G_um": d["inner_gap_um"],
+        "Z0_ohm": m["Z0_ohm"],
+        "n_RF": m["n_RF"],
+        "n_g_opt": m["n_g_opt"],
+        "f_3dBo_GHz": m["f_3dBo_GHz"],
+        "f_3dBe_GHz": m["f_3dBe_GHz"],
+        "bottleneck": m["limiting_mechanism"],
+        "PAM4_Gbps": m["max_pam4_gbps"],
+        "V_pi_L_Vcm": m["V_pi_L_Vcm"],
+        "V_pi_V": m["V_pi_V"],
+        "alpha_RF_40G_dB_cm": m["alpha_RF_40GHz_dB_per_cm"],
+        "alpha_metal_opt_dB_cm": m["alpha_metal_opt_db_per_cm"],
+        "ms": res["elapsed_ms"],
+    }
+    if res["resolved_topology"] == "t_rail_cpw" or float(res["config"].get("max_freq_ghz", 150.0)) >= 200.0:
+        out["L_rail_um"] = d["t_rail_length_um"]
+        out["S21_EO_300G_dBe"] = m.get("S21_EO_300GHz_dBe")
+        out["alpha_RF_300G_dB_cm"] = m.get("alpha_RF_300GHz_dB_per_cm")
+        out["f_Bragg_GHz"] = m.get("f_bragg_cutoff_GHz")
+    if params.get("export_gds"):
+        out["gds"] = export_eom_electrode_gds(res, AGENT_OUT_DIR / f"eom_rf_{res['resolved_topology']}_{res['config']['core_material']}.gds")["gds_path"]
+    if params.get("export_bundle"):
+        out["bundle_zip"] = export_eom_rf_interconnect_bundle(res, AGENT_OUT_DIR / f"eom_rf_{res['resolved_topology']}")["zip_path"]
+    return out
+
 
 
 

@@ -68,13 +68,25 @@ class HardwareProfile:
     recommended_workers: int
     badge_label: str                # concise UI header badge
 
-    def to_dict(self) -> dict:
-        d = asdict(self)
-        d["cpu_cores"] = self.logical_cores
-        d["gpu_name"] = self.cuda_device_name or (
+    @property
+    def cpu_cores(self) -> int:
+        return self.logical_cores
+
+    @property
+    def gpu_name(self) -> str | None:
+        return self.cuda_device_name or (
             "Apple Silicon Unified AMX/Metal" if self.os_name == "macOS" and self.arch == "arm64" else None
         )
-        d["recommended_backend"] = self.badge_label
+
+    @property
+    def recommended_backend(self) -> str:
+        return self.badge_label
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["cpu_cores"] = self.cpu_cores
+        d["gpu_name"] = self.gpu_name
+        d["recommended_backend"] = self.recommended_backend
         return d
 
 

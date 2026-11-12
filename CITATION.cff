@@ -1,13 +1,13 @@
 cff-version: 1.2.0
-title: "MicroRing Studio: License-Free Photonic IC, Microring Resonator, Mach-Zehnder Interferometer, Butt/Grating Coupler, and High-Q CAD Suite"
+title: "MicroRing Studio: License-Free Photonic IC, Microring Resonator, Mach-Zehnder Interferometer, Sub-THz EOM RF Electrode, Si PN TCAD, Thermal FEM, and High-Q CAD Suite"
 message: "If MicroRing Studio helps your research, tape-out, or teaching, please cite it using the metadata below."
 type: software
 authors:
   - family-names: "Ren"
     given-names: "Zhihao"
     orcid: "https://orcid.org/0000-0002-2520-0784"
-version: 3.6.0
-date-released: "2026-11-02"
+version: 3.7.0
+date-released: "2026-11-12"
 license: MIT
 repository-code: "https://github.com/ZhihaoRenKevin/microring-studio"
 keywords:
@@ -15,6 +15,10 @@ keywords:
   - optical interconnect
   - microring resonator
   - Mach-Zehnder interferometer
+  - electro-optic modulator
+  - slow-wave T-rail electrode
+  - silicon PN doping TCAD
+  - transient thermal FEM
   - multimode interference coupler
   - grating coupler
   - butt and edge coupler

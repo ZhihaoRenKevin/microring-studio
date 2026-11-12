@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.6.0"
+__version__ = "3.7.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -16,6 +16,7 @@ from .agent_tools import (
     agent_active_tuning,
     agent_design_mrr,
     agent_design_mzi,
+    agent_eom_multiphysics,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -24,6 +25,28 @@ from .agent_tools import (
     agent_status,
     agent_sweep_mrr,
     agent_width_cutoff,
+)
+from .eom_electrode import (
+    ELECTRODE_METAL_CATALOG,
+    EO_WAFER_CUT_CATALOG,
+    EOM_ELECTRODE_CATALOG,
+    RF_SUBSTRATE_CATALOG,
+    EOMElectrodeConfig,
+    analyze_eo_wafer_orientation,
+    design_eom_electrode,
+    export_eom_electrode_gds,
+    export_eom_rf_interconnect_bundle,
+)
+from .multiphysics_tcad import (
+    PN_JUNCTION_CATALOG,
+    THERMAL_STRUCTURE_CATALOG,
+    PNDopingTCADConfig,
+    ThermalSimConfig,
+    export_pn_doping_gds,
+    export_tcad_data_bundle,
+    export_thermal_shifter_gds,
+    simulate_pn_doping_tcad,
+    simulate_thermal_phase_shifter,
 )
 from .conformal_mesher import build_conformal_waveguide_mesh
 from .copilot import (
@@ -115,7 +138,26 @@ __all__ = [
     "agent_active_tuning",
     "agent_design_mrr",
     "agent_design_mzi",
+    "agent_eom_multiphysics",
     "agent_fab_tolerance",
+    "ELECTRODE_METAL_CATALOG",
+    "EO_WAFER_CUT_CATALOG",
+    "EOM_ELECTRODE_CATALOG",
+    "EOMElectrodeConfig",
+    "PN_JUNCTION_CATALOG",
+    "PNDopingTCADConfig",
+    "RF_SUBSTRATE_CATALOG",
+    "THERMAL_STRUCTURE_CATALOG",
+    "ThermalSimConfig",
+    "analyze_eo_wafer_orientation",
+    "design_eom_electrode",
+    "export_eom_electrode_gds",
+    "export_eom_rf_interconnect_bundle",
+    "export_pn_doping_gds",
+    "export_tcad_data_bundle",
+    "export_thermal_shifter_gds",
+    "simulate_pn_doping_tcad",
+    "simulate_thermal_phase_shifter",
     "agent_fit_spectrum",
     "agent_high_q_fdtd",
     "agent_inspect_gds",

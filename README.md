@@ -1,12 +1,12 @@
 # MicroRing Studio
 
-**License-free Photonic IC and Optical Interconnect CAD for microring resonators, Mach-Zehnder Interferometers (`MZI`: `Y-Branch` / `DC` / `MMI`), Butt/Edge couplers, 2D Full-Wave `FDFD` Grating Couplers, instant Ultra-High-Q (`10^4` to `10^8+`) convergence, 2D-FEM modulators, bidirectional GDSII masks, and Ansys Lumerical INTERCONNECT export, with zero Lumerical MODE/FDTD, Synopsys RSoft, or COMSOL licenses.**
+**License-free Photonic IC and Optical Interconnect CAD for microring resonators, Mach-Zehnder Interferometers (`MZI`: `Y-Branch` / `DC` / `MMI`), Traveling-Wave / Slow-Wave `T-Rail` EOM RF Electrodes, 2D Nonlinear Poisson-Boltzmann `Si PN` Doping TCAD, Steady + Transient Thermal FEM, Butt/Edge & 2D-`FDFD` Grating Couplers, instant Ultra-High-Q (`10^4` to `10^8+`) convergence, bidirectional GDSII masks, and Ansys Lumerical INTERCONNECT export, with zero Lumerical MODE/FDTD/CHARGE/HEAT, HFSS, RSoft, or COMSOL licenses.**
 
 [English](./README.md) | [简体中文](./docs/README_zh-CN.md) | [Verification & Benchmarks](./docs/VERIFICATION_AND_BENCHMARKS.md) | [Chatbot & GDS Tutorial](./docs/tutorials/chatbot_and_gds_guide.md) | [Codex & Claude MCP Guide](./docs/tutorials/ai_agents_codex_claude.md) | [llms.txt](./docs/llms.txt) | [Changelog](./CHANGELOG.md)
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.6.0](https://img.shields.io/badge/release-v3.6.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.6.0)
+[![Release: v3.7.0](https://img.shields.io/badge/release-v3.7.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.7.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./docs/VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./docs/tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -24,7 +24,12 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
 2. **High-Q microring non-convergence in time-domain FDTD**: For a low-loss `Si3N4`, `TFLN`, or `SiC` ring (`Q_loaded = 3 x 10^6`, `tau_ph = 2.49 ns`), reaching `auto shutoff min = 1e-5` in 3D FDTD requires **`28.6 ns` (`> 8,200` cavity round-trips)**; stopping FDTD early produces severe FFT sinc-ringing and collapses the apparent extinction ratio from `64 dB` down to `< 2 dB`.
 3. **Layout-to-circuit disconnect**: A `.gds` mask drawn in KLayout or `gdsfactory` has to be manually re-measured for simulation, while device sweeps rarely export directly into `127 um` fiber-array test loops or `Ansys Lumerical INTERCONNECT` circuit compact models.
 
-**MicroRing Studio (`v3.6.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app:
+**MicroRing Studio (`v3.7.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app:
+- **EOM RF Electrode Layout, 3D EO Wafer Orientation, 2D Si PN Doping TCAD & Steady/Transient Thermal FEM (`📡 EOM · PN · Thermal`, Zero HFSS / CHARGE / HEAT / COMSOL)**:
+  - **Sub-THz (`100–300+ GHz`) Traveling-Wave & Slow-Wave `T-Rail` RF EOM Electrodes (`design_eom_electrode`)**: Synthesizes `50 Ohm` `GSG CPW`, velocity-matched periodic slow-wave `T-Rail CPW` ($n_{\mathrm{RF}} \approx n_g$, `f_3dBe > 300 GHz` on Quartz/Undercut-Si with ABCD Bloch-Floquet Bragg cutoff & Frankel-Rutledge Cherenkov radiation diagnostics), `GS`, `Vertical Microstrip`, and two-sideband CMT optical-peaking `Ring GSG` electrodes across `TFLN`, `TFLT`, `BTO`, `PZT`, `ScAlN`, `SiC`, and `Si PN`, exporting DRC/LVS-clean `.GDS` masks (`100/125/150/200 um` GSG probe pads with `METAL_2`/`VIA` crossover bridges, Step-2 slab corridors, Layer `66/0` Wafer Flat + Crystal Compass), IEEE Touchstone `.s2p`, and Lumerical INTERCONNECT `TWMOD` bundles.
+  - **3D Crystal-Tensor EO Wafer Orientation & Azimuth Finder (`analyze_eo_wafer_orientation`)**: Sweeps `0°–360°` propagation azimuth across `3m` (`X/Y/Z-cut TFLN & TFLT`), `4mm` (`a-cut/c-cut BTO` & radially self-poled `PZT`), `6mm` (`C/A-plane AlN/ScAlN/4H-SiC`), and `-43m` (`(001)/(110) 3C-SiC`), reporting optimal waveguide angle vs SEMI wafer flat, leaky shear-walk-off warnings, and circular microring unsplit vs split push-pull efficiency.
+  - **2D Nonlinear Poisson-Boltzmann Silicon PN / PIN Doping TCAD (`simulate_pn_doping_tcad`)**: Solves damped Newton-Raphson space-charge electrostatics across `Lateral`, `L-Shaped`, `U-Shaped`, and `PIN` junctions with 3-stage implants (`p/n` core, `p+/n+` slab, `10^20 cm^-3` silicide contact + Gaussian straggle), extracting 2D carrier maps, $C_j(V)$, Caughey-Thomas $R_s$, $f_{\mathrm{RC}}$, Soref-Bennett $V_\pi L(V)$ & $\alpha_{\mathrm{FCA}}(V)$, and multi-implant `.GDS` (`5/0`, `6/0`, `12/0`).
+  - **2D Steady-State + Crank-Nicolson Transient Thermal FEM (`simulate_thermal_phase_shifter`)**: Solves $\mathbf{K}_{\mathrm{th}}$ & $\mathbf{M}_{\mathrm{th}}$ across `Top Heater`, `Deep Air-Trench` (`40/0`), `XeF2 Si-Undercut Suspended` (sub-`1 mW` $P_\pi$), and `In-Rib Doped-Si` heaters, extracting $P_\pi$, $t_{10\text{--}90\%}$ heating/cooling waveforms, $f_{3\mathrm{dB,th}}$, and neighbor thermal crosstalk decay.
 - **Mach-Zehnder Interferometer (`MZI`) & High-Speed Modulator Suite (`🔀 MZI`, Zero 3D FDTD)**:
   - **Selectable `50:50` Splitters (`DC`, `2x2 MMI`, `1x2 MMI`, `Y-Branch`) Solved Directly from 2D Vector FEM + EME**: Solves `2x2` Directional Couplers via mirror-symmetric Twin-Core Even/Odd supermodes ($n_{\mathrm{even}}, n_{\mathrm{odd}}$), `1x2` & `2x2` Multimode Interference (`MMI`) couplers via Multi-Mode 2D-FEM Eigenmode Expansion (`EME`, up to 11 guided modes + complex Poynting access-taper overlap + 2D $|E(x,z)|$ self-imaging map), and `1x2` adiabatic Y-Branches via waist-narrowed apex supermode overlap across the foundry minimum gap.
   - **Passive, `RAMZI` & Push-Pull Modulator Tuning (`V_π·L`, `P_π`, Non-Cavity `3-dB` BW)**: Evaluates balanced/unbalanced MZI spectra, Ring-Assisted MZIs (`RAMZI`), and push-pull / single-arm `Si PN`, `X-cut TFLN / SiC / ScAlN Pockels EO`, `TiN Thermo-Optic`, and `Si PIN` modulators (`V`, `mA`, `mW`, `ΔT`, `E`), exporting foundry `.GDS` masks and passive-verified **Ansys Lumerical INTERCONNECT** `SPAR .dat` + `OMM .txt` + `.lsf` `.zip` bundles.
@@ -48,11 +53,11 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
 - **Cleanroom Lithography Dose & Photoresist Polarity Error Analysis (`🧪 Fab & Dose`)**:
   - Evaluates realistic **Over-Dose** and **Under-Dose** fabrication errors for both **Positive Photoresist** (`ZEP520A`, `CSAR 62`, `PMMA`, `KrF/ArF DUV`, where over-dose shrinks core width $W - |\Delta\mathrm{CD}|$, widens gap $g + \eta|\Delta\mathrm{CD}|$, shifts toward under-coupling, and blue-shifts resonance) and **Negative Photoresist** (`HSQ`, `ma-N 2403`, `SU-8`, or lift-off, where over-dose blooms core width $W + \Delta\mathrm{CD}$, shrinks gap $g - \eta\Delta\mathrm{CD}$ with proximity gap-bridging alerts, shifts toward over-coupling, and red-shifts resonance).
   - Extracts the **`ER >= 15 dB` CD & Exposure Dose Yield Window**, resonance sensitivity `dλ/dCD [pm/nm]`, TiN heater $\Delta T$ trim budget, and exports a **5-Cell Pre-Biased Compensation `.GDS` Array** (`ΔCD_drawn = [-20, -10, 0, +10, +20] nm`) so at least one cell on-wafer hits critical coupling despite dose drift.
-- **7 Topologies & 24 Multi-Waveband Materials (`Visible 400 nm` $\rightarrow$ `O-Band 1310 nm` $\rightarrow$ `C-Band 1550 nm` $\rightarrow$ `SWIR 2 µm` $\rightarrow$ `Mid-IR 3–14 µm`)**:
+- **7 Topologies & 29 Multi-Waveband Materials (`Visible 400 nm` $\rightarrow$ `O-Band 1310 nm` $\rightarrow$ `C-Band 1550 nm` $\rightarrow$ `SWIR 2 µm` $\rightarrow$ `Mid-IR 3–14 µm`)**:
   - **Topologies**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, and `vernier_crow_ad` (2nd-order CROW / Vernier filter).
-  - **Materials (24)**:
-    - *Visible / VNIR / Quantum (`400–950 nm`)*: `TiO2` (anatase, athermal $dn/dT < 0$), `Ta2O5`, `GaN` (uniaxial), `Diamond` (UV–LWIR), `Al2O3`, `AlN`, `Si3N4`, `4H-SiC`, `LN Z/X-cut`.
-    - *O-Band (`1310 nm`), C/L-Band (`1550 nm`) & SWIR (`2000 nm`)*: `Si (SOI)`, `a-Si:H`, `LPCVD Si3N4`, `Si-Rich SiNx`, `4H-SiC`, `3C-SiC`, `AlN`, `ScAlN (10% / 20% / 30% Sc)`, `Z-cut TFLN`, `X-cut TFLN` (in-plane orientation averaging), `GSST` (amorphous & crystalline PCM).
+  - **Materials (29)**:
+    - *Visible / VNIR / Quantum (`400–950 nm`)*: `TiO2` (anatase, athermal $dn/dT < 0$), `Ta2O5`, `GaN` (uniaxial), `Diamond` (UV–LWIR), `Al2O3`, `AlN`, `Si3N4`, `4H-SiC`, `LN Z/X-cut`, `LT Z/X-cut`.
+    - *O-Band (`1310 nm`), C/L-Band (`1550 nm`) & SWIR (`2000 nm`)*: `Si (SOI)`, `a-Si:H`, `LPCVD Si3N4`, `Si-Rich SiNx`, `4H-SiC`, `3C-SiC`, `AlN`, `ScAlN (10% / 20% / 30% Sc)`, `Z/X-cut TFLN (LiNbO3)`, `Z/X-cut TFLT (LiTaO3, ultra-low Δn = 0.0038)`, `Epitaxial BTO (BaTiO3, r_42^S = 360 pm/V)`, `In-Plane Poled PZT (PbZrTiO3, r_eff = 110 pm/V)`, `GSST` (amorphous & crystalline PCM).
     - *Mid-IR (`3.0–14.0 µm`)*: `Ge` (`Ge-on-CaF2`, `Ge-on-MgF2`, `Ge-on-Si`), `Diamond`, `Si` (suspended / sapphire), `CaF2`, `MgF2`, `Air`, `SiO2` (with automatic $>3.6\text{ µm}$ multiphonon & interband absorption warnings!).
 - **Hardware-Aware Across macOS & Windows (`CUDA GPU` vs `CPU`)**: Automatically probes **NVIDIA CUDA (`FP64`)** on Windows/Linux workstations, **Apple Silicon Accelerate AMX / Metal (`MLX`/`MPS`)** on M-series Macs, or **Multi-Core Vectorized CPU** on standard laptops (>25 Million wavelength pts/s for broadband TMM spectra).
 
@@ -87,8 +92,8 @@ Download the pre-built desktop installer from [**GitHub Releases**](https://gith
 
 | Operating System | Download Package | How to Install & Open |
 | :--- | :--- | :--- |
-| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.6.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
-| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.6.0-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
+| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.7.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
+| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.7.0-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
 
 *(Exported `.gds` masks, `.lyp` color maps, and `.csv` spectra from the standalone desktop app are saved locally in `~/Documents/MicroRing_Studio/`.)*
 
@@ -194,7 +199,7 @@ uv run microring
 With your `.venv` (or Conda environment) activated:
 
 ```bash
-# 0. Check CPU/GPU backend, 100k-pt TMM speed & 24 optical materials:
+# 0. Check CPU/GPU backend, 100k-pt TMM speed & 29 optical materials:
 python examples/00_getting_started/00_check_environment.py
 
 # 1. Sweep waveguide width to find exact TE0 single-mode cutoff on 400 nm Si3N4:
@@ -221,6 +226,9 @@ python examples/01_devices_and_sweeps/06_butt_gc_couplers_and_high_q_fdtd.py
 # 3f. 2D-FEM/EME Mach-Zehnder Interferometers (DC, MMI, Y-Branch), push-pull modulators & INTERCONNECT:
 python examples/01_devices_and_sweeps/07_mzi_spectra_dc_mmi_and_modulators.py
 
+# 3g. Sub-THz 300 GHz TFLN T-Rail RF EOM electrodes, EO wafer orientation, Si PN TCAD & Thermal FEM:
+python examples/01_devices_and_sweeps/08_eom_rf_electrode_pn_tcad_and_thermal.py
+
 # 4. Create single-device & 5-ring MPW sweep array .GDS + KLayout .lyp:
 python examples/02_gds_roundtrip/01_create_mrr_and_sweep_array_gds.py
 
@@ -230,7 +238,7 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. Fit CW/CCW split-doublet & multi-FSR experimental spectra via CMT:
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# Run all 13 automated verification suites:
+# Run all 14 automated verification suites:
 python tests/test_microring_all.py
 ```
 
@@ -300,6 +308,9 @@ uv run microring agent high-q --mat Si3N4 --top pulley_ap --r 100 --loss 0.08 --
 
 # 2D-FEM/EME Mach-Zehnder Interferometer (Y-Branch / DC / MMI) + Modulator V_pi*L + INTERCONNECT (<145 tokens):
 uv run microring agent mzi --mat Si --h 0.22 --slab 0.09 --splitter mmi_2x2 --l1 1500 --dl 60 --mech si_pn_depletion --gds --interconnect
+
+# Slow-Wave T-Rail RF EOM Electrode / Si PN TCAD / Steady+Transient Thermal FEM (<145 tokens):
+uv run microring agent eom --mode rf_electrode --topology t_rail_cpw --mat LN_Xcut --substrate quartz --gds --bundle
 ```
 
 ---
@@ -313,12 +324,14 @@ microring-studio/
 ├── packaging/                             Windows Inno Setup (.iss) & installer CI workflow
 ├── .devcontainer/                         1-click GitHub Codespaces cloud browser configuration
 ├── src/microring/
-│   ├── materials.py                       24 multi-band materials (Vis -> O/C -> Mid-IR, dn/dT, r_ij, k)
+│   ├── materials.py                       29 multi-band materials (Vis -> O/C -> Mid-IR, TFLN/TFLT/BTO/PZT)
 │   ├── conformal_mesher.py                Pure-BSD constrained Delaunay waveguide mesher (zero GPL)
 │   ├── eigenmode_solver.py                2D full-vector Nedelec1/Lagrange FEM (bent + straight) & FDE
 │   ├── mrr_cmt_spatial.py                 Cylindrical vector overlap & pulley spatial CMT integrator
 │   ├── mrr_topologies.py                  7 MRR topologies, High-Q convergence, coupler cutout & GDS
 │   ├── mzi_interferometer.py              2D-FEM/EME MZI splitters (DC/MMI/Y-Branch), modulators & GDS/IC
+│   ├── eom_electrode.py                   Sub-THz 300+ GHz T-Rail / CPW EOM electrode, Wafer Cut, .S2P & GDS
+│   ├── multiphysics_tcad.py               2D Poisson-Boltzmann Si PN TCAD & Crank-Nicolson Thermal FEM
 │   ├── io_couplers.py                     2D-FEM Butt/Edge couplers & 2D Full-Wave FDFD Grating Couplers
 │   ├── active_tuning.py                   2D-FEM TO/EO/Si-PN active tuning & Lumerical INTERCONNECT export
 │   ├── fab_tolerance.py                   Positive/Negative PR over/under-dose & CD-bias error analyzer
@@ -331,10 +344,10 @@ microring-studio/
 │   ├── ui_frontend.py                     Zero-CDN Retina 2x Canvas + SVG split-screen workbench
 │   ├── desktop_app.py  cli.py             Native pywebview launcher & `microring` CLI
 │   └── build_standalone.py                PyInstaller packager for macOS .dmg & Windows Setup .exe
-├── examples/                              11 self-contained cookbook scripts (Visible -> 1310/1550 -> Mid-IR)
+├── examples/                              13 self-contained cookbook scripts (Visible -> 1310/1550 -> Mid-IR)
 ├── benchmarks/                            FEM vs Yee-FDE audit, Lumerical runner & hero figure generator
 ├── docs/                                  Chinese README, tutorials, benchmarks, contributing & llms.txt
-└── tests/                                 13-suite automated verification tests
+└── tests/                                 14-suite automated verification tests
 ```
 
 ---
@@ -361,6 +374,7 @@ python -m microring.build_standalone --target windows-cuda
 
 - **2D Eigenmode + Spatial CMT + Instant High-Q Accuracy**: On standard weakly-to-moderately coupled integrated microrings (`gap >= 150 nm`), the 2D conformal vector FEM (`Nedelec1` transverse + `Lagrange P2` longitudinal with conformal cylindrical coordinate mapping) matches mesh-converged commercial FEM solvers to $|\Delta n_{\mathrm{eff}}| < 5 \times 10^{-4}$ while solving steady-state High-Q resonances ($Q = 10^4$ to $10^8+$) in `~1 s` without time-domain ring-down error.
 - **2D Sagittal FDFD Grating Couplers, 2D-FEM Butt Couplers & 2D-FEM/EME MZI Splitters**: `design_grating_coupler` solves full-wave 2D Maxwell `FDFD` across etched grooves, `BOX`, and bottom Si substrate (`~2.5 s`). `simulate_mzi` solves `DC` (twin-core supermodes), conventional `1x2`/`2x2 MMI` (multi-mode 2D-FEM `EME` + Poynting taper overlap), and adiabatic `Y-Branch` splitters without 3D FDTD. Subwavelength metamaterial (`SWG`) MMIs/gratings, pixelated inverse-designed splitters, dual-polarization 2D GCs, and non-tapered corner back-reflections still require 3D FDTD verification before final tape-out.
+- **2D Quasi-TEM RF Electrodes, 2D Poisson-Boltzmann PN TCAD & 2D Steady/Transient Thermal FEM**: `design_eom_electrode` combines 2D quasi-TEM Laplace FEM, Ghione (1993) conformal skin loss, symmetric ABCD Bloch-Floquet periodic unit-cell dispersion, and Frankel-Rutledge Cherenkov substrate shockwave radiation up to sub-THz frequencies (`100-300+ GHz` on low-index Quartz or $\mathrm{XeF}_2$-undercut TFLN; above `250-300 GHz`, full-wave 3D FEM/FDTD verification of 3D GSG pad-launch transitions and package modes is recommended prior to cleanroom sign-off). `simulate_pn_doping_tcad` solves isothermal 2D Boltzmann-statistics electrostatics (excluding impact ionization, quantum confinement, or self-heating). `simulate_thermal_phase_shifter` solves 2D cross-section Fourier conduction with an analytical longitudinal oxide suspension-bridge anchor conductance term for `undercut_suspended` cavities.
 - **When Full 3D FDTD Is Still Needed**: Ultra-tight sub-`120 nm` gaps, abrupt pulley transition tapers, substrate leakage through thin buried oxide (`BOX`), and vertical scattering radiation loss ($Q_{\mathrm{rad}}$ in ultra-sharp bends) require 3D FDTD verification (for High-Q rings, use `export_coupler_cutout_gds` to run a `< 1 ps` single-pass 3D FDTD on the coupler region only).
 - **2D Planar GDSII Scope**: GDSII/OASIS files encode in-plane `(x, y)` polygons only; vertical film thickness (`H_film`), partial-etch slab (`H_slab`), and sidewall angle must always be confirmed against your foundry's PDK design manual.
 

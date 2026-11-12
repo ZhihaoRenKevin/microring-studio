@@ -105,6 +105,11 @@ THERMAL_CONDUCTIVITY_W_MK: dict[str, float] = {
     "3C-SiC": 320.0,
     "LN_Zcut": 4.60,
     "LN_Xcut": 4.60,
+    "LT_Xcut": 4.60,
+    "LT_Zcut": 4.60,
+    "BTO": 3.80,
+    "BTO_ccut": 3.80,
+    "PZT": 1.40,
     "SiO2": 1.38,
     "CaF2": 9.70,
     "MgF2": 11.6,
@@ -127,6 +132,11 @@ VOLUMETRIC_HEAT_CAPACITY_J_M3K: dict[str, float] = {
     "4H-SiC": 2.21e6,
     "LN_Xcut": 2.91e6,
     "LN_Zcut": 2.91e6,
+    "LT_Xcut": 3.17e6,
+    "LT_Zcut": 3.17e6,
+    "BTO": 2.61e6,
+    "BTO_ccut": 2.61e6,
+    "PZT": 2.66e6,
     "CaF2": 2.71e6,
     "Al2O3": 3.08e6,
 }
@@ -146,6 +156,11 @@ STATIC_PERMITTIVITY_DC: dict[str, tuple[float, float]] = {
     "3C-SiC": (9.7, 9.7),
     "LN_Zcut": (44.0, 28.0),
     "LN_Xcut": (28.0, 44.0),
+    "LT_Xcut": (43.0, 41.0),
+    "LT_Zcut": (41.0, 43.0),
+    "BTO": (252.5, 420.0),
+    "BTO_ccut": (420.0, 85.0),
+    "PZT": (180.0, 220.0),
     "SiO2": (3.9, 3.9),
     "CaF2": (6.8, 6.8),
     "MgF2": (5.3, 5.3),
@@ -472,8 +487,8 @@ def solve_2d_electrostatic_eo_fem(
     directly to the 2D vector electric field `(E_x(x,y), E_y(x,y))` per applied Volt and
     electrostatic line capacitance `C_elec [fF/um]`.
     """
-    eo_mat_name = cfg.upper_core_material if (cfg.upper_core_h_um > 0 and cfg.upper_core_material in ("AlN", "ScAlN_10", "ScAlN_20", "ScAlN_30", "LN_Xcut", "LN_Zcut")) else cfg.core_material
-    inplane_crystals = {"LN_Xcut"}
+    eo_mat_name = cfg.upper_core_material if (cfg.upper_core_h_um > 0 and cfg.upper_core_material in ("AlN", "ScAlN_10", "ScAlN_20", "ScAlN_30", "LN_Xcut", "LN_Zcut", "LT_Xcut", "LT_Zcut", "BTO", "BTO_ccut", "PZT")) else cfg.core_material
+    inplane_crystals = {"LN_Xcut", "LT_Xcut", "BTO", "PZT"}
     if electrode_config == "auto":
         elec_cfg = "inplane_gsg" if eo_mat_name in inplane_crystals else "vertical_parallel"
     else:
@@ -617,15 +632,16 @@ def solve_2d_electrostatic_eo_fem(
     screen_factor = e_mag_core_1v / max(1.0 / g_eff, 1e-9)
 
     # Azimuthal crystal-axis orientation factor along ring/racetrack circumference
-    if eo_mat_name == "LN_Xcut":
+    if eo_mat_name in ("LN_Xcut", "LT_Xcut", "BTO"):
         if cfg.topology.startswith("racetrack"):
             l_str = 2.0 * cfg.straight_length_um
-            # Push-pull straight Y-arms enjoy 100% alignment; curved arcs with quadrant electrodes give 2/pi
+            # Push-pull straight arms enjoy 100% alignment; curved arcs with quadrant electrodes give 2/pi
             orient_factor = min(1.0, (l_str + 0.6366 * max(l_act_um - l_str, 0.0)) / max(l_act_um, 1e-6))
         else:
-            # Split push-pull electrodes on opposite halves of an X-cut circular ring yield <cos(phi)> = 2/pi
+            # Split push-pull electrodes on opposite halves of an in-plane ferroelectric ring yield <cos(phi)> = 2/pi
             orient_factor = 2.0 / math.pi
     else:
+        # Out-of-plane c-axis crystals AND radially-poled PZT circular rings enjoy 360-deg isotropic factor 1.0!
         orient_factor = 1.0
 
     return {
@@ -662,8 +678,8 @@ def _pockels_dn_xyz(
         return z, z, z
 
     sym = str(mat_tensor.crystal_symmetry)
-    if "Xcut" in sym:
-        # Optic c/Z-axis is horizontal x: E_x couples to r_33 along x and r_13 along y, z
+    if "Xcut" in sym or "inplane" in sym:
+        # Optic c/Z-axis or poled/diagonal effective axis is horizontal x: E_x couples to r_33 (or r_eff) along x
         dn_x = -0.5 * (mat_tensor.nx ** 3) * (r33 * 1e-6) * ex_v_per_um
         dn_y = -0.5 * (mat_tensor.ny ** 3) * (r13 * 1e-6) * ex_v_per_um
         dn_z = -0.5 * (mat_tensor.nz ** 3) * (r13 * 1e-6) * ex_v_per_um
@@ -1751,7 +1767,7 @@ def export_lumerical_interconnect_bundle(
 
     lsf_path = out_dir / "build_microring_interconnect.lsf"
     lsf_code = f"""# ==============================================================================
-# MicroRing Studio v3.4.0 -> Ansys Lumerical INTERCONNECT Turnkey Circuit Script
+# MicroRing Studio v3.7.0 -> Ansys Lumerical INTERCONNECT Turnkey Circuit Script
 # Solver Source : MicroRing 2D Conformal Vector FEM + Spatial CMT (Zero COMSOL)
 # Core Material : {base_cfg.core_material} ({base_cfg.polarization}) | Mechanism: {eff['mechanism']}
 # ==============================================================================
@@ -1868,7 +1884,7 @@ run;
 
 Requires Ansys Lumerical INTERCONNECT (`lumapi`) on the workstation running INTERCONNECT.
 All 2D-FEM effective-index perturbations and passive S-parameters in this folder were
-pre-computed license-free by MicroRing Studio v3.4.0.
+pre-computed license-free by MicroRing Studio v3.7.0.
 """
 from pathlib import Path
 import numpy as np

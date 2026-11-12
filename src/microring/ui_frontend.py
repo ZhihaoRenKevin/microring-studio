@@ -466,6 +466,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         <button class="stage-pill" id="pill-tuning" onclick="setStageView('tuning'); if(!lastTuningResult) runActiveTuningUI();" data-i18n="pill_tuning">⚡ Tuning &amp; IC</button>
         <button class="stage-pill" id="pill-io" onclick="setStageView('io'); if(!lastIoResult && !lastHighQResult) runIoCouplerUI();" data-i18n="pill_io">🔌 I/O &amp; High-Q</button>
         <button class="stage-pill" id="pill-mzi" onclick="setStageView('mzi'); if(!lastMziResult) runMziUI();" data-i18n="pill_mzi">🔀 MZI</button>
+        <button class="stage-pill" id="pill-eom" onclick="setStageView('eom'); if(!lastEomResult) runEomUI();" data-i18n="pill_eom">📡 EOM · PN · Thermal</button>
       </div>
       <span class="stage-status" id="spec-status" data-i18n="status_ready">Ready · 400 nm – 14 µm</span>
     </div>
@@ -1239,6 +1240,467 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         </div>
       </div>
 
+      <!-- ==================== STAGE 10: EOM RF ELECTRODE + SI PN TCAD + THERMAL FEM ==================== -->
+      <div class="stage-view" id="view-eom">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="eom_card_title">2D-FEM RF Electrode Layout + Si PN Doping TCAD + Steady/Transient Thermal FEM (Zero COMSOL / CHARGE / HEAT)</span>
+            <div class="action-bar" style="margin:0;">
+              <button class="btn sm" onclick="apply300GHzLnTRailPreset()" title="Populate editable 300 GHz Quartz X-Cut TFLN Slow-Wave T-Rail parameters and solve">⚡ 300 GHz LN T-Rail</button>
+              <button class="btn primary sm" onclick="runEomUI()" data-i18n="eom_btn_run">▶ Solve 2D-FEM Physics</button>
+              <button class="btn green sm" onclick="exportEomGdsUI()" data-i18n="eom_btn_gds">💾 Export Cleanroom .GDS</button>
+              <button class="btn amber sm" onclick="exportEomBundleUI()" data-i18n="eom_btn_ic">📦 Export .S2P / TCAD (.ZIP)</button>
+              <span id="eom-download-slot"></span>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:2.6fr 1fr 0.9fr;gap:10px;align-items:end;">
+            <div class="field">
+              <label data-i18n="eom_lbl_mode">Multiphysics Solver &amp; Cleanroom Mask Mode</label>
+              <select id="eom-mode" onchange="onEomModeChange()">
+                <option value="rf_electrode" data-i18n="eom_opt_rf">📡 EOM RF Traveling-Wave / Slow-Wave T-Rail / GSG Electrode + .S2P</option>
+                <option value="wafer_orientation" data-i18n="eom_opt_wo">🧭 EO Wafer Orientation &amp; Crystal Azimuth Finder (0°–360° Polar Rosette + SEMI Flat)</option>
+                <option value="pn_doping" data-i18n="eom_opt_pn">🔋 Silicon PN / L-Shaped / U-Shaped / PIN Doping TCAD (2D Poisson-Boltzmann)</option>
+                <option value="thermal_fem" data-i18n="eom_opt_th">🔥 Steady + Crank-Nicolson Transient Thermal FEM (Top / Trench / Undercut / Doped-Si)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Wavelength λ₀ [nm]</label>
+              <input id="eom-wl" type="number" step="10" value="1550"/>
+            </div>
+            <div class="field">
+              <label>Polarization</label>
+              <select id="eom-pol">
+                <option value="TE0">TE0</option>
+                <option value="TM0">TM0</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- RF Electrode Controls -->
+          <div id="eom-controls-rf" style="display:block;margin-top:9px;">
+            <div style="display:grid;grid-template-columns:1.45fr 1.15fr 1.15fr 0.78fr 0.8fr 0.85fr 0.85fr 0.8fr 0.8fr 1.1fr;gap:8px;align-items:end;">
+              <div class="field">
+                <label>RF Electrode Topology</label>
+                <select id="eom-rf-top">
+                  <option value="auto">Auto (GSG / T-Rail / Vertical)</option>
+                  <option value="gsg_cpw">Push-Pull GSG CPW</option>
+                  <option value="t_rail_cpw">Slow-Wave T-Rail GSG (100–300+ GHz)</option>
+                  <option value="gs_coplanar">Single-Arm GS Stripline</option>
+                  <option value="vertical_microstrip">Vertical Microstrip (Z-Cut/AlN/SiC)</option>
+                  <option value="lumped_ring_gsg">Split Ring / Racetrack GSG</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>EO Core Material</label>
+                <select id="eom-rf-mat" onchange="onEomRfMatChange()">
+                  <option value="LN_Xcut">LN_Xcut (X-Cut TFLN)</option>
+                  <option value="LT_Xcut">LT_Xcut (X-Cut TFLT)</option>
+                  <option value="BTO">BTO (a-BTO on Si · Giant r₄₂)</option>
+                  <option value="BTO_ccut">BTO_ccut (c-Oriented BaTiO₃)</option>
+                  <option value="PZT">PZT (Poled Thin-Film PZT)</option>
+                  <option value="Si">Si (220 nm SOI PN)</option>
+                  <option value="LN_Zcut">LN_Zcut (Z-Cut TFLN)</option>
+                  <option value="LT_Zcut">LT_Zcut (Z-Cut TFLT)</option>
+                  <option value="ScAlN_20">ScAlN_20 (Sc₀.₂Al₀.₈N)</option>
+                  <option value="AlN">AlN (C-Axis Wurtzite)</option>
+                  <option value="4H-SiC">4H-SiC</option>
+                  <option value="3C-SiC">3C-SiC (Cubic -43m)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>RF Handle Substrate</label>
+                <select id="eom-rf-sub">
+                  <option value="hr_si">High-Res Si (&gt;3 kΩ·cm)</option>
+                  <option value="quartz">Quartz (ε_r=3.8, Fast RF)</option>
+                  <option value="undercut_si">Air-Undercut Si</option>
+                  <option value="std_si">Std CMOS Si (15 Ω·cm)</option>
+                  <option value="sapphire">Sapphire (ε_r=9.4)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Metal</label>
+                <select id="eom-rf-metal">
+                  <option value="Au">Au</option>
+                  <option value="Cu">Cu (Damascene)</option>
+                  <option value="Al">Al (CMOS)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Gap G [µm]</label>
+                <input id="eom-rf-gap" type="number" step="0.2" value="5.0"/>
+              </div>
+              <div class="field">
+                <label>Signal W_S [µm]</label>
+                <input id="eom-rf-ws" type="number" step="0.5" placeholder="Auto Z₀"/>
+              </div>
+              <div class="field">
+                <label>Active L [µm]</label>
+                <input id="eom-rf-len" type="number" step="500" value="5000"/>
+              </div>
+              <div class="field">
+                <label>Azimuth φ [°]</label>
+                <input id="eom-rf-az" type="number" step="5" placeholder="Auto Opt"/>
+              </div>
+              <div class="field">
+                <label>GSG Pitch [µm]</label>
+                <select id="eom-rf-pitch">
+                  <option value="150">150 µm</option>
+                  <option value="100">100 µm</option>
+                  <option value="125">125 µm</option>
+                  <option value="200">200 µm</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>RF Load Termination</label>
+                <select id="eom-rf-term">
+                  <option value="external_50ohm_gsg">2-Port GSG + Ext 50 Ω</option>
+                  <option value="onchip_50ohm_tin">On-Chip 50 Ω TiN Load</option>
+                  <option value="open_lumped">Open Lumped Capacitive</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(13, 1fr);gap:7px;align-items:end;margin-top:7px;">
+              <div class="field">
+                <label>Film H [µm]</label>
+                <input id="eom-rf-h" type="number" step="0.02" value="0.60"/>
+              </div>
+              <div class="field">
+                <label>Slab H [µm]</label>
+                <input id="eom-rf-slab" type="number" step="0.02" value="0.30"/>
+              </div>
+              <div class="field">
+                <label>WG W [µm]</label>
+                <input id="eom-rf-w" type="number" step="0.05" value="1.10"/>
+              </div>
+              <div class="field">
+                <label>Sidewall [°]</label>
+                <input id="eom-rf-sw" type="number" step="1" value="75"/>
+              </div>
+              <div class="field">
+                <label>BOX H [µm]</label>
+                <input id="eom-rf-box" type="number" step="0.2" value="4.70"/>
+              </div>
+              <div class="field">
+                <label>Metal H [µm]</label>
+                <input id="eom-rf-tmet" type="number" step="0.1" value="1.10"/>
+              </div>
+              <div class="field">
+                <label>Target Z₀ [Ω]</label>
+                <input id="eom-rf-z0" type="number" step="1" value="50"/>
+              </div>
+              <div class="field">
+                <label>T-Rail L [µm]</label>
+                <input id="eom-rf-lrail" type="number" step="0.5" placeholder="Auto v_g"/>
+              </div>
+              <div class="field">
+                <label>T-Rail Λ [µm]</label>
+                <input id="eom-rf-tperiod" type="number" step="5" value="50"/>
+              </div>
+              <div class="field">
+                <label>Max f [GHz]</label>
+                <input id="eom-rf-fmax" type="number" step="20" value="150"/>
+              </div>
+              <div class="field">
+                <label>Ring Q_L</label>
+                <input id="eom-rf-ql" type="number" step="2000" value="35000"/>
+              </div>
+              <div class="field">
+                <label>Custom r₃₃ [pm/V]</label>
+                <input id="eom-rf-r33" type="number" step="1" placeholder="Catalog"/>
+              </div>
+              <div class="field">
+                <label>Custom r₅₁/r₄₂ [pm/V]</label>
+                <input id="eom-rf-r51" type="number" step="5" placeholder="Catalog"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- EO Wafer Orientation & Crystal Azimuth Controls -->
+          <div id="eom-controls-wo" style="display:none;margin-top:9px;">
+            <div style="display:grid;grid-template-columns:1.3fr 1.6fr 1.2fr 0.9fr 0.95fr 1.05fr;gap:8px;align-items:end;">
+              <div class="field">
+                <label>EO Crystal Material</label>
+                <select id="eom-wo-mat" onchange="onEomWoMatChange()">
+                  <option value="LN_Xcut">LN_Xcut (LiNbO₃ 3m)</option>
+                  <option value="LT_Xcut">LT_Xcut (LiTaO₃ TFLT 3m)</option>
+                  <option value="BTO">BTO (Epitaxial BaTiO₃ 4mm)</option>
+                  <option value="PZT">PZT (Poled PbZrTiO₃ 4mm)</option>
+                  <option value="LN_Zcut">LN_Zcut (LiNbO₃ Z-Cut)</option>
+                  <option value="LT_Zcut">LT_Zcut (LiTaO₃ Z-Cut)</option>
+                  <option value="BTO_ccut">BTO_ccut (c-Oriented BaTiO₃)</option>
+                  <option value="ScAlN_20">ScAlN_20 (Wurtzite 6mm)</option>
+                  <option value="AlN">AlN (Wurtzite 6mm)</option>
+                  <option value="4H-SiC">4H-SiC (Hexagonal 6mm)</option>
+                  <option value="3C-SiC">3C-SiC (Cubic -43m)</option>
+                  <option value="GaN">GaN (Wurtzite 6mm)</option>
+                  <option value="Si">Si (Centrosymmetric m3m)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Wafer Crystal Cut</label>
+                <select id="eom-wo-cut">
+                  <option value="auto">Auto by Material</option>
+                  <option value="x_cut_ln">X-Cut LiNbO₃ (3m, In-Plane c-Axis)</option>
+                  <option value="x_cut_lt">X-Cut LiTaO₃ (TFLT 3m, Ultra-Low Δn)</option>
+                  <option value="a_cut_bto_si">a-Oriented BaTiO₃ on (001) Si (4mm, Giant r₄₂)</option>
+                  <option value="inplane_poled_pzt">Electrode-Poled PZT (Self-Aligned P_s || E_RF)</option>
+                  <option value="y_cut_ln">Y-Cut LiNbO₃ (3m, In-Plane c-Axis)</option>
+                  <option value="z_cut_ln">Z-Cut LiNbO₃ (3m, Vertical c-Axis)</option>
+                  <option value="z_cut_lt">Z-Cut LiTaO₃ (TFLT 3m, Vertical c-Axis)</option>
+                  <option value="c_cut_bto">c-Oriented BaTiO₃ (4mm, Vertical c-Axis)</option>
+                  <option value="c_plane_6mm">C-Plane (0001) AlN / ScAlN / 4H-SiC</option>
+                  <option value="a_plane_6mm">A-Plane (11-20) AlN / ScAlN / 4H-SiC</option>
+                  <option value="cubic_001_43m">(001) Cubic 3C-SiC / III-V (-43m)</option>
+                  <option value="cubic_110_43m">(110) Cubic 3C-SiC / III-V (-43m)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>RF Electrode Field</label>
+                <select id="eom-wo-field">
+                  <option value="auto">Auto (Coplanar Ex / Vertical Ey)</option>
+                  <option value="horizontal_ex">In-Plane Coplanar GSG (E_x)</option>
+                  <option value="vertical_ey">Vertical Microstrip (E_y)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Gap G [µm]</label>
+                <input id="eom-wo-gap" type="number" step="0.2" value="5.0"/>
+              </div>
+              <div class="field">
+                <label>Overlap Γ_EO</label>
+                <input id="eom-wo-ovl" type="number" step="0.05" placeholder="Auto 2D-FEM"/>
+              </div>
+              <div class="field">
+                <label>Query Azimuth φ [°]</label>
+                <input id="eom-wo-az" type="number" step="5" placeholder="Auto Optimal"/>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(6, 1fr);gap:8px;align-items:end;margin-top:7px;">
+              <div class="field">
+                <label>Film H [µm]</label>
+                <input id="eom-wo-h" type="number" step="0.02" value="0.60"/>
+              </div>
+              <div class="field">
+                <label>Slab H [µm]</label>
+                <input id="eom-wo-slab" type="number" step="0.02" value="0.30"/>
+              </div>
+              <div class="field">
+                <label>WG W [µm]</label>
+                <input id="eom-wo-w" type="number" step="0.05" value="1.10"/>
+              </div>
+              <div class="field">
+                <label>Custom r₃₃ [pm/V]</label>
+                <input id="eom-wo-r33" type="number" step="1" placeholder="Catalog"/>
+              </div>
+              <div class="field">
+                <label>Custom r₁₃ [pm/V]</label>
+                <input id="eom-wo-r13" type="number" step="0.5" placeholder="Catalog"/>
+              </div>
+              <div class="field">
+                <label>Custom r₅₁/r₄₂ [pm/V]</label>
+                <input id="eom-wo-r51" type="number" step="5" placeholder="Catalog"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Silicon PN Doping TCAD Controls -->
+          <div id="eom-controls-pn" style="display:none;grid-template-columns:1.4fr 1.0fr 0.78fr 0.78fr 0.78fr 0.95fr 0.95fr 0.85fr 0.8fr 0.9fr;gap:8px;align-items:end;margin-top:9px;">
+            <div class="field">
+              <label>Si PN / PIN Junction Profile</label>
+              <select id="eom-pn-junc">
+                <option value="lateral_pn">Lateral Offset PN (Std CMOS)</option>
+                <option value="l_shaped_pn">L-Shaped PN (High Overlap)</option>
+                <option value="u_shaped_pn">U-Shaped Wrap-Around PN</option>
+                <option value="pin_diode">Lateral P++/i/N++ PIN</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Drive Scheme</label>
+              <select id="eom-pn-scheme">
+                <option value="push_pull">Push-Pull (±Δφ/2)</option>
+                <option value="single_arm">Single-Arm</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Film H [µm]</label>
+              <input id="eom-pn-h" type="number" step="0.02" value="0.22"/>
+            </div>
+            <div class="field">
+              <label>Rib W [µm]</label>
+              <input id="eom-pn-w" type="number" step="0.02" value="0.45"/>
+            </div>
+            <div class="field">
+              <label>Slab H [µm]</label>
+              <input id="eom-pn-slab" type="number" step="0.01" value="0.09"/>
+            </div>
+            <div class="field">
+              <label>Core N_A [cm⁻³]</label>
+              <input id="eom-pn-na" type="text" value="5e17"/>
+            </div>
+            <div class="field">
+              <label>Core N_D [cm⁻³]</label>
+              <input id="eom-pn-nd" type="text" value="5e17"/>
+            </div>
+            <div class="field">
+              <label>PN Offset [nm]</label>
+              <input id="eom-pn-off" type="number" step="5" value="25"/>
+            </div>
+            <div class="field">
+              <label>Map Bias [V]</label>
+              <input id="eom-pn-bias" type="number" step="0.5" value="-3.0"/>
+            </div>
+            <div class="field">
+              <label>Active L [µm]</label>
+              <input id="eom-pn-len" type="number" step="100" value="1500"/>
+            </div>
+          </div>
+
+          <!-- Steady + Transient Thermal FEM Controls -->
+          <div id="eom-controls-th" style="display:none;margin-top:9px;">
+            <div style="display:grid;grid-template-columns:1.5fr 1.1fr 0.95fr 0.85fr 0.85fr 0.85fr 0.85fr 0.9fr;gap:8px;align-items:end;">
+              <div class="field">
+                <label>Thermal Architecture</label>
+                <select id="eom-th-struct">
+                  <option value="top_heater">Top Cladded Heater (Std)</option>
+                  <option value="deep_trench">Deep Air-Trench Isolated</option>
+                  <option value="undercut_suspended">XeF₂ Si-Undercut (&lt;2 mW P_π)</option>
+                  <option value="doped_si_rib">In-Rib Doped-Si (Fast µs)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Waveguide Material</label>
+                <select id="eom-th-mat" onchange="onEomThMatChange()">
+                  <option value="Si">Si (220 nm SOI)</option>
+                  <option value="Si3N4">Si3N4 (400 nm)</option>
+                  <option value="LN_Xcut">LN_Xcut (TFLN)</option>
+                  <option value="LT_Xcut">LT_Xcut (TFLT)</option>
+                  <option value="BTO">BTO (BaTiO₃)</option>
+                  <option value="PZT">PZT (PbZrTiO₃)</option>
+                  <option value="AlN">AlN</option>
+                  <option value="4H-SiC">4H-SiC</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Heater Metal</label>
+                <select id="eom-th-hmat">
+                  <option value="TiN">TiN (CMOS)</option>
+                  <option value="Pt">Pt</option>
+                  <option value="W">Tungsten (W)</option>
+                  <option value="NiCr">NiCr</option>
+                  <option value="doped_Si">N++ Doped Si</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Heater W [µm]</label>
+                <input id="eom-th-hw" type="number" step="0.1" value="1.80"/>
+              </div>
+              <div class="field">
+                <label>Oxide Gap [µm]</label>
+                <input id="eom-th-hgap" type="number" step="0.05" value="0.95"/>
+              </div>
+              <div class="field">
+                <label>BOX H [µm]</label>
+                <input id="eom-th-box" type="number" step="0.2" value="2.00"/>
+              </div>
+              <div class="field">
+                <label>Heater L [µm]</label>
+                <input id="eom-th-len" type="number" step="20" value="200"/>
+              </div>
+              <div class="field">
+                <label>Neighbor d [µm]</label>
+                <input id="eom-th-pitch" type="number" step="2" value="20.0"/>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;align-items:end;margin-top:7px;">
+              <div class="field">
+                <label>Film H [µm]</label>
+                <input id="eom-th-h" type="number" step="0.02" value="0.22"/>
+              </div>
+              <div class="field">
+                <label>Slab H [µm]</label>
+                <input id="eom-th-slab" type="number" step="0.02" value="0.00"/>
+              </div>
+              <div class="field">
+                <label>WG W [µm]</label>
+                <input id="eom-th-w" type="number" step="0.05" value="0.45"/>
+              </div>
+              <div class="field">
+                <label>Custom dn/dT [K⁻¹]</label>
+                <input id="eom-th-dndt" type="text" placeholder="Catalog (e.g. 1.86e-4)"/>
+              </div>
+              <div class="field">
+                <label>Custom κ_core [W/mK]</label>
+                <input id="eom-th-kappa" type="number" step="1" placeholder="Catalog"/>
+              </div>
+            </div>
+          </div>
+
+          <div id="eom-banner" style="margin-top:10px;padding:9px 12px;border-radius:8px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.28);font-size:12px;color:#cbd5e1;line-height:1.5;">
+            100% license-free multiphysics engine: <strong>RF Electrode</strong> synthesizes 50 Ω CPW &amp; velocity-matched slow-wave T-rail layouts (<code>Z₀</code>, <code>n_RF</code> vs <code>n_g</code>, Wheeler skin + substrate loss, <code>S₂₁_EO</code> to 120 GHz, cleanroom <code>.GDS</code> + <code>.s2p</code>); <strong>PN TCAD</strong> solves 2D nonlinear Poisson-Boltzmann <code>ψ(x,y), n, p, C_j(V), R_s</code>; <strong>Thermal FEM</strong> solves 2D steady &amp; Crank-Nicolson transient <code>ΔT(x,y,t), P_π, τ_10-90</code> &amp; neighbor crosstalk.
+          </div>
+        </div>
+
+        <div class="kpi-row four">
+          <div class="kpi-card">
+            <div class="kpi-lbl" id="eom-kpi1-lbl">Impedance Z₀ &amp; Synthesis</div>
+            <div class="kpi-val green" id="eom-kpi1-val">--</div>
+            <div class="kpi-sub" id="eom-kpi1-sub">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-lbl" id="eom-kpi2-lbl">Velocity Match (n_RF vs n_g)</div>
+            <div class="kpi-val cyan" id="eom-kpi2-val">--</div>
+            <div class="kpi-sub" id="eom-kpi2-sub">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-lbl" id="eom-kpi3-lbl">3-dB EO Bandwidth</div>
+            <div class="kpi-val amber" id="eom-kpi3-val">--</div>
+            <div class="kpi-sub" id="eom-kpi3-sub">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-lbl" id="eom-kpi4-lbl">Modulator V_π·L &amp; Metal α</div>
+            <div class="kpi-val" id="eom-kpi4-val">--</div>
+            <div class="kpi-sub" id="eom-kpi4-sub">--</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="eom-plot1-title">Electro-Optic S₂₁(f) &amp; RF S₁₁(f) Response</span>
+              <span class="card-sub" id="eom-plot1-sub">Quasi-TEM + Bidirectional Reflection</span>
+            </div>
+            <canvas class="plot-cv" id="cv-eom-main"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="eom-plot2-title">2D Cross-Section Field Heatmap</span>
+              <div style="display:flex;gap:5px;align-items:center;">
+                <button class="btn sm subtle primary" id="btn-eom-aux-map" style="padding:2px 7px;font-size:10.5px;" onclick="setEomAuxMode('heatmap')">2D Map</button>
+                <button class="btn sm subtle" id="btn-eom-aux-sweep" style="padding:2px 7px;font-size:10.5px;" onclick="setEomAuxMode('sweep')">Sweep / Xtalk</button>
+                <span class="card-sub" id="eom-plot2-sub">2D-FEM Mesh</span>
+              </div>
+            </div>
+            <canvas class="plot-cv" id="cv-eom-aux"></canvas>
+          </div>
+        </div>
+
+        <div class="card" id="eom-table-card">
+          <div class="card-head">
+            <span class="card-title" id="eom-tbl-title">Frequency-by-Frequency RF / EO Transmission-Line Summary</span>
+            <span class="card-sub" id="eom-tbl-sub">Touchstone .S2P + Cleanroom .GDS + INTERCONNECT Ready</span>
+          </div>
+          <table class="clean-tbl" id="eom-table">
+            <thead>
+              <tr id="eom-thead-row">
+                <th>Freq [GHz]</th><th>Z₀ [Ω]</th><th>n_RF</th><th>α_RF [dB/cm]</th><th>S₂₁_RF [dB]</th><th>S₁₁_RF [dB]</th><th>EO S₂₁ [dBe]</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -1249,7 +1711,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
   <div class="drawer-header">
     <div>
       <div style="font-size:15px;font-weight:700;" data-i18n="exp_title">⚙ Expert Parameter Workbench</div>
-      <div style="font-size:11.5px;color:var(--text-muted);" data-i18n="exp_sub">Direct numerical override, 24-material dispersion &amp; hardware benchmark</div>
+      <div style="font-size:11.5px;color:var(--text-muted);" data-i18n="exp_sub">Direct numerical override, 29-material dispersion &amp; hardware benchmark</div>
     </div>
     <button class="btn sm" onclick="toggleExpertDrawer(false)" data-i18n="exp_close">✕ Close</button>
   </div>
@@ -1310,7 +1772,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
 
     <div class="card">
       <div class="card-head">
-        <span class="card-title">24-Material Sellmeier Dispersion (380 – 10,000 nm)</span>
+        <span class="card-title">29-Material Sellmeier Dispersion (380 – 14,000 nm)</span>
         <select id="mat-browser-sel" onchange="loadMaterialCurve()" style="background:#0d1424;color:#e2e8f0;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11.5px;"></select>
       </div>
       <canvas class="plot-cv" id="cv-mat" style="height:190px;"></canvas>
@@ -1348,6 +1810,9 @@ let ioBusy = false;
 let lastMziResult = null;
 let mziBusy = false;
 let mziAuxMode = 'auto';
+let lastEomResult = null;
+let eomBusy = false;
+let eomAuxMode = 'heatmap';
 let aiBackendStatus = { offline: true, ollama_available: false, claude_cli_available: false, claude_env_key: false, codex_cli_available: false, codex_env_key: false };
 
 const UI_I18N = {
@@ -1362,7 +1827,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 Online · Codex / OpenAI (CLI / API)',
     chat_placeholder: "Type an answer or spec (e.g. 'loss = 0.8 dB/cm, FSR 150 GHz, pulley')...",
     btn_send: 'Send →',
-    pill_overview: '📋 Blueprint', pill_mode: '🔬 2D Mode', pill_mrr: '📊 Ring Spectrum', pill_gds: '📐 GDS Mask', pill_fit: '📈 Loss & Q Fit', pill_fab: '🧪 Fab & Dose', pill_tuning: '⚡ Tuning & IC', pill_io: '🔌 Butt/GC & High-Q', pill_mzi: '🔀 MZI',
+    pill_overview: '📋 Blueprint', pill_mode: '🔬 2D Mode', pill_mrr: '📊 Ring Spectrum', pill_gds: '📐 GDS Mask', pill_fit: '📈 Loss & Q Fit', pill_fab: '🧪 Fab & Dose', pill_tuning: '⚡ Tuning & IC', pill_io: '🔌 Butt/GC & High-Q', pill_mzi: '🔀 MZI', pill_eom: '📡 EOM · PN · Thermal',
     status_ready: 'Ready · 400 nm – 14 µm',
     wf1_title: '1. Design a New Ring Step-by-Step',
     wf1_desc: 'Answer one simple question at a time — waveband, material, wafer stack, propagation loss (<code>dB/cm</code>), and target FSR.',
@@ -1389,7 +1854,7 @@ const UI_I18N = {
     fit_kpi1: 'Extracted Prop. Loss α', fit_kpi2: 'Intrinsic Q_int', fit_kpi3: 'Loaded Q_L & FWHM', fit_kpi4: 'Model & Splitting',
     fit_intro: 'Upload a two-column <code>wavelength_nm, transmission</code> file (linear power OR <code>dB</code>/<code>dBm</code>) to extract propagation loss <code>α [dB/cm]</code> and intrinsic <code>Q_int</code>.',
     fit_plot_title: 'Measured Spectrum vs. Analytical CMT Fit', fit_plot_sub: 'Supports Linear Power & dB/dBm Traces',
-    exp_title: '⚙ Expert Parameter Workbench', exp_sub: 'Direct numerical override, 24-material dispersion & hardware benchmark',
+    exp_title: '⚙ Expert Parameter Workbench', exp_sub: 'Direct numerical override, 29-material dispersion & hardware benchmark',
     exp_close: '✕ Close', exp_override: 'Manual Geometry, Waveband & Loss Override', exp_solve: '▶ Solve & Update',
     fab_card_title: 'Cleanroom Lithography Over-Dose / Under-Dose (Positive vs. Negative PR) & CD Bias Analysis',
     fab_btn_run: '▶ Analyze Fab Error', fab_btn_gds: '🗂️ Export 5-Cell Pre-Biased .GDS',
@@ -1443,7 +1908,16 @@ const UI_I18N = {
     mzi_kpi1: '50:50 Splitter Ratio & IL', mzi_kpi2: 'MZI FSR & Passive ER',
     mzi_kpi3: 'Modulator V_π·L / P_π', mzi_kpi4: 'Non-Cavity 3-dB BW & Dyn. ER',
     mzi_plot1_title: 'Broadband MZI Bar & Cross Transmission Spectra',
-    mzi_tbl_title: 'State-by-State MZI Phase Shift, Arm Loss & Port Extinction Breakdown'
+    mzi_tbl_title: 'State-by-State MZI Phase Shift, Arm Loss & Port Extinction Breakdown',
+    eom_card_title: '2D-FEM RF Electrode Layout + Si PN Doping TCAD + Steady/Transient Thermal FEM (Zero COMSOL / CHARGE / HEAT)',
+    eom_btn_run: '▶ Solve 2D-FEM Physics', eom_btn_gds: '💾 Export Cleanroom .GDS', eom_btn_ic: '📦 Export .S2P / TCAD (.ZIP)',
+    eom_lbl_mode: 'Multiphysics Solver & Cleanroom Mask Mode',
+    eom_opt_rf: '📡 EOM RF Traveling-Wave / Slow-Wave T-Rail / GSG Electrode + .S2P',
+    eom_opt_pn: '🔋 Silicon PN / L-Shaped / U-Shaped / PIN Doping TCAD (2D Poisson-Boltzmann)',
+    eom_opt_rf: '📡 EOM RF Traveling-Wave / Slow-Wave T-Rail / GSG Electrode + .S2P',
+    eom_opt_wo: '🧭 EO Wafer Orientation & Crystal Azimuth Finder (0°–360° Polar Rosette + SEMI Flat)',
+    eom_opt_pn: '🔋 Silicon PN / L-Shaped / U-Shaped / PIN Doping TCAD (2D Poisson-Boltzmann)',
+    eom_opt_th: '🔥 Steady + Crank-Nicolson Transient Thermal FEM (Top / Trench / Undercut / Doped-Si)'
   },
   zh: {
     step1: '选择目标', step2: '工作波段', step3: '芯层材料', step4: '叠层与模式', step5: '损耗与微环', step6: '耦合优化与版图',
@@ -1456,7 +1930,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 在线模式 · Codex / OpenAI (CLI / API)',
     chat_placeholder: '输入您的需求或参数（例如：损耗 0.8 dB/cm, FSR 150 GHz, 滑轮耦合）...',
     btn_send: '发送 →',
-    pill_overview: '📋 设计蓝图', pill_mode: '🔬 二维模式', pill_mrr: '📊 微环光谱', pill_gds: '📐 GDS 版图', pill_fit: '📈 损耗与Q拟合', pill_fab: '🧪 工艺与剂量', pill_tuning: '⚡ 调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 调制',
+    pill_overview: '📋 设计蓝图', pill_mode: '🔬 二维模式', pill_mrr: '📊 微环光谱', pill_gds: '📐 GDS 版图', pill_fit: '📈 损耗与Q拟合', pill_fab: '🧪 工艺与剂量', pill_tuning: '⚡ 调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 调制', pill_eom: '📡 电极·掺杂·热场',
     status_ready: '就绪 · 400 nm – 14 µm',
     wf1_title: '1. 逐步引导设计新微环',
     wf1_desc: '每次只问一个清晰问题——工作波段、波导材料、晶圆叠层、传播损耗 (<code>dB/cm</code>) 与目标 FSR。',
@@ -1483,7 +1957,7 @@ const UI_I18N = {
     fit_kpi1: '提取波导传播损耗 α', fit_kpi2: '本征品质因数 Q_int', fit_kpi3: '有载 Q_L 与线宽', fit_kpi4: '拟合模型与模式劈裂',
     fit_intro: '上传两列 <code>wavelength_nm, transmission</code> 数据（支持线性透过率或 <code>dB</code>/<code>dBm</code>），一键提取波导传播损耗 <code>α [dB/cm]</code> 与 <code>Q_int</code>。',
     fit_plot_title: '实验测量光谱 vs. 解析耦合模 (CMT) 拟合曲线', fit_plot_sub: '自动兼容线性功率与 dB/dBm 光谱',
-    exp_title: '⚙ 专家参数工作台', exp_sub: '直接数值覆盖、24 种跨波段材料色散库与硬件算力基准测试',
+    exp_title: '⚙ 专家参数工作台', exp_sub: '直接数值覆盖、29 种跨波段材料色散库与硬件算力基准测试',
     exp_close: '✕ 关闭', exp_override: '手动几何、波长与损耗覆盖', exp_solve: '▶ 求解并更新',
     fab_card_title: '超净间光刻过曝光 / 欠曝光（正胶 vs. 负胶）与线宽偏置容差分析',
     fab_btn_run: '▶ 运行工艺误差分析', fab_btn_gds: '🗂️ 导出 5 单元预偏置补偿 .GDS',
@@ -1537,7 +2011,14 @@ const UI_I18N = {
     mzi_kpi1: '50:50 分光比与附加损耗', mzi_kpi2: 'MZI 自由光谱范围与消光比',
     mzi_kpi3: '调制器 V_π·L / P_π 指标', mzi_kpi4: '非谐振 3-dB 带宽与动态 ER',
     mzi_plot1_title: '宽谱 MZI 直通 (Bar) 与交叉 (Cross) 透射光谱',
-    mzi_tbl_title: '逐驱动态相移臂 Δn_eff、相移量与端口消光比明细表'
+    mzi_tbl_title: '逐驱动态相移臂 Δn_eff、相移量与端口消光比明细表',
+    eom_card_title: '纯自研 2D-FEM 高速电光行波电极 + 硅 PN 掺杂 TCAD + 稳态/瞬态热有限元 (零 COMSOL / CHARGE / HEAT)',
+    eom_btn_run: '▶ 求解 2D-FEM 多物理场', eom_btn_gds: '💾 导出超净间 .GDS 版图', eom_btn_ic: '📦 导出 .S2P / TCAD (.ZIP)',
+    eom_lbl_mode: '多物理场求解与版图生成模式',
+    eom_opt_rf: '📡 电光调制器行波 GSG / 慢波 T 轨 / 分瓣环电极 + Touchstone .S2P',
+    eom_opt_wo: '🧭 电光晶圆切向与面内方位角寻优 (0°–360° 极坐标花瓣图 + SEMI 主参考边)',
+    eom_opt_pn: '🔋 硅光横向 / L 型 / U 型 / PIN 结掺杂 TCAD (二维非线性泊松-玻尔兹曼)',
+    eom_opt_th: '🔥 稳态 + Crank-Nicolson 瞬态热有限元 (顶层 / 深隔离槽 / XeF₂ 掏空悬臂 / 内嵌重掺硅)'
   }
 };
 
@@ -1599,7 +2080,8 @@ async function setLanguage(lang) {
 let gdsCam = { scale: 1.0, offsetX: 0, offsetY: 0, dragging: false, lastX: 0, lastY: 0, hiddenLayers: {} };
 const LAYER_COLORS = {
   '1/0': '#38bdf8', '2/0': '#0284c7', '3/0': '#a78bfa', '4/0': '#f43f5e',
-  '10/0': '#f59e0b', '11/0': '#eab308', '40/0': '#fb7185', '65/0': '#34d399', '66/0': '#cbd5e1', '68/0': '#475569'
+  '5/0': '#f472b6', '6/0': '#a78bfa', '10/0': '#f59e0b', '11/0': '#eab308',
+  '12/0': '#22d3ee', '13/0': '#fde047', '40/0': '#fb7185', '65/0': '#34d399', '66/0': '#cbd5e1', '68/0': '#475569'
 };
 
 // ==================== UI NAVIGATION & STEPPER ====================
@@ -1630,6 +2112,10 @@ function setStageView(viewName) {
     if (viewName === 'mzi') {
       if (lastMziResult) renderMziResult(lastMziResult);
       else if (!mziBusy) runMziUI();
+    }
+    if (viewName === 'eom') {
+      if (lastEomResult) renderEomResult(lastEomResult);
+      else if (!eomBusy) runEomUI();
     }
   }, 25);
 }
@@ -2007,6 +2493,13 @@ async function sendChatPrompt(promptText) {
         document.getElementById('mzi-mech').value = 'passive_only';
       }
       renderMziResult(data.mzi_result);
+    }
+    if (data.eom_result) {
+      lastEomResult = data.eom_result;
+      const em = data.eom_result.mode || 'rf_electrode';
+      document.getElementById('eom-mode').value = (em === 'pn_doping_tcad') ? 'pn_doping' : em;
+      onEomModeChange(true);
+      renderEomResult(data.eom_result);
     }
     if (data.interconnect_export && data.interconnect_export.zip_download_url) {
       showInterconnectDownload(data.interconnect_export);
@@ -4225,6 +4718,804 @@ function drawMmiSelfImagingHeatmap(res) {
   ctx.textAlign = 'right';
   [-hwMmi, 0.0, +hwMmi].forEach(xv => {
     if (xv >= xMin && xv <= xMax) ctx.fillText(xv.toFixed(1), pad.l - 5, ty(xv) + 3.5);
+  });
+}
+
+// ==================== STAGE 10: EOM RF ELECTRODE + WAFER ORIENTATION + SI PN TCAD + THERMAL FEM ====================
+function onEomModeChange(skipSolve = false) {
+  const m = document.getElementById('eom-mode').value || 'rf_electrode';
+  document.getElementById('eom-controls-rf').style.display = (m === 'rf_electrode') ? 'block' : 'none';
+  document.getElementById('eom-controls-wo').style.display = (m === 'wafer_orientation') ? 'block' : 'none';
+  document.getElementById('eom-controls-pn').style.display = (m === 'pn_doping') ? 'grid' : 'none';
+  document.getElementById('eom-controls-th').style.display = (m === 'thermal_fem') ? 'block' : 'none';
+  if (!skipSolve && !eomBusy) runEomUI();
+}
+
+function _eomDefaultStack(mat) {
+  if (mat === 'Si') return { h: 0.22, slab: 0.09, w: 0.45, sw: 86, box: 2.00, gap: 2.4, len: 2500, pol: 'TE0' };
+  if (mat === 'BTO') return { h: 0.35, slab: 0.12, w: 0.90, sw: 80, box: 4.70, gap: 4.0, len: 1500, pol: 'TE0' };
+  if (mat === 'BTO_ccut') return { h: 0.35, slab: 0.12, w: 0.90, sw: 80, box: 4.70, gap: 3.5, len: 2000, pol: 'TM0' };
+  if (mat === 'PZT') return { h: 0.32, slab: 0.10, w: 0.85, sw: 80, box: 4.70, gap: 4.0, len: 1500, pol: 'TE0' };
+  if (mat === 'Si3N4') return { h: 0.40, slab: 0.00, w: 1.10, sw: 85, box: 3.00, gap: 5.0, len: 5000, pol: 'TE0' };
+  if (mat === 'LN_Zcut' || mat === 'LT_Zcut' || mat === 'AlN' || mat === 'ScAlN_20' || mat === '4H-SiC' || mat === 'GaN') {
+    return { h: 0.60, slab: 0.20, w: 1.10, sw: 78, box: 4.70, gap: 4.5, len: 5000, pol: 'TM0' };
+  }
+  return { h: 0.60, slab: 0.30, w: 1.10, sw: 75, box: 4.70, gap: 5.0, len: 5000, pol: 'TE0' };
+}
+
+function onEomWoMatChange() {
+  const mat = document.getElementById('eom-wo-mat').value;
+  const st = _eomDefaultStack(mat);
+  document.getElementById('eom-wo-cut').value = 'auto';
+  document.getElementById('eom-wo-field').value = 'auto';
+  document.getElementById('eom-wo-h').value = String(st.h);
+  document.getElementById('eom-wo-slab').value = String(st.slab);
+  document.getElementById('eom-wo-w').value = String(st.w);
+  document.getElementById('eom-wo-gap').value = String(st.gap);
+  document.getElementById('eom-pol').value = st.pol;
+}
+
+function onEomRfMatChange() {
+  const mat = document.getElementById('eom-rf-mat').value;
+  const st = _eomDefaultStack(mat);
+  document.getElementById('eom-rf-h').value = String(st.h);
+  document.getElementById('eom-rf-slab').value = String(st.slab);
+  document.getElementById('eom-rf-w').value = String(st.w);
+  document.getElementById('eom-rf-sw').value = String(st.sw);
+  document.getElementById('eom-rf-box').value = String(st.box);
+  document.getElementById('eom-rf-gap').value = String(st.gap);
+  document.getElementById('eom-rf-len').value = String(st.len);
+  document.getElementById('eom-pol').value = st.pol;
+}
+
+function apply300GHzLnTRailPreset() {
+  document.getElementById('eom-mode').value = 'rf_electrode';
+  onEomModeChange();
+  document.getElementById('eom-rf-mat').value = 'LN_Xcut';
+  onEomRfMatChange();
+  document.getElementById('eom-rf-top').value = 't_rail_cpw';
+  document.getElementById('eom-rf-sub').value = 'quartz';
+  document.getElementById('eom-rf-metal').value = 'Au';
+  document.getElementById('eom-rf-tmet').value = '1.50';
+  document.getElementById('eom-rf-gap').value = '5.0';
+  document.getElementById('eom-rf-ws').value = '';
+  document.getElementById('eom-rf-lrail').value = '';
+  document.getElementById('eom-rf-tperiod').value = '25';
+  document.getElementById('eom-rf-len').value = '4500';
+  document.getElementById('eom-rf-fmax').value = '360';
+  runEomUI();
+}
+
+function onEomThMatChange() {
+  const mat = document.getElementById('eom-th-mat').value;
+  const st = _eomDefaultStack(mat);
+  document.getElementById('eom-th-h').value = String(st.h);
+  document.getElementById('eom-th-slab').value = String(mat === 'Si' ? 0.00 : st.slab);
+  document.getElementById('eom-th-w').value = String(st.w);
+}
+
+function setEomAuxMode(mode) {
+  eomAuxMode = mode;
+  document.getElementById('btn-eom-aux-map').classList.toggle('primary', mode === 'heatmap');
+  document.getElementById('btn-eom-aux-sweep').classList.toggle('primary', mode === 'sweep');
+  if (lastEomResult) renderEomResult(lastEomResult);
+}
+
+function _optNum(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const raw = String(el.value || '').trim();
+  if (raw === '') return null;
+  const v = parseFloat(raw);
+  return Number.isFinite(v) ? v : null;
+}
+
+function buildEomPayload() {
+  const mode = document.getElementById('eom-mode').value || 'rf_electrode';
+  const wl = _optNum('eom-wl') ?? 1550.0;
+  const pol = document.getElementById('eom-pol').value || 'TE0';
+
+  if (mode === 'wafer_orientation') {
+    const pWo = {
+      mode: 'wafer_orientation',
+      core_material: document.getElementById('eom-wo-mat').value || 'LN_Xcut',
+      wafer_cut: document.getElementById('eom-wo-cut').value || 'auto',
+      electrode_field_axis: document.getElementById('eom-wo-field').value || 'auto',
+      wavelength_nm: wl,
+      polarization: pol,
+      electrode_gap_um: _optNum('eom-wo-gap') ?? 5.0,
+      film_height_um: _optNum('eom-wo-h') ?? 0.60,
+      slab_height_um: _optNum('eom-wo-slab') ?? 0.30,
+      waveguide_width_um: _optNum('eom-wo-w') ?? 1.10,
+      eo_overlap_factor: _optNum('eom-wo-ovl')
+    };
+    const azWo = _optNum('eom-wo-az');
+    if (azWo !== null) pWo.query_azimuth_deg = azWo;
+    const r33Wo = _optNum('eom-wo-r33');
+    if (r33Wo !== null) pWo.custom_r33_pm_v = r33Wo;
+    const r13Wo = _optNum('eom-wo-r13');
+    if (r13Wo !== null) pWo.custom_r13_pm_v = r13Wo;
+    const r51Wo = _optNum('eom-wo-r51');
+    if (r51Wo !== null) pWo.custom_r51_pm_v = r51Wo;
+    return pWo;
+  }
+
+  if (mode === 'pn_doping') {
+    return {
+      mode: 'pn_doping',
+      junction_type: document.getElementById('eom-pn-junc').value,
+      drive_scheme: document.getElementById('eom-pn-scheme').value,
+      wavelength_nm: wl,
+      polarization: pol,
+      film_height_um: _optNum('eom-pn-h') ?? 0.22,
+      waveguide_width_um: _optNum('eom-pn-w') ?? 0.45,
+      slab_height_um: _optNum('eom-pn-slab') ?? 0.09,
+      na_core_cm3: _optNum('eom-pn-na') ?? 5e17,
+      nd_core_cm3: _optNum('eom-pn-nd') ?? 5e17,
+      pn_offset_nm: _optNum('eom-pn-off') ?? 25.0,
+      map_bias_v: _optNum('eom-pn-bias') ?? -3.0,
+      active_length_um: _optNum('eom-pn-len') ?? 1500.0
+    };
+  }
+
+  if (mode === 'thermal_fem') {
+    const pTh = {
+      mode: 'thermal_fem',
+      thermal_structure: document.getElementById('eom-th-struct').value,
+      core_material: document.getElementById('eom-th-mat').value || 'Si',
+      wavelength_nm: wl,
+      polarization: pol,
+      film_height_um: _optNum('eom-th-h') ?? 0.22,
+      slab_height_um: _optNum('eom-th-slab') ?? 0.00,
+      waveguide_width_um: _optNum('eom-th-w') ?? 0.45,
+      heater_material: document.getElementById('eom-th-hmat').value,
+      heater_width_um: _optNum('eom-th-hw') ?? 1.80,
+      heater_gap_um: _optNum('eom-th-hgap') ?? 0.95,
+      box_thickness_um: _optNum('eom-th-box') ?? 2.00,
+      active_length_um: _optNum('eom-th-len') ?? 200.0,
+      neighbor_pitch_um: _optNum('eom-th-pitch') ?? 20.0
+    };
+    const dndtTh = _optNum('eom-th-dndt');
+    if (dndtTh !== null) pTh.custom_dn_dt_per_k = dndtTh;
+    const kapTh = _optNum('eom-th-kappa');
+    if (kapTh !== null) pTh.custom_core_kappa_w_mk = kapTh;
+    return pTh;
+  }
+
+  const payload = {
+    mode: 'rf_electrode',
+    electrode_topology: document.getElementById('eom-rf-top').value,
+    core_material: document.getElementById('eom-rf-mat').value || 'LN_Xcut',
+    substrate_type: document.getElementById('eom-rf-sub').value,
+    metal_material: document.getElementById('eom-rf-metal').value,
+    wavelength_nm: wl,
+    polarization: pol,
+    film_height_um: _optNum('eom-rf-h') ?? 0.60,
+    slab_height_um: _optNum('eom-rf-slab') ?? 0.30,
+    sidewall_deg: _optNum('eom-rf-sw') ?? 75.0,
+    waveguide_width_um: _optNum('eom-rf-w') ?? 1.10,
+    box_thickness_um: _optNum('eom-rf-box') ?? 4.70,
+    metal_thickness_um: _optNum('eom-rf-tmet') ?? 1.10,
+    target_impedance_ohm: _optNum('eom-rf-z0') ?? 50.0,
+    t_rail_period_um: _optNum('eom-rf-tperiod') ?? 50.0,
+    max_freq_ghz: _optNum('eom-rf-fmax') ?? 150.0,
+    ring_loaded_q: _optNum('eom-rf-ql') ?? 35000.0,
+    electrode_gap_um: _optNum('eom-rf-gap') ?? 5.0,
+    active_length_um: _optNum('eom-rf-len') ?? 5000.0,
+    probe_pitch_um: _optNum('eom-rf-pitch') ?? 150.0,
+    termination_mode: document.getElementById('eom-rf-term').value
+  };
+  const wsRf = _optNum('eom-rf-ws');
+  if (wsRf !== null && wsRf > 0) payload.signal_width_um = wsRf;
+  const lrRf = _optNum('eom-rf-lrail');
+  if (lrRf !== null && lrRf > 0) payload.t_rail_length_um = lrRf;
+  const azRf = _optNum('eom-rf-az');
+  if (azRf !== null) payload.waveguide_azimuth_deg = azRf;
+  const r33Rf = _optNum('eom-rf-r33');
+  if (r33Rf !== null) payload.custom_r33_pm_v = r33Rf;
+  const r51Rf = _optNum('eom-rf-r51');
+  if (r51Rf !== null) payload.custom_r51_pm_v = r51Rf;
+  return payload;
+}
+
+async function runEomUI() {
+  if (eomBusy) return;
+  eomBusy = true;
+  const payload = buildEomPayload();
+  document.getElementById('spec-status').textContent = currentLang === 'zh'
+    ? '正在求解二维多物理场 (RF / PN TCAD / Thermal FEM)...'
+    : 'Solving 2D-FEM Multiphysics (RF / PN TCAD / Thermal)...';
+  try {
+    const r = await fetch('/api/eom_multiphysics', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    const res = await r.json();
+    if (res.error) {
+      alert('EOM / TCAD Solver Error: ' + res.error);
+      return;
+    }
+    lastEomResult = res;
+    renderEomResult(res);
+    document.getElementById('spec-status').textContent = currentLang === 'zh'
+      ? `多物理场求解完成 (${res.elapsed_ms} ms)`
+      : `2D-FEM Solved in ${res.elapsed_ms} ms`;
+  } catch (err) {
+    alert('Multiphysics request failed: ' + err);
+  } finally {
+    eomBusy = false;
+  }
+}
+
+async function exportEomGdsUI() {
+  const payload = buildEomPayload();
+  if (lastEomResult && lastEomResult.mode && (
+    (payload.mode === 'pn_doping' && lastEomResult.mode === 'pn_doping_tcad') ||
+    (payload.mode === lastEomResult.mode)
+  )) {
+    payload.sim_result = lastEomResult;
+  }
+  document.getElementById('spec-status').textContent = currentLang === 'zh' ? '正在生成超净间 .GDS + .LYP 掩膜...' : 'Generating cleanroom .GDS + .LYP mask...';
+  try {
+    const r = await fetch('/api/export_eom_multiphysics_gds', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    const g = await r.json();
+    if (g.error) { alert('GDS Export Error: ' + g.error); return; }
+    document.getElementById('eom-download-slot').innerHTML =
+      `<a class="btn green sm" href="${g.gds_download_url}" download>⬇ .GDS</a> ` +
+      `<a class="btn sm subtle" href="${g.lyp_download_url}" download>⬇ .LYP</a>`;
+    showGdsExportResult(g);
+    if (g.gds_download_url) {
+      const a = document.createElement('a');
+      a.href = g.gds_download_url;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  } catch (err) {
+    alert('GDS export failed: ' + err);
+  }
+}
+
+async function exportEomBundleUI() {
+  const payload = buildEomPayload();
+  if (lastEomResult && lastEomResult.mode && (
+    (payload.mode === 'pn_doping' && lastEomResult.mode === 'pn_doping_tcad') ||
+    (payload.mode === lastEomResult.mode)
+  )) {
+    payload.sim_result = lastEomResult;
+  }
+  document.getElementById('spec-status').textContent = currentLang === 'zh' ? '正在打包 .S2P / TCAD / INTERCONNECT 数据包...' : 'Exporting .S2P / TCAD / INTERCONNECT bundle...';
+  try {
+    const r = await fetch('/api/export_eom_multiphysics_bundle', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    const b = await r.json();
+    if (b.error) { alert('Bundle Export Error: ' + b.error); return; }
+    document.getElementById('eom-download-slot').innerHTML =
+      `<a class="btn amber sm" href="${b.zip_download_url}" download>⬇ Bundle .ZIP</a>`;
+    showInterconnectDownload(b);
+    if (b.zip_download_url) {
+      const a = document.createElement('a');
+      a.href = b.zip_download_url;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  } catch (err) {
+    alert('Bundle export failed: ' + err);
+  }
+}
+
+function renderEomResult(res) {
+  if (!res || !res.metrics) return;
+  const zh = currentLang === 'zh';
+  const mm = res.metrics;
+  const mode = res.mode || 'rf_electrode';
+  const thead = document.getElementById('eom-thead-row');
+  const tbody = document.querySelector('#eom-table tbody');
+  tbody.innerHTML = '';
+
+  if (mode === 'wafer_orientation') {
+    const ax = res.crystal_axes || {};
+    document.getElementById('eom-kpi1-lbl').textContent = zh ? '最优波导传播方位角 φ_opt' : 'Optimal Waveguide Azimuth φ_opt';
+    document.getElementById('eom-kpi1-val').textContent = `${mm.optimal_azimuth_deg.toFixed(1)}°`;
+    document.getElementById('eom-kpi1-sub').textContent = `0° = ${ax.phi0_label} · 90° = ${ax.phi90_label}`;
+
+    document.getElementById('eom-kpi2-lbl').textContent = zh ? '峰值有效电光系数与 V_π·L' : 'Peak |r_eff| & Straight-MZI V_π·L';
+    document.getElementById('eom-kpi2-val').textContent = `${mm.r_eff_optimal_pm_per_v >= 0 ? '+' : ''}${mm.r_eff_optimal_pm_per_v.toFixed(2)} pm/V`;
+    document.getElementById('eom-kpi2-sub').textContent = `V_π·L(φ_opt) ≈ ${mm.V_pi_L_optimal_Vcm.toFixed(2)} V·cm (@ φ=${mm.active_azimuth_deg.toFixed(0)}°: ${mm.r_eff_active_pm_per_v.toFixed(2)} pm/V)`;
+
+    document.getElementById('eom-kpi3-lbl').textContent = zh ? '圆微环整环 vs 分段推挽效率' : 'Circular MRR Unsplit vs Split';
+    document.getElementById('eom-kpi3-val').textContent = `${mm.ring_unsplit_efficiency_pct.toFixed(1)}% vs ${mm.ring_split_pushpull_efficiency_pct.toFixed(1)}%`;
+    document.getElementById('eom-kpi3-sub').textContent = mm.ring_unsplit_efficiency_pct < 5.0
+      ? (zh ? '单极整环正负抵消！必须分瓣推挽' : 'Unsplit ring cancels! Use split arcs')
+      : (zh ? '360° 面内各向同性，支持整环电极' : '360° isotropic: unsplit ring valid');
+
+    document.getElementById('eom-kpi4-lbl').textContent = zh ? '面内双折射 Δn 与射频介电' : 'In-Plane Birefringence & RF ε_r';
+    document.getElementById('eom-kpi4-val').textContent = `Δn = ${mm.birefringence_span_dn.toFixed(4)}`;
+    document.getElementById('eom-kpi4-sub').textContent = `ε_RF(φ): ${mm.eps_rf_min.toFixed(1)} – ${mm.eps_rf_max.toFixed(1)} · Group ${res.point_group}`;
+
+    const warnBits = [res.mismatch_warning, res.hybridization_warning].filter(Boolean);
+    const warnHtml = warnBits.length ? `<br/><span style="color:#fbbf24;">⚠️ ${warnBits.join(' | ')}</span>` : '';
+    document.getElementById('eom-banner').innerHTML = (zh
+      ? `<strong>${res.wafer_cut_name_zh}</strong>（点群 <code>${res.point_group}</code>，法向 <code>${ax.normal_label}</code>，主参考边 <code>${ax.flat_label}</code>）：${res.guide_zh}`
+      : `<strong>${res.wafer_cut_name_en}</strong> (Point group <code>${res.point_group}</code>, normal <code>${ax.normal_label}</code>, <code>${ax.flat_label}</code>): ${res.guide_en}`) + warnHtml;
+
+    const sw = res.angular_sweep || {};
+    const azs = sw.azimuth_deg || [];
+    document.getElementById('eom-plot1-title').textContent = zh ? '有效 Pockels 系数 r_eff(φ) [pm/V] 与双折射 n_opt(φ) 随面内方位角变化' : 'Signed Effective Pockels Tensor r_eff(φ) [pm/V] vs Waveguide Azimuth φ [°]';
+    document.getElementById('eom-plot1-sub').textContent = `3D Tensor Contraction (${res.elapsed_ms} ms) · Peak @ φ = ${mm.optimal_azimuth_deg}°`;
+    drawLinePlot('cv-eom-main', [
+      { x: azs, y: sw.r_eff_pm_per_v || [], color: '#38bdf8', label: 'Signed r_eff(φ) [pm/V]' },
+      { x: azs, y: (sw.V_pi_L_Vcm || []).map(v => Math.min(v, 25.0)), color: '#f59e0b', label: 'Straight-MZI V_π·L(φ) [V·cm] (cap 25)', dashed: true }
+    ], 'In-Plane Waveguide Azimuth φ [deg]', 'r_eff [pm/V]  /  V_π·L [V·cm]', mm.active_azimuth_deg);
+
+    document.getElementById('eom-plot2-title').textContent = zh ? '晶圆极坐标电光花瓣图 |r_eff(φ)| 与 SEMI 主参考边对准罗盘' : '2D Polar Wafer-Flat Rosette |r_eff(φ)| & Crystal-Axis Alignment';
+    document.getElementById('eom-plot2-sub').textContent = 'Cyan = +r_eff Lobe · Amber = -r_eff Lobe · Green = Optimal WG';
+    drawWaferOrientationPolar(res);
+
+    document.getElementById('eom-tbl-title').textContent = zh ? '关键晶体方位角 r_eff(φ)、V_π·L(φ)、光学折射率与微波介电常数对照表' : 'Cardinal Crystal Azimuth Lookup Table (r_eff, V_π·L, Optical n_opt & RF ε_r)';
+    thead.innerHTML = '<th>Azimuth φ [°]</th><th>Crystal Note</th><th>Signed r_eff [pm/V]</th><th>Straight V_π·L [V·cm]</th><th>Optical n_opt(φ)</th><th>RF ε_eff(φ)</th>';
+    [0, 30, 45, 60, 90, 120, 135, 180].forEach(ang => {
+      const idx = Math.min(Math.max(Math.round(ang), 0), azs.length - 1);
+      if (!azs.length) return;
+      let note = 'Off-axis';
+      if (ang === 0) note = `|| ${ax.phi0_label}`;
+      else if (ang === 90) note = `|| ${ax.phi90_label}`;
+      else if (ang === 180) note = `- (${ax.phi0_label}) [Polarity Flip]`;
+      else if (ang === 45 || ang === 135) note = '<110> Diagonal / Flat';
+      const vpiVal = sw.V_pi_L_Vcm[idx];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${ang}°</strong></td>
+        <td>${note}</td>
+        <td style="color:${sw.r_eff_pm_per_v[idx] >= 0 ? '#38bdf8' : '#f59e0b'};font-weight:700;">${sw.r_eff_pm_per_v[idx] >= 0 ? '+' : ''}${sw.r_eff_pm_per_v[idx].toFixed(2)}</td>
+        <td style="color:#34d399;">${vpiVal > 500 ? '∞ (Dead Axis!)' : vpiVal.toFixed(2) + ' V·cm'}</td>
+        <td>${sw.n_opt[idx].toFixed(4)}</td>
+        <td>${sw.eps_rf[idx].toFixed(2)}</td>`;
+      tbody.appendChild(tr);
+    });
+    return;
+  }
+
+  if (mode === 'pn_doping_tcad') {
+    document.getElementById('eom-kpi1-lbl').textContent = zh ? '半波电压长度积 V_π·L' : 'Modulation Efficiency V_π·L';
+    document.getElementById('eom-kpi1-val').textContent = `${mm.V_pi_L_Vcm.toFixed(3)} V·cm`;
+    document.getElementById('eom-kpi1-sub').textContent = `V_π = ${mm.V_pi_V.toFixed(2)} V @ ${mm.operating_bias_V} V`;
+
+    document.getElementById('eom-kpi2-lbl').textContent = zh ? '自由载流子吸收损耗 α_FCA' : 'FCA Loss & V_π·L·α FOM';
+    document.getElementById('eom-kpi2-val').textContent = `${mm.alpha_FCA_bias_dB_per_cm.toFixed(2)} dB/cm`;
+    document.getElementById('eom-kpi2-sub').textContent = `0 V: ${mm.alpha_FCA_0V_dB_per_cm.toFixed(2)} dB/cm · FOM ${mm.V_pi_L_alpha_V_dB.toFixed(2)} V·dB`;
+
+    document.getElementById('eom-kpi3-lbl').textContent = zh ? '耗尽结电容 C_j(V)' : 'Depletion Capacitance C_j(V)';
+    document.getElementById('eom-kpi3-val').textContent = `${mm.Cj_bias_fF_per_um.toFixed(3)} fF/µm`;
+    document.getElementById('eom-kpi3-sub').textContent = `0 V: ${mm.Cj_0V_fF_per_um.toFixed(3)} fF/µm · R_s = ${mm.R_series_ohm_cm.toFixed(2)} Ω·cm`;
+
+    document.getElementById('eom-kpi4-lbl').textContent = zh ? '行波 / 本征 RC 带宽' : 'TW Modulator / Intrinsic RC BW';
+    const fTwPn = mm.f_TW_3dBo_GHz ? `${mm.f_TW_3dBo_GHz.toFixed(1)} GHz (TW)` : `${mm.f_RC_intrinsic_GHz.toFixed(1)} GHz`;
+    document.getElementById('eom-kpi4-val').textContent = fTwPn;
+    document.getElementById('eom-kpi4-sub').textContent = `Intr RC: ${(mm.f_RC_intrinsic_GHz || mm.f_RC_GHz).toFixed(1)} GHz · Lumped: ${mm.f_RC_GHz.toFixed(1)} GHz`;
+
+    document.getElementById('eom-banner').innerHTML = zh
+      ? `<strong>${res.junction_name_zh}</strong>（2D 非线性泊松-玻尔兹曼 Newton-Raphson + 2D 全矢量本征模）：波导宽 <code>W = ${res.config.waveguide_width_um} µm</code>，平板厚 <code>h_slab = ${res.config.slab_height_um} µm</code>，结偏移 <code>+${res.config.pn_offset_nm} nm</code>，三级离子注入（核心 <code>${res.config.na_core_cm3.toExponential(1)}</code> + 中间脊翼 + <code>10²⁰ cm⁻³</code> 欧姆硅化物接触）。`
+      : `<strong>${res.junction_name_en}</strong> (2D Nonlinear Poisson-Boltzmann + 2D Vector Maxwell): Rib <code>W = ${res.config.waveguide_width_um} µm</code>, Slab <code>${res.config.slab_height_um} µm</code>, Offset <code>+${res.config.pn_offset_nm} nm</code>, 3-stage implant (core <code>${res.config.na_core_cm3.toExponential(1)}</code> + intermediate slab + <code>10²⁰ cm⁻³</code> silicide contact).`;
+
+    const vs = (res.states || []).map(s => s.voltage_v);
+    document.getElementById('eom-plot1-title').textContent = zh ? '耗尽电容 C_j(V) 与半波电压积 V_π·L(V)' : 'Depletion Capacitance C_j(V) & V_π·L(V) vs Bias';
+    document.getElementById('eom-plot1-sub').textContent = `2D Poisson-Boltzmann (${res.elapsed_ms} ms)`;
+    drawLinePlot('cv-eom-main', [
+      { x: vs, y: (res.states || []).map(s => s.cj_ff_per_um), color: '#38bdf8', label: 'C_j(V) [fF/µm]' },
+      { x: vs, y: (res.states || []).map(s => s.v_pi_l_secant_vcm), color: '#34d399', label: 'V_π·L(V) [V·cm]', dashed: true }
+    ], 'Bias Voltage V [V]', 'C_j [fF/µm]  /  V_π·L [V·cm]', mm.operating_bias_V);
+
+    if (eomAuxMode === 'sweep') {
+      document.getElementById('eom-plot2-title').textContent = zh ? '自由载流子吸收损耗 α_FCA(V) 与相移 Δφ(V)' : 'FCA Loss α_FCA(V) [dB/cm] & Phase Shift Δφ [π]';
+      document.getElementById('eom-plot2-sub').textContent = `Soref-Bennett 2D Overlap`;
+      drawLinePlot('cv-eom-aux', [
+        { x: vs, y: (res.states || []).map(s => s.alpha_fca_db_per_cm), color: '#f59e0b', label: 'α_FCA [dB/cm]' },
+        { x: vs, y: (res.states || []).map(s => Math.abs(s.phase_shift_pi) * 5.0), color: '#a78bfa', label: '5 × |Δφ| [π rad]', dashed: true }
+      ], 'Bias Voltage V [V]', 'α_FCA [dB/cm]  /  5×|Δφ/π|', mm.operating_bias_V);
+    } else {
+      document.getElementById('eom-plot2-title').textContent = zh ? `二维载流子耗尽区分布 log₁₀(n/p) @ ${res.field_map.bias_v} V` : `2D Depletion Carrier Map log₁₀(n/p) @ ${res.field_map.bias_v} V`;
+      document.getElementById('eom-plot2-sub').textContent = 'Blue = P-Holes · Dark = Depleted · Red = N-Electrons';
+      drawEomHeatmap2D(res, 'pn');
+    }
+
+    document.getElementById('eom-tbl-title').textContent = zh ? '逐偏压硅光 PN 结 TCAD 电容、串联电阻与光学微扰明细' : 'Bias-by-Bias 2D Silicon PN TCAD Capacitance, Series Resistance & Optical Perturbation';
+    thead.innerHTML = '<th>Bias [V]</th><th>C_j [fF/µm]</th><th>R_s [Ω·cm]</th><th>f_RC,intr [GHz]</th><th>Δn_eff</th><th>α_FCA [dB/cm]</th><th>V_π·L [V·cm]</th>';
+    (res.states || []).forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${s.voltage_v.toFixed(2)} V</strong></td>
+        <td style="color:#38bdf8;">${s.cj_ff_per_um.toFixed(4)}</td>
+        <td>${s.r_series_ohm_cm.toFixed(3)}</td>
+        <td>${(s.f_rc_intrinsic_ghz || s.f_rc_lumped_ghz).toFixed(1)}</td>
+        <td>${(s.delta_neff_real * 1e4).toFixed(2)} ×10⁻⁴</td>
+        <td style="color:#f59e0b;">${s.alpha_fca_db_per_cm.toFixed(2)}</td>
+        <td style="color:#34d399;font-weight:700;">${s.v_pi_l_secant_vcm.toFixed(3)}</td>`;
+      tbody.appendChild(tr);
+    });
+    return;
+  }
+
+  if (mode === 'thermal_fem') {
+    document.getElementById('eom-kpi1-lbl').textContent = zh ? '半波热功耗 P_π' : 'π-Phase-Shift Power P_π';
+    document.getElementById('eom-kpi1-val').textContent = `${mm.P_pi_mW.toFixed(2)} mW`;
+    document.getElementById('eom-kpi1-sub').textContent = `V_π = ${mm.V_pi_V.toFixed(2)} V · I_π = ${mm.I_pi_mA.toFixed(1)} mA (R = ${mm.R_heater_ohm.toFixed(0)} Ω)`;
+
+    document.getElementById('eom-kpi2-lbl').textContent = zh ? '波导热阻 R_th 与温升' : 'Core Thermal Resistance R_th';
+    document.getElementById('eom-kpi2-val').textContent = `${mm.R_th_core_K_per_mW.toFixed(3)} K/mW`;
+    document.getElementById('eom-kpi2-sub').textContent = `ΔT_core(P_π) = ${mm.Delta_T_core_at_Ppi_K.toFixed(1)} K · Heater ${mm.Delta_T_heater_at_Ppi_K.toFixed(0)} K`;
+
+    document.getElementById('eom-kpi3-lbl').textContent = zh ? '10–90% 瞬态升降时间' : '10–90% Rise / Fall Time';
+    document.getElementById('eom-kpi3-val').textContent = `${mm.t_rise_10_90_us.toFixed(1)} / ${mm.t_fall_90_10_us.toFixed(1)} µs`;
+    document.getElementById('eom-kpi3-sub').textContent = `f_3dB = ${mm.f_3dB_thermal_kHz.toFixed(1)} kHz · P_π·τ = ${mm.FOM_Ppi_tau_mW_us.toFixed(0)} mW·µs`;
+
+    document.getElementById('eom-kpi4-lbl').textContent = zh ? `横向热串扰 (@ ${mm.neighbor_pitch_um} µm)` : `Neighbor Crosstalk (@ ${mm.neighbor_pitch_um} µm)`;
+    document.getElementById('eom-kpi4-val').textContent = `${mm.crosstalk_at_neighbor_pct.toFixed(2)} %`;
+    document.getElementById('eom-kpi4-sub').textContent = `L_heater = ${res.config.active_length_um} µm (${res.config.heater_material})`;
+
+    const bridgeNote = (res.config.thermal_structure === 'undercut_suspended')
+      ? (zh ? '（注：XeF₂ 悬臂计入纵向氧化物支撑桥热导）' : ' (includes 2D longitudinal oxide suspension-bridge anchor conductance)')
+      : '';
+    document.getElementById('eom-banner').innerHTML = zh
+      ? `<strong>${res.structure_name_zh}</strong>（2D 稳态热传导 + Crank-Nicolson 无条件稳定瞬态热有限元）${bridgeNote}：芯层 <code>${res.config.core_material}</code>，加热器 <code>${res.config.heater_material}</code> (<code>W = ${res.config.heater_width_um} µm</code>, <code>L = ${res.config.active_length_um} µm</code>)。`
+      : `<strong>${res.structure_name_en}</strong> (2D Steady Fourier FEM + Crank-Nicolson Transient FEM)${bridgeNote}: Core <code>${res.config.core_material}</code>, Heater <code>${res.config.heater_material}</code> (<code>W = ${res.config.heater_width_um} µm</code>, <code>L = ${res.config.active_length_um} µm</code>).`;
+
+    const tr = res.transient || {};
+    document.getElementById('eom-plot1-title').textContent = zh ? 'Crank-Nicolson 瞬态方波加热/冷却曲线 ΔT_core(t)' : 'Crank-Nicolson Transient Step Heating & Cooling ΔT_core(t)';
+    document.getElementById('eom-plot1-sub').textContent = `P = P_π (${mm.P_pi_mW.toFixed(2)} mW) · Pulse Off @ ${tr.pulse_off_us} µs`;
+    drawLinePlot('cv-eom-main', [
+      { x: tr.time_us || [], y: tr.delta_T_core_K || [], color: '#fb923c', label: 'Core ΔT(t) [K] @ P_π' }
+    ], 'Time t [µs]', 'Waveguide Core ΔT [K]', tr.pulse_off_us);
+
+    if (eomAuxMode === 'sweep') {
+      const xt = res.crosstalk || {};
+      document.getElementById('eom-plot2-title').textContent = zh ? '横向热串扰衰减曲线 ΔT(x) / ΔT_core [%]' : 'Lateral Thermal Crosstalk Decay ΔT(x) / ΔT_core [%]';
+      document.getElementById('eom-plot2-sub').textContent = `${mm.crosstalk_at_neighbor_pct.toFixed(2)}% @ x = ${mm.neighbor_pitch_um} µm`;
+      drawLinePlot('cv-eom-aux', [
+        { x: xt.distance_um || [], y: xt.normalized_pct || [], color: '#38bdf8', label: 'Normalized Crosstalk [%]' }
+      ], 'Lateral Distance from Heated Core x [µm]', 'Thermal Crosstalk [%]', mm.neighbor_pitch_um);
+    } else {
+      document.getElementById('eom-plot2-title').textContent = zh ? '二维稳态温度场分布 ΔT(x, y) [K] @ P_π' : '2D Cross-Section Steady Temperature Map ΔT(x, y) [K] @ P_π';
+      document.getElementById('eom-plot2-sub').textContent = `Peak Heater ΔT = ${mm.Delta_T_heater_at_Ppi_K.toFixed(0)} K`;
+      drawEomHeatmap2D(res, 'thermal');
+    }
+
+    document.getElementById('eom-tbl-title').textContent = zh ? '热光移相器谐波频率响应 H_th(f) 与横向串扰采样' : 'Harmonic Thermal Frequency Roll-Off H_th(f) & Lateral Crosstalk Samples';
+    thead.innerHTML = '<th>Mod. Freq [kHz]</th><th>Thermal |H(f)| [dB]</th><th>Sample Pitch x [µm]</th><th>Neighbor ΔT @ P_π [K]</th><th>Relative Crosstalk [%]</th>';
+    const fq = tr.freq_kHz || [], hd = tr.H_thermal_dB || [];
+    const xd = (res.crosstalk && res.crosstalk.distance_um) || [];
+    const xk = (res.crosstalk && res.crosstalk.delta_T_K_at_Ppi) || [];
+    const xp = (res.crosstalk && res.crosstalk.normalized_pct) || [];
+    for (let i = 0; i < 7; i++) {
+      const fi = Math.min(Math.round(i * (fq.length - 1) / 6), fq.length - 1);
+      const xi = Math.min(Math.round((i + 1) * (xd.length - 1) / 7), xd.length - 1);
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><strong>${fq[fi] !== undefined ? fq[fi].toFixed(2) : '--'} kHz</strong></td>
+        <td style="color:#fb923c;">${hd[fi] !== undefined ? hd[fi].toFixed(2) : '--'} dB</td>
+        <td>${xd[xi] !== undefined ? xd[xi].toFixed(1) : '--'} µm</td>
+        <td>${xk[xi] !== undefined ? xk[xi].toFixed(3) : '--'} K</td>
+        <td style="color:#38bdf8;">${xp[xi] !== undefined ? xp[xi].toFixed(2) : '--'} %</td>`;
+      tbody.appendChild(row);
+    }
+    return;
+  }
+
+  // Default Mode: RF Traveling-Wave / Slow-Wave T-Rail / GSG Electrode
+  const dm = res.dimensions || {};
+  document.getElementById('eom-kpi1-lbl').textContent = zh ? '特征阻抗 Z₀ 与自动线宽综合' : 'Impedance Z₀ & Auto-Synthesis';
+  document.getElementById('eom-kpi1-val').textContent = `${mm.Z0_ohm.toFixed(2)} Ω`;
+  document.getElementById('eom-kpi1-sub').textContent = dm.t_rail_length_um > 0
+    ? `W_S = ${dm.signal_width_um.toFixed(1)} µm · L_rail = ${dm.t_rail_length_um.toFixed(1)} µm`
+    : `W_S = ${dm.signal_width_um.toFixed(2)} µm · Gap G = ${dm.inner_gap_um.toFixed(2)} µm`;
+
+  document.getElementById('eom-kpi2-lbl').textContent = zh ? '微波-光群速匹配 (n_RF vs n_g)' : 'Velocity Match (n_RF vs n_g)';
+  document.getElementById('eom-kpi2-val').textContent = `${mm.n_RF.toFixed(3)} vs ${mm.n_g_opt.toFixed(3)}`;
+  document.getElementById('eom-kpi2-sub').textContent = `|Δn| = ${mm.velocity_walkoff_dn.toFixed(4)} · α_RF(40G) = ${mm.alpha_RF_40GHz_dB_per_cm.toFixed(2)} dB/cm`;
+
+  const bwa = res.bandwidth_analysis || {};
+  document.getElementById('eom-kpi3-lbl').textContent = zh ? '调制器带宽 f_3dBo / f_3dBe' : 'Modulator BW f_3dBo / f_3dBe';
+  const bwPrefix = bwa.exceeds_500GHz ? '>' : '';
+  document.getElementById('eom-kpi3-val').textContent = `${bwPrefix}${mm.f_3dBo_GHz.toFixed(1)} / ${mm.f_3dBe_GHz.toFixed(1)} GHz`;
+  document.getElementById('eom-kpi3-sub').textContent = mm.max_pam4_gbps
+    ? `~${mm.max_nrz_gbps.toFixed(0)}G NRZ / ${mm.max_pam4_gbps.toFixed(0)}G PAM4 · Limit: ${mm.limiting_mechanism}`
+    : `S₁₁_max = ${mm.S11_max_dB.toFixed(1)} dB · E_bit = ${mm.E_bit_fJ.toFixed(1)} fJ/bit`;
+
+  document.getElementById('eom-kpi4-lbl').textContent = zh ? '半波电压积 V_π·L 与金属吸收' : 'Modulator V_π·L & Metal Loss';
+  document.getElementById('eom-kpi4-val').textContent = `${mm.V_pi_L_Vcm.toFixed(3)} V·cm`;
+  document.getElementById('eom-kpi4-sub').textContent = `V_π = ${mm.V_pi_V.toFixed(2)} V · α_metal = ${mm.alpha_metal_opt_db_per_cm.toFixed(4)} dB/cm`;
+
+  const trailTxt = dm.t_rail_length_um > 0
+    ? `, T-Rail <code>L_rail = ${dm.t_rail_length_um} µm</code>, <code>W_cap = ${dm.t_rail_cap_width_um || '--'} µm</code>, <code>Λ = ${dm.t_rail_period_um} µm</code> (<code>f_Bragg = ${mm.f_bragg_cutoff_GHz || '--'} GHz</code>)`
+    : '';
+  const subThzInfo = mm.S21_EO_300GHz_dBe !== undefined
+    ? ` · <code>S₂₁_EO(300G) = ${mm.S21_EO_300GHz_dBe.toFixed(2)} dBe</code> · <code>α_RF(300G) = ${(mm.alpha_RF_300GHz_dB_per_cm || 0).toFixed(2)} dB/cm</code>` + ((mm.alpha_cherenkov_300GHz_dB_per_cm || 0) > 0.05 ? ` (Cherenkov <code>${mm.alpha_cherenkov_300GHz_dB_per_cm.toFixed(2)} dB/cm</code>)` : '')
+    : '';
+  const woInfo = res.wafer_orientation && res.wafer_orientation.metrics
+    ? (zh
+      ? ` · 晶向 <code>φ = ${res.wafer_orientation.metrics.active_azimuth_deg}°</code> (<code>r_eff = ${res.wafer_orientation.metrics.r_eff_active_pm_per_v.toFixed(1)} pm/V</code>, <code>${res.wafer_orientation.crystal_axes.flat_label}</code>)`
+      : ` · Wafer Azimuth <code>φ = ${res.wafer_orientation.metrics.active_azimuth_deg}°</code> (<code>r_eff = ${res.wafer_orientation.metrics.r_eff_active_pm_per_v.toFixed(1)} pm/V</code>, <code>${res.wafer_orientation.crystal_axes.flat_label}</code>)`)
+    : '';
+  const bwTipHtml = (bwa.design_tip_en || bwa.design_tip_zh)
+    ? `<br/><span style="color:#34d399;">⚡ <strong>${zh ? '带宽分解' : 'Bandwidth Breakdown'}:</strong> <code>f_3dBo = ${mm.f_3dBo_GHz} GHz</code>, <code>f_3dBe = ${mm.f_3dBe_GHz} GHz</code>${subThzInfo} (Walk-off ceiling <code>${bwa.f_walkoff_3dBo_GHz || mm.f_walkoff_limit_GHz} GHz</code>, RF-loss ceiling <code>${mm.f_rf_loss_limit_GHz || '--'} GHz</code>, Lumped RC <code>${mm.f_rc_lumped_GHz || '--'} GHz</code>${bwa.f_cavity_3dBo_GHz ? `, Cavity <code>${bwa.f_cavity_3dBo_GHz} GHz</code>` : ''}) — ${zh ? bwa.design_tip_zh : bwa.design_tip_en}</span>`
+    : '';
+  const woWarn = (res.wafer_orientation && res.wafer_orientation.mismatch_warning)
+    ? `<br/><span style="color:#fbbf24;">⚠️ ${res.wafer_orientation.mismatch_warning}</span>`
+    : '';
+  document.getElementById('eom-banner').innerHTML = (zh
+    ? `<strong>${res.topology_name_zh}</strong>（2D 准横电磁波拉普拉斯有限元 + Ghione 保角趋肤损耗 + Bloch-Floquet 周期色散 + Cherenkov 辐射；&gt;250 GHz 流片前建议 3D 全波复核）：芯层 <code>${res.config.core_material}</code>，衬底 <code>${res.config.substrate_type}</code>，信号线宽 <code>W_S = ${dm.signal_width_um} µm</code>，内间距 <code>G = ${dm.inner_gap_um} µm</code>${trailTxt}，推荐推挽 MZI 双臂间距 <code>${dm.recommended_mzi_arm_sep_um} µm</code>，GSG 探针间距 <code>${dm.probe_pitch_um} µm</code>${woInfo}。`
+    : `<strong>${res.topology_name_en}</strong> (2D Quasi-TEM Laplace FEM + Ghione Conformal Skin Loss + ABCD Bloch-Floquet + Cherenkov Radiation; 3D full-wave check advised &gt;250 GHz before tape-out): Core <code>${res.config.core_material}</code> on <code>${res.config.substrate_type}</code>, Signal <code>W_S = ${dm.signal_width_um} µm</code>, Gap <code>G = ${dm.inner_gap_um} µm</code>${trailTxt}, Recommended MZI Arm Pitch <code>${dm.recommended_mzi_arm_sep_um} µm</code>, GSG Probe Pitch <code>${dm.probe_pitch_um} µm</code>${woInfo}.`) + bwTipHtml + woWarn;
+
+  const fr = res.frequency_response || {};
+  const fVecPlot = fr.freq_GHz || [];
+  document.getElementById('eom-plot1-title').textContent = zh ? '调制器电光频率响应 S₂₁_EO(f) [dBe] (-3 dBe / -6 dBe) 与微波 S₁₁' : 'Modulator EO Bandwidth S₂₁_EO(f) [dBe] (-3 dBe & -6 dBe) & RF S₁₁';
+  document.getElementById('eom-plot1-sub').textContent = `f_3dBo = ${mm.f_3dBo_GHz} GHz · f_3dBe = ${mm.f_3dBe_GHz} GHz (${res.elapsed_ms} ms)`;
+  drawLinePlot('cv-eom-main', [
+    { x: fVecPlot, y: fr.S21_EO_dBe || [], color: '#38bdf8', label: 'EO S₂₁ [dBe]' },
+    { x: fVecPlot, y: fVecPlot.map(() => -3.01), color: '#a78bfa', label: '-3 dBe (f_3dBe)', dashed: true },
+    { x: fVecPlot, y: fVecPlot.map(() => -6.02), color: '#f43f5e', label: '-6 dBe (-3 dBo)', dashed: true },
+    { x: fVecPlot, y: fr.S21_RF_dB || [], color: '#34d399', label: 'RF S₂₁ [dB]', dashed: true },
+    { x: fVecPlot, y: fr.S11_RF_dB || [], color: '#f59e0b', label: 'RF S₁₁ [dB]', dashed: true }
+  ], 'RF Frequency f [GHz]', 'Magnitude [dB / dBe]', mm.bw_exceeds_sweep ? null : mm.f_3dBo_GHz);
+
+  if (eomAuxMode === 'sweep' && res.gap_sweep && res.gap_sweep.gap_um) {
+    const gs = res.gap_sweep;
+    document.getElementById('eom-plot2-title').textContent = zh ? '电极间距扫描：V_π·L [V·cm] vs 特征阻抗 Z₀ [Ω]' : 'Electrode Gap Trade-Off: V_π·L [V·cm] & Z₀/20 [Ω]';
+    document.getElementById('eom-plot2-sub').textContent = gs.param_label;
+    drawLinePlot('cv-eom-aux', [
+      { x: gs.gap_um, y: gs.V_pi_L_Vcm, color: '#38bdf8', label: 'V_π·L [V·cm]' },
+      { x: gs.gap_um, y: gs.Z0_ohm.map(v => v / 20.0), color: '#34d399', label: 'Z₀ / 20 [Ω]', dashed: true },
+      { x: gs.gap_um, y: gs.alpha_metal_db_per_cm, color: '#f43f5e', label: 'α_metal [dB/cm]', dashed: true }
+    ], gs.param_label, 'V_π·L [V·cm]  /  (Z₀/20)  /  α_metal', dm.inner_gap_um);
+  } else {
+    document.getElementById('eom-plot2-title').textContent = zh ? '二维电极截面射频电场模值 |E_RF(x, y)| (@ 1 V)' : '2D Cross-Section RF Electric Field |E_RF(x, y)| (@ 1 V)';
+    document.getElementById('eom-plot2-sub').textContent = `Γ_EO = ${mm.eo_overlap_factor.toFixed(3)} · Gold = Metal · Cyan = Core`;
+    drawEomHeatmap2D(res, 'rf');
+  }
+
+  const fArr = fr.freq_GHz || [];
+  const fTop = fArr.length ? fArr[fArr.length - 1] : 150;
+  document.getElementById('eom-tbl-title').textContent = zh
+    ? `宽带微波与电光传输线特性汇总表 (1 – ${Math.round(fTop)} GHz)`
+    : `Broadband RF & Electro-Optic Transmission-Line Summary (1 – ${Math.round(fTop)} GHz)`;
+  thead.innerHTML = '<th>Freq [GHz]</th><th>Z₀ [Ω]</th><th>n_RF</th><th>α_RF [dB/cm]</th><th>S₂₁_RF [dB]</th><th>S₁₁_RF [dB]</th><th>EO S₂₁ [dBe]</th>';
+  const baseCkpts = fTop >= 200
+    ? [1, 10, 40, 100, 150, 200, 250, 300, Math.round(fTop)]
+    : [1, 10, 25, 40, 60, 80, 100, Math.round(fTop)];
+  const sampleFreqs = [...new Set(baseCkpts.filter(f => f <= fTop + 1.0))];
+  sampleFreqs.forEach(fTarget => {
+    if (!fArr.length) return;
+    let best = 0;
+    for (let i = 1; i < fArr.length; i++) {
+      if (Math.abs(fArr[i] - fTarget) < Math.abs(fArr[best] - fTarget)) best = i;
+    }
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><strong>${fArr[best].toFixed(1)} GHz</strong></td>
+      <td>${fr.Z0_ohm[best].toFixed(2)}</td>
+      <td>${fr.n_RF[best].toFixed(4)}</td>
+      <td>${fr.alpha_RF_dB_per_cm[best].toFixed(3)}</td>
+      <td style="color:#34d399;">${fr.S21_RF_dB[best].toFixed(2)} dB</td>
+      <td style="color:#f59e0b;">${fr.S11_RF_dB[best].toFixed(2)} dB</td>
+      <td style="color:#38bdf8;font-weight:700;">${fr.S21_EO_dBe[best].toFixed(2)} dBe</td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function drawWaferOrientationPolar(res) {
+  const { ctx, w, h } = setupCanvas('cv-eom-aux');
+  ctx.fillStyle = '#070b14';
+  ctx.fillRect(0, 0, w, h);
+  const sw = res.angular_sweep || {};
+  const azs = sw.azimuth_deg || [], rVec = sw.r_eff_pm_per_v || [];
+  if (!azs.length) return;
+
+  const cx = 0.5 * w, cy = 0.52 * h;
+  const R = Math.max(48, Math.min(w, h) * 0.36);
+
+  // Concentric reference rings + circular wafer silhouette
+  ctx.strokeStyle = 'rgba(148,163,184,0.22)';
+  ctx.lineWidth = 1.0;
+  [0.33, 0.66, 1.0].forEach(fr => {
+    ctx.beginPath(); ctx.arc(cx, cy, R * fr, 0, Math.PI * 2); ctx.stroke();
+  });
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.06, 0, Math.PI * 2); ctx.stroke();
+
+  // Crosshair crystal axes (phi = 0° horizontal right, phi = 90° vertical up)
+  ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(cx - R * 1.12, cy); ctx.lineTo(cx + R * 1.12, cy);
+  ctx.moveTo(cx, cy - R * 1.12); ctx.lineTo(cx, cy + R * 1.12);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // SEMI Primary Wafer Flat chord on bottom/edge parallel to flat_azimuth_deg
+  const ax = res.crystal_axes || {};
+  const flatDeg = ax.flat_azimuth_deg || 0.0;
+  const nAng = (flatDeg - 90.0) * Math.PI / 180.0;
+  const tAng = flatDeg * Math.PI / 180.0;
+  const dFlat = R * 1.02;
+  const halfFlat = R * 0.42;
+  const fx = cx + dFlat * Math.cos(nAng), fy = cy - dFlat * Math.sin(nAng);
+  ctx.strokeStyle = '#fde047';
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.moveTo(fx - halfFlat * Math.cos(tAng), fy + halfFlat * Math.sin(tAng));
+  ctx.lineTo(fx + halfFlat * Math.cos(tAng), fy - halfFlat * Math.sin(tAng));
+  ctx.stroke();
+
+  // Signed polar rosette lobes (+r_eff in cyan, -r_eff in amber)
+  let rPeak = 1e-6;
+  rVec.forEach(v => { if (Math.abs(v) > rPeak) rPeak = Math.abs(v); });
+
+  const drawSignedLobe = (wantPos, stroke, fill) => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    for (let i = 0; i < azs.length; i++) {
+      const rv = rVec[i];
+      const mag = ((wantPos && rv > 0) || (!wantPos && rv < 0)) ? (Math.abs(rv) / rPeak) * R : 0.0;
+      const rad = azs[i] * Math.PI / 180.0;
+      ctx.lineTo(cx + mag * Math.cos(rad), cy - mag * Math.sin(rad));
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = stroke; ctx.lineWidth = 1.9; ctx.stroke();
+  };
+  if (rPeak > 1e-4) {
+    drawSignedLobe(true, '#38bdf8', 'rgba(56,189,248,0.24)');
+    drawSignedLobe(false, '#f59e0b', 'rgba(245,158,11,0.22)');
+  }
+
+  // Optimal propagation waveguide arrow
+  const optRad = (res.metrics.optimal_azimuth_deg || 0.0) * Math.PI / 180.0;
+  ctx.strokeStyle = '#34d399';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(cx - R * 0.92 * Math.cos(optRad), cy + R * 0.92 * Math.sin(optRad));
+  ctx.lineTo(cx + R * 0.98 * Math.cos(optRad), cy - R * 0.98 * Math.sin(optRad));
+  ctx.stroke();
+
+  // Crystal axis & flat labels
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 10.5px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`0° (${ax.phi0_label || 'X'})`, cx + R * 1.09, cy + 4);
+  ctx.textAlign = 'center';
+  ctx.fillText(`90° (${ax.phi90_label || 'Y'})`, cx, cy - R * 1.14);
+  ctx.fillStyle = '#fde047';
+  ctx.fillText(ax.flat_label || 'SEMI Flat', cx, h - 7);
+}
+
+function drawEomHeatmap2D(res, kind) {
+  const fm = res.field_map;
+  const { ctx, w, h } = setupCanvas('cv-eom-aux');
+  ctx.fillStyle = '#070b14';
+  ctx.fillRect(0, 0, w, h);
+  if (!fm || !fm.x_um || !fm.y_um) return;
+
+  const xArr = fm.x_um, yArr = fm.y_um;
+  const mat2d = (kind === 'pn') ? fm.signed_log_carrier : (kind === 'thermal' ? fm.delta_T_K : fm.e_mag_v_per_um);
+  if (!mat2d || !mat2d.length) return;
+
+  const pad = { l: 48, r: 16, t: 18, b: 34 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  const ny = mat2d.length, nx = mat2d[0].length;
+
+  let vMax = 1e-9;
+  for (let iy = 0; iy < ny; iy++) {
+    for (let ix = 0; ix < nx; ix++) {
+      const av = Math.abs(mat2d[iy][ix]);
+      if (av > vMax) vMax = av;
+    }
+  }
+
+  const off = document.createElement('canvas');
+  off.width = nx; off.height = ny;
+  const octx = off.getContext('2d');
+  const img = octx.createImageData(nx, ny);
+
+  for (let iy = 0; iy < ny; iy++) {
+    const srcIy = ny - 1 - iy;
+    for (let ix = 0; ix < nx; ix++) {
+      let rC = 10, gC = 15, bC = 28;
+      if (kind === 'pn') {
+        const u = Math.max(-1, Math.min(1, mat2d[srcIy][ix] / Math.max(vMax, 1.0)));
+        if (u < 0) {
+          const a = Math.pow(-u, 0.78);
+          rC = 12 + 32 * a; gC = 20 + 135 * a; bC = 38 + 208 * a;
+        } else {
+          const a = Math.pow(u, 0.78);
+          rC = 12 + 232 * a; gC = 20 + 68 * a; bC = 38 + 65 * a;
+        }
+      } else {
+        const v = Math.max(0, Math.min(1, mat2d[srcIy][ix] / vMax));
+        const g = Math.pow(v, kind === 'rf' ? 0.52 : 0.70);
+        if (g < 0.35) {
+          const u = g / 0.35;
+          rC = 8 + 38 * u; gC = 14 + 92 * u; bC = 30 + 168 * u;
+        } else if (g < 0.72) {
+          const u = (g - 0.35) / 0.37;
+          rC = 46 + 198 * u; gC = 106 + 82 * u; bC = 198 - 135 * u;
+        } else {
+          const u = (g - 0.72) / 0.28;
+          rC = 244 + 11 * u; gC = 188 + 64 * u; bC = 63 + 175 * u;
+        }
+      }
+      const p = 4 * (iy * nx + ix);
+      img.data[p] = rC; img.data[p + 1] = gC; img.data[p + 2] = bC; img.data[p + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, pad.l, pad.t, pw, ph);
+
+  const xMin = xArr[0], xMax = xArr[xArr.length - 1];
+  const yMin = yArr[0], yMax = yArr[yArr.length - 1];
+  const tx = xv => pad.l + ((xv - xMin) / Math.max(xMax - xMin, 1e-6)) * pw;
+  const ty = yv => pad.t + ph - ((yv - yMin) / Math.max(yMax - yMin, 1e-6)) * ph;
+
+  const drawBoxOverlay = (b, stroke, fill) => {
+    if (!b || b.length < 4) return;
+    const x0 = Math.max(b[0], xMin), x1 = Math.min(b[2], xMax);
+    const y0 = Math.max(b[1], yMin), y1 = Math.min(b[3], yMax);
+    if (x1 <= x0 || y1 <= y0) return;
+    const px = tx(x0), py = ty(y1), bw = tx(x1) - px, bh = ty(y0) - py;
+    if (fill) { ctx.fillStyle = fill; ctx.fillRect(px, py, bw, bh); }
+    ctx.strokeStyle = stroke; ctx.lineWidth = 1.25; ctx.strokeRect(px, py, bw, bh);
+  };
+
+  if (kind === 'rf') {
+    (fm.slab_boxes_um || []).forEach(b => drawBoxOverlay(b, 'rgba(167,139,250,0.65)', 'rgba(167,139,250,0.12)'));
+    (fm.core_boxes_um || []).forEach(b => drawBoxOverlay(b, '#38bdf8', 'rgba(56,189,248,0.22)'));
+    if ((fm.stem_boxes_um || []).length) {
+      ctx.save();
+      ctx.setLineDash([3, 2]);
+      (fm.stem_boxes_um || []).forEach(b => drawBoxOverlay(b, '#fde047', 'rgba(234,179,8,0.24)'));
+      ctx.restore();
+    }
+    (fm.metal_boxes_um || []).forEach(b => drawBoxOverlay(b, '#fde047', 'rgba(234,179,8,0.58)'));
+  } else if (kind === 'pn') {
+    const pts = fm.rib_outline_um || [];
+    if (pts.length > 2) {
+      ctx.beginPath();
+      pts.forEach((pt, idx) => {
+        if (idx === 0) ctx.moveTo(tx(pt[0]), ty(pt[1]));
+        else ctx.lineTo(tx(pt[0]), ty(pt[1]));
+      });
+      ctx.closePath();
+      ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+    if (fm.pn_offset_um !== undefined) {
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = '#fde047'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(tx(fm.pn_offset_um), ty(0)); ctx.lineTo(tx(fm.pn_offset_um), ty(fm.film_height_um || 0.22)); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  } else if (kind === 'thermal') {
+    if (fm.core_box_um) drawBoxOverlay(fm.core_box_um, '#38bdf8', null);
+    (fm.heater_boxes_um || []).forEach(b => drawBoxOverlay(b, '#fde047', 'rgba(251,146,60,0.45)'));
+    (fm.trench_boxes_um || []).forEach(b => drawBoxOverlay(b, '#94a3b8', 'rgba(15,23,42,0.72)'));
+  }
+
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.1;
+  ctx.strokeRect(pad.l, pad.t, pw, ph);
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '10.5px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  [xMin, 0.0, xMax].forEach(xv => {
+    if (xv >= xMin - 1e-4 && xv <= xMax + 1e-4) ctx.fillText(xv.toFixed(1), tx(xv), h - 17);
+  });
+  ctx.fillText('Cross-Section x [µm]', pad.l + pw / 2, h - 4);
+  ctx.textAlign = 'right';
+  [yMin, 0.5 * (yMin + yMax), yMax].forEach(yv => {
+    ctx.fillText(yv.toFixed(2), pad.l - 5, ty(yv) + 3.5);
   });
 }
 

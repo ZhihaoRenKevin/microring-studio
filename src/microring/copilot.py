@@ -27,6 +27,13 @@ from .active_tuning import (
     export_lumerical_interconnect_bundle,
     run_active_tuning_analysis,
 )
+from .eom_electrode import (
+    EOMElectrodeConfig,
+    analyze_eo_wafer_orientation,
+    design_eom_electrode,
+    export_eom_electrode_gds,
+    export_eom_rf_interconnect_bundle,
+)
 from .fab_tolerance import export_fab_bias_array_gds, run_fabrication_error_analysis
 from .gds_bridge import (
     analyze_uploaded_gds,
@@ -55,6 +62,15 @@ from .mzi_interferometer import (
     export_mzi_gds,
     export_mzi_interconnect_bundle,
     simulate_mzi,
+)
+from .multiphysics_tcad import (
+    PNDopingTCADConfig,
+    ThermalSimConfig,
+    export_pn_doping_gds,
+    export_tcad_data_bundle,
+    export_thermal_shifter_gds,
+    simulate_pn_doping_tcad,
+    simulate_thermal_phase_shifter,
 )
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 
@@ -212,6 +228,85 @@ PLATFORM_PRESETS: dict[str, dict] = {
         "w_sweep": (0.75, 2.30),
         "loss_choices": [0.10, 0.25, 0.60, 1.20],
     },
+    "LT_Xcut": {
+        "topology": "racetrack_ap",
+        "film_height_um": 0.60,
+        "slab_height_um": 0.30,
+        "sidewall_deg": 72.0,
+        "ring_width_um": 1.30,
+        "bus_width_um": 1.15,
+        "ring_radius_um": 75.0,
+        "straight_length_um": 30.0,
+        "gap_thru_um": 0.30,
+        "gap_drop_um": 0.30,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.75, 2.20),
+        "loss_choices": [0.08, 0.20, 0.50, 1.00],
+    },
+    "LT_Zcut": {
+        "film_height_um": 0.60,
+        "slab_height_um": 0.30,
+        "sidewall_deg": 72.0,
+        "ring_width_um": 1.30,
+        "bus_width_um": 1.15,
+        "ring_radius_um": 75.0,
+        "gap_thru_um": 0.28,
+        "gap_drop_um": 0.28,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.75, 2.20),
+        "loss_choices": [0.08, 0.20, 0.50, 1.00],
+    },
+    "BTO": {
+        "topology": "racetrack_ap",
+        "film_height_um": 0.35,
+        "slab_height_um": 0.12,
+        "sidewall_deg": 80.0,
+        "ring_width_um": 0.90,
+        "bus_width_um": 0.85,
+        "ring_radius_um": 50.0,
+        "straight_length_um": 30.0,
+        "gap_thru_um": 0.25,
+        "gap_drop_um": 0.25,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.55, 1.60),
+        "loss_choices": [1.0, 2.0, 3.5, 6.0],
+    },
+    "BTO_ccut": {
+        "film_height_um": 0.35,
+        "slab_height_um": 0.12,
+        "sidewall_deg": 80.0,
+        "ring_width_um": 0.90,
+        "bus_width_um": 0.85,
+        "ring_radius_um": 50.0,
+        "gap_thru_um": 0.25,
+        "gap_drop_um": 0.25,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.55, 1.60),
+        "loss_choices": [1.0, 2.0, 3.5, 6.0],
+    },
+    "PZT": {
+        "film_height_um": 0.32,
+        "slab_height_um": 0.10,
+        "sidewall_deg": 80.0,
+        "ring_width_um": 0.85,
+        "bus_width_um": 0.80,
+        "ring_radius_um": 45.0,
+        "gap_thru_um": 0.24,
+        "gap_drop_um": 0.24,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.50, 1.55),
+        "loss_choices": [0.8, 1.5, 2.5, 4.5],
+    },
     "Ge": {
         "film_height_um": 1.40,
         "slab_height_um": 0.30,
@@ -291,6 +386,81 @@ PLATFORM_PRESETS: dict[str, dict] = {
         "span_nm": 4.5,
         "w_sweep": (0.22, 0.78),
         "loss_choices": [0.5, 1.2, 2.5, 5.0],
+    },
+    "LT_Xcut": {
+        "film_height_um": 0.60,
+        "slab_height_um": 0.30,
+        "sidewall_deg": 75.0,
+        "ring_width_um": 1.20,
+        "bus_width_um": 1.00,
+        "ring_radius_um": 60.0,
+        "gap_thru_um": 0.32,
+        "gap_drop_um": 0.32,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.70, 2.20),
+        "loss_choices": [0.08, 0.20, 0.50, 1.00],
+    },
+    "LT_Zcut": {
+        "film_height_um": 0.60,
+        "slab_height_um": 0.30,
+        "sidewall_deg": 75.0,
+        "ring_width_um": 1.20,
+        "bus_width_um": 1.00,
+        "ring_radius_um": 60.0,
+        "gap_thru_um": 0.32,
+        "gap_drop_um": 0.32,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.70, 2.20),
+        "loss_choices": [0.08, 0.20, 0.50, 1.00],
+    },
+    "BTO": {
+        "film_height_um": 0.35,
+        "slab_height_um": 0.12,
+        "sidewall_deg": 78.0,
+        "ring_width_um": 0.90,
+        "bus_width_um": 0.78,
+        "ring_radius_um": 45.0,
+        "gap_thru_um": 0.26,
+        "gap_drop_um": 0.26,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.50, 1.60),
+        "loss_choices": [0.80, 1.50, 3.00, 6.00],
+    },
+    "BTO_ccut": {
+        "film_height_um": 0.35,
+        "slab_height_um": 0.12,
+        "sidewall_deg": 78.0,
+        "ring_width_um": 0.90,
+        "bus_width_um": 0.78,
+        "ring_radius_um": 45.0,
+        "gap_thru_um": 0.26,
+        "gap_drop_um": 0.26,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.50, 1.60),
+        "loss_choices": [0.80, 1.50, 3.00, 6.00],
+    },
+    "PZT": {
+        "film_height_um": 0.32,
+        "slab_height_um": 0.10,
+        "sidewall_deg": 80.0,
+        "ring_width_um": 0.85,
+        "bus_width_um": 0.72,
+        "ring_radius_um": 40.0,
+        "gap_thru_um": 0.25,
+        "gap_drop_um": 0.25,
+        "clad_material": "SiO2",
+        "top_clad_material": "SiO2",
+        "wavelength_nm": 1550.0,
+        "w_sweep": (0.45, 1.50),
+        "loss_choices": [0.80, 1.20, 2.50, 5.00],
     },
 }
 
@@ -538,6 +708,16 @@ def parse_photonics_intent(message: str) -> dict:
         mat = "Si3N4"
     elif re.search(r"\ba[-_\s]*si\b|amorphous silicon|非晶硅", low):
         mat = "a-Si"
+    elif re.search(r"z[-_\s]*cut.*(lt|tflt|litao3|tantalate)|z切.*钽酸锂", low):
+        mat = "LT_Zcut"
+    elif re.search(r"\b(tflt|litao3|lithium tantalate|lt)\b|钽酸锂", low):
+        mat = "LT_Xcut"
+    elif re.search(r"c[-_\s]*(?:cut|orient).*(?:bto|batio3|barium titanate)|c取向.*钛酸钡|c切.*钛酸钡", low):
+        mat = "BTO_ccut"
+    elif re.search(r"\b(bto|batio3|barium titanate)\b|钛酸钡", low):
+        mat = "BTO"
+    elif re.search(r"\b(pzt|lead zirconate|pbzrtio3)\b|锆钛酸铅", low):
+        mat = "PZT"
     elif re.search(r"x[-_\s]*cut.*(ln|tfln|linbo3|niobate)|x切.*铌酸锂", low):
         mat = "LN_Xcut"
     elif re.search(r"z[-_\s]*cut.*(ln|tfln|linbo3|niobate)|z切.*铌酸锂", low):
@@ -611,11 +791,11 @@ def parse_photonics_intent(message: str) -> dict:
 
     # 5. Film height H_film & Slab height H_slab & Sidewall angle
     h_explicit = re.search(
-        r"(?:h_?film|film(?:\s*height|\s*thickness)?|thickness|core\s*height|膜厚|厚度)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)",
+        r"(?:h_?film|film(?:\s*height|\s*thickness)?|thickness|core\s*height|\bh\s*[=:]|膜厚|厚度)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)",
         low,
     )
     h_prefix = re.search(
-        r"\b(\d+(?:\.\d+)?)\s*(nm|um|µm)\s+(?:soi|si3n4|sin|tio2|ta2o5|gan|diamond|4h-sic|3c-sic|sic|aln|scaln|x-cut|z-cut|tfln|ln|ge|a-si|si\b)",
+        r"\b(\d+(?:\.\d+)?)\s*(nm|um|µm)\s+(?:soi|si3n4|sin|tio2|ta2o5|gan|diamond|4h-sic|3c-sic|sic|aln|scaln|x-cut|z-cut|tfln|tflt|lt|bto|batio3|pzt|ln|ge|a-si|si\b)",
         low,
     )
     if h_explicit:
@@ -707,7 +887,10 @@ def parse_photonics_intent(message: str) -> dict:
     # 7. Waveguide Widths, Radius, Gap, Pulley Angle, Straight Length, Propagation Loss (dB/cm) or Q_int, Tuning
     wr_m = re.search(r"(?:w_?ring|ring\s*width|环宽)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
     wb_m = re.search(r"(?:w_?bus|bus\s*width|总线宽)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
-    wg_m = re.search(r"(?:\bwidth\b|波导宽)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+    wg_m = re.search(
+        r"(?:(?<!heater\s)(?<!signal\s)(?:\bwidth\b|rib\s*w(?:idth)?|w_?wg|波导宽)|\bw\s*[=:])\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)",
+        low,
+    )
     if wr_m:
         out["fields"]["ring_width_um"] = _to_um(float(wr_m.group(1)), wr_m.group(2))
     if wb_m:
@@ -795,7 +978,299 @@ def parse_photonics_intent(message: str) -> dict:
         out["targets"]["ports"] = 4 if is_ad else 2
 
     # 10. Direct Action Triggers
-    if re.search(
+    has_rf_elec_kw = bool(
+        not re.search(r"\bfsr\b|自由光谱", low)
+        and re.search(
+            r"electrode[-_\s]*(?:layout|design|sim|gds|mask|width|impedance|with)|\beom\b[-_\s]*electrode|electrode[-_\s]*\beom\b|"
+            r"(?:modulator|\beom\b|\bmzm\b|\bmrm\b|\beo\b|\brf\b|3[-_\s]*db[eo]).*bandwidth|bandwidth.*(?:modulator|\beom\b|\bmzm\b|\bmrm\b|\beo\b|\brf\b)|"
+            r"\d+(?:\.\d+)?\s*ghz.*\b(?:modulator|\beom\b|\bmzm\b|electrode)\b|\b(?:modulator|\beom\b|\bmzm\b|electrode)\b.*\d+(?:\.\d+)?\s*ghz|"
+            r"target(?:ing)?(?:\s+for)?\s*\d+(?:\.\d+)?\s*ghz|sub[-_\s]*thz|"
+            r"\bf_?3db[eo]?\b|\bcpw\b|t[-_\s]*rail|t[-_\s]*shape|slow[-_\s]*wave|velocity[-_\s]*match|50[-_\s]*ohm|50\s*ω|touchstone|\.s2p\b|"
+            r"traveling[-_\s]*wave[-_\s]*electrode|\bgsg\b.*(?:electrode|pad|cpw|eom|layout)|rf[-_\s]*electrode|"
+            r"调制器带宽|调制带宽|电光带宽|电极版图|电极设计|行波电极|慢波电极|t型轨道|t形电极|t型电极|太赫兹|阻抗匹配|速度匹配",
+            low,
+        )
+    )
+    has_wo_kw = bool(
+        re.search(
+            r"wafer[-_\s]*(?:orient|cut|flat)|crystal[-_\s]*(?:orient|axis|cut|azimuth)|in[-_\s]*plane[-_\s]*(?:angle|orient)|"
+            r"(?:find|optimi[sz]e|check|what).*\bazimuth\b|晶圆切向|晶圆取向|晶体取向|晶向|晶轴|主参考边|参考边|方位角寻优",
+            low,
+        )
+    )
+    has_pn_kw = bool(
+        re.search(
+            r"pn[-_\s]*doping|doping[-_\s]*(?:sim|tcad|profile|layout)|l[-_\s]*shaped[-_\s]*pn|u[-_\s]*shaped[-_\s]*pn|"
+            r"poisson[-_\s]*boltzmann|\btcad\b|depletion[-_\s]*map|carrier[-_\s]*(?:map|profile)|"
+            r"掺杂仿真|掺杂版图|掺杂结|pn\s*掺杂|pn\s*结掺杂|泊松|载流子分布|l\s*型\s*pn|u\s*型\s*pn",
+            low,
+        )
+    )
+    has_th_kw = bool(
+        re.search(
+            r"thermal[-_\s]*(?:sim|fem|phase|crosstalk|transient|isolation)|transient[-_\s]*(?:thermal|heat)|"
+            r"(?:air|deep|isolation)[-_\s]*trench|undercut[-_\s]*(?:si|heater|susp)|suspended[-_\s]*heater|"
+            r"doped[-_\s]*si[-_\s]*(?:rib|heater)|热仿真|瞬态热|热串扰|空气隔离槽|隔热槽|深槽隔热|衬底掏空|悬臂加热",
+            low,
+        )
+    )
+    if has_rf_elec_kw or has_wo_kw or has_pn_kw or has_th_kw:
+        out["action"] = "eom_multiphysics"
+        if has_pn_kw and not has_rf_elec_kw:
+            eom_mode = "pn_doping"
+        elif has_th_kw and not has_rf_elec_kw:
+            eom_mode = "thermal_fem"
+        elif has_wo_kw and not has_rf_elec_kw:
+            eom_mode = "wafer_orientation"
+        else:
+            eom_mode = "rf_electrode"
+
+        def _len_u(val_num: float, u_str: str | None) -> float:
+            uu = (u_str or "um").lower()
+            if uu == "nm":
+                return round(val_num * 1e-3, 5)
+            if uu == "mm":
+                return round(val_num * 1e3, 3)
+            if uu == "cm":
+                return round(val_num * 1e4, 2)
+            return round(val_num, 4)
+
+        wcut_det = "auto"
+        if re.search(r"\bpzt\b|锆钛酸铅", low):
+            wcut_det = "inplane_poled_pzt"
+        elif re.search(r"c[-_\s]*(?:cut|orient).*(?:bto|batio3)|c切.*钛酸钡|c取向.*钛酸钡", low):
+            wcut_det = "c_cut_bto"
+        elif re.search(r"\bbto\b|batio3|barium titanate|钛酸钡", low):
+            wcut_det = "a_cut_bto_si"
+        elif re.search(r"z[-_\s]*cut.*(?:lt|tflt|litao3|tantalate)|z切.*钽酸锂", low):
+            wcut_det = "z_cut_lt"
+        elif re.search(r"\b(?:lt|tflt|litao3|lithium tantalate)\b|钽酸锂", low):
+            wcut_det = "x_cut_lt"
+        elif re.search(r"\by[-_\s]*cut\b|y切", low):
+            wcut_det = "y_cut_ln"
+        elif re.search(r"\bz[-_\s]*cut\b|z切", low):
+            wcut_det = "z_cut_ln"
+        elif re.search(r"\bx[-_\s]*cut\b|x切", low):
+            wcut_det = "x_cut_ln"
+        elif re.search(r"\ba[-_\s]*plane\b|a面", low):
+            wcut_det = "a_plane_6mm"
+        elif re.search(r"\bc[-_\s]*plane\b|\bc[-_\s]*cut\b|c面|0001", low):
+            wcut_det = "c_plane_6mm"
+        elif re.search(r"\(\s*110\s*\)|cubic[-_\s]*110", low):
+            wcut_det = "cubic_110_43m"
+        elif re.search(r"\(\s*001\s*\)|\(\s*100\s*\)|3c[-_\s]*sic", low):
+            wcut_det = "cubic_001_43m"
+
+        etop_det = "auto"
+        if re.search(r"t[-_\s]*rail|t[-_\s]*shape|slow[-_\s]*wave|慢波|t型轨道|t形电极|t型电极", low):
+            etop_det = "t_rail_cpw"
+        elif re.search(r"vertical[-_\s]*microstrip|微带|垂直电极", low):
+            etop_det = "vertical_microstrip"
+        elif re.search(r"lumped[-_\s]*ring|ring[-_\s]*gsg|ring[-_\s]*modulator|microring[-_\s]*modulator|\bmrm\b|微环电极|微环调制器", low):
+            etop_det = "lumped_ring_gsg"
+        elif re.search(r"\bgs[-_\s]*coplanar\b|单臂共面", low):
+            etop_det = "gs_coplanar"
+        elif re.search(r"\bgsg\b|\bcpw\b|行波电极|共面波导", low):
+            etop_det = "gsg_cpw"
+
+        sub_explicit = bool(
+            re.search(
+                r"quartz|fused[-_\s]*silica|石英|sapphire|蓝宝石|undercut|xef2|掏空|15[-_\s]*ohm|std[-_\s]*si|常规硅|hr[-_\s]*si|high[-_\s]*res.*si|高阻硅",
+                low,
+            )
+        )
+        sub_det = "quartz" if re.search(r"quartz|fused[-_\s]*silica|石英", low) else (
+            "sapphire" if re.search(r"sapphire|蓝宝石", low) else (
+                "undercut_si" if re.search(r"undercut|xef2|掏空", low) else (
+                    "std_si" if re.search(r"15[-_\s]*ohm|std[-_\s]*si|常规硅", low) else "hr_si"
+                )
+            )
+        )
+        junc_det = "l_shaped_pn" if re.search(r"l[-_\s]*shaped|l\s*型", low) else (
+            "u_shaped_pn" if re.search(r"u[-_\s]*shaped|u\s*型", low) else (
+                "pin_diode" if re.search(r"\bpin\b", low) else "lateral_pn"
+            )
+        )
+        tstruct_det = "undercut_suspended" if re.search(r"undercut|suspended|xef2|掏空|悬臂", low) else (
+            "deep_trench" if re.search(r"trench|隔热槽|空气槽|空气隔离槽|深槽", low) else (
+                "doped_si_rib" if re.search(r"doped[-_\s]*si|内嵌重掺杂", low) else "top_heater"
+            )
+        )
+
+        eom_parsed: dict = {
+            "mode": eom_mode,
+            "wafer_cut": wcut_det,
+            "electrode_topology": etop_det,
+            "substrate_type": sub_det,
+            "substrate_explicit": sub_explicit,
+            "junction_type": junc_det,
+            "thermal_structure": tstruct_det,
+            "export_gds": bool(re.search(r"\bgds\b|layout|mask|版图", low)),
+            "export_bundle": bool(re.search(r"touchstone|\.s2p\b|interconnect|bundle|导出数据", low)),
+        }
+
+        # Parse all user-suggested geometry, electrical, doping, thermal & Pockels constants!
+        m_egap = re.search(
+            r"(?:electrode[-_\s]*gap|rf[-_\s]*gap|\bgap\b|\bg\s*[=:]|电极间距|间距)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)",
+            low,
+        )
+        if m_egap:
+            gv_e = _len_u(float(m_egap.group(1)), m_egap.group(2))
+            eom_parsed["electrode_gap_um"] = gv_e
+            if gv_e >= 0.9:
+                out["fields"].pop("gap_thru_um", None)
+                out["fields"].pop("gap_drop_um", None)
+
+        m_ws = re.search(r"(?:signal[-_\s]*w(?:idth)?|\bw_?s\b|信号线宽)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_ws:
+            eom_parsed["signal_width_um"] = _len_u(float(m_ws.group(1)), m_ws.group(2))
+
+        m_wgnd = re.search(r"(?:ground[-_\s]*w(?:idth)?|\bw_?g\b|地线宽)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_wgnd:
+            eom_parsed["ground_width_um"] = _len_u(float(m_wgnd.group(1)), m_wgnd.group(2))
+
+        m_tmet = re.search(r"(?:metal[-_\s]*(?:thickness|height|h)|t_?metal|金属厚)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_tmet:
+            eom_parsed["metal_thickness_um"] = _len_u(float(m_tmet.group(1)), m_tmet.group(2))
+
+        if re.search(r"\bcopper\b|\bcu\b\s*(?:electrode|cpw|metal)|铜电极", low):
+            eom_parsed["metal_material"] = "Cu"
+        elif re.search(r"\baluminum\b|\bal\b\s*(?:electrode|cpw|metal)|铝电极", low):
+            eom_parsed["metal_material"] = "Al"
+        elif re.search(r"\bgold\b|\bau\b|金电极", low):
+            eom_parsed["metal_material"] = "Au"
+
+        m_len = re.search(
+            r"(?:active[-_\s]*length|heater[-_\s]*length|electrode[-_\s]*length|\blength\b|\bl\s*[=:]|调制长度|电极长度|加热长度)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm|mm|cm)",
+            low,
+        )
+        if m_len:
+            eom_parsed["active_length_um"] = _len_u(float(m_len.group(1)), m_len.group(2))
+
+        m_box = re.search(r"(?:box(?:[-_\s]*(?:thickness|height|h))?|埋氧(?:厚度)?)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_box:
+            eom_parsed["box_thickness_um"] = _len_u(float(m_box.group(1)), m_box.group(2))
+
+        m_z0 = re.search(r"(?:target[-_\s]*impedance|\bz_?0\b|阻抗)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(?:ohm|ω|欧姆?)?", low)
+        if m_z0:
+            eom_parsed["target_impedance_ohm"] = float(m_z0.group(1))
+
+        m_trail = re.search(r"(?:t[-_\s]*rail[-_\s]*l(?:ength)?|\bl_?rail\b)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_trail:
+            eom_parsed["t_rail_length_um"] = _len_u(float(m_trail.group(1)), m_trail.group(2))
+
+        m_tper = re.search(
+            r"(?:t[-_\s]*rail[-_\s]*(?:pitch|period)|segment[-_\s]*(?:pitch|period)|bragg[-_\s]*pitch|lambda_?seg|周期)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)",
+            low,
+        )
+        if m_tper:
+            eom_parsed["t_rail_period_um"] = _len_u(float(m_tper.group(1)), m_tper.group(2))
+
+        m_tcap = re.search(r"(?:t[-_\s]*(?:rail[-_\s]*)?cap[-_\s]*w(?:idth)?|\bw_?cap\b)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_tcap:
+            eom_parsed["t_rail_cap_width_um"] = _len_u(float(m_tcap.group(1)), m_tcap.group(2))
+
+        m_tbw = re.search(
+            r"(?:target(?:ing)?(?:\s+for)?|design(?:\s+a)?|aim(?:ing)?(?:\s+for)?|bw|bandwidth|f_?3db[eo]?)\s*[=:>=~]*\s*(\d+(?:\.\d+)?)\s*ghz",
+            low,
+        )
+        if m_tbw and not re.search(r"(?:max[-_\s]*freq|f_?max|up\s+to)\s*[=:]?\s*\d+(?:\.\d+)?\s*ghz", low):
+            eom_parsed["target_bw_ghz"] = float(m_tbw.group(1))
+        elif re.search(r"\b(200|240|250|300|350|400|500)\s*ghz\b|sub[-_\s]*thz|太赫兹", low):
+            m_subthz = re.search(r"\b(200|240|250|300|350|400|500)\s*ghz\b", low)
+            eom_parsed["target_bw_ghz"] = float(m_subthz.group(1)) if m_subthz else 300.0
+
+        m_pitch = re.search(r"(?:probe[-_\s]*pitch|gsg[-_\s]*pitch)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(um|µm)?", low)
+        if m_pitch:
+            eom_parsed["probe_pitch_um"] = float(m_pitch.group(1))
+
+        m_az = re.search(r"(?:azimuth|\bphi\b|方位角)\s*[=:]?\s*(-?\d+(?:\.\d+)?)\s*(?:deg|°|度)?", low)
+        if m_az:
+            eom_parsed["waveguide_azimuth_deg"] = float(m_az.group(1))
+
+        m_ql = re.search(r"(?:q_?l(?:oaded)?|ring_?q|\bq\s*[=:])\s*[=:]?\s*(\d+(?:\.\d+)?(?:e[+-]?\d+)?)\s*(k)?\b", low)
+        if m_ql:
+            qv_l = float(m_ql.group(1)) * (1e3 if (m_ql.group(2) or "").lower() == "k" else 1.0)
+            if qv_l >= 100.0:
+                eom_parsed["ring_loaded_q"] = qv_l
+        m_det = re.search(r"(?:detuning|失谐)\s*[=:]?\s*(\d+(?:\.\d+)?)", low)
+        if m_det:
+            eom_parsed["ring_detuning_norm"] = float(m_det.group(1))
+        m_fmax = re.search(r"(?:max[-_\s]*freq|f_?max|up\s+to)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*ghz", low)
+        if m_fmax:
+            eom_parsed["max_freq_ghz"] = float(m_fmax.group(1))
+
+        m_ovl = re.search(r"(?:eo[-_\s]*overlap|gamma[-_\s]*eo|\boverlap\b|重叠因子)\s*[=:]?\s*(0\.\d+|1(?:\.0+)?)", low)
+        if m_ovl:
+            eom_parsed["eo_overlap_factor"] = float(m_ovl.group(1))
+
+        # Custom Pockels / refractive / RF permittivity overrides
+        m_r33 = re.search(r"\br_?33\s*[=:]\s*(-?\d+(?:\.\d+)?)", low)
+        if m_r33:
+            eom_parsed["custom_r33_pm_v"] = float(m_r33.group(1))
+        m_r13 = re.search(r"\br_?13\s*[=:]\s*(-?\d+(?:\.\d+)?)", low)
+        if m_r13:
+            eom_parsed["custom_r13_pm_v"] = float(m_r13.group(1))
+        m_r51 = re.search(r"\b(?:r_?51|r_?42|r_?41)\s*[=:]\s*(-?\d+(?:\.\d+)?)", low)
+        if m_r51:
+            eom_parsed["custom_r51_pm_v"] = float(m_r51.group(1))
+        m_r22 = re.search(r"\br_?22\s*[=:]\s*(-?\d+(?:\.\d+)?)", low)
+        if m_r22:
+            eom_parsed["custom_r22_pm_v"] = float(m_r22.group(1))
+        m_eps = re.search(r"(?:eps_?rf|er_?rf|介电常数)\s*[=:]\s*(\d+(?:\.\d+)?)", low)
+        if m_eps:
+            eom_parsed["custom_eps_rf_perp"] = float(m_eps.group(1))
+
+        # Silicon PN TCAD user parameters
+        m_na = re.search(r"\bn_?a\s*[=:]\s*(\d+(?:\.\d+)?(?:e[+-]?\d+)?)", low)
+        m_nd = re.search(r"\bn_?d\s*[=:]\s*(\d+(?:\.\d+)?(?:e[+-]?\d+)?)", low)
+        m_dop = re.search(r"(?:doping|掺杂浓度)\s*[=:]\s*(\d+(?:\.\d+)?(?:e[+-]?\d+)?)", low)
+        if m_na:
+            eom_parsed["na_core_cm3"] = float(m_na.group(1))
+        if m_nd:
+            eom_parsed["nd_core_cm3"] = float(m_nd.group(1))
+        if m_dop and not m_na and not m_nd:
+            eom_parsed["na_core_cm3"] = float(m_dop.group(1))
+            eom_parsed["nd_core_cm3"] = float(m_dop.group(1))
+        m_pnoff = re.search(r"(?:pn[-_\s]*offset|\boffset\b|偏移)\s*[=:]?\s*(-?\d+(?:\.\d+)?)\s*(nm|um|µm)?", low)
+        if m_pnoff:
+            ov = float(m_pnoff.group(1))
+            ou = (m_pnoff.group(2) or "nm").lower()
+            eom_parsed["pn_offset_nm"] = ov * 1000.0 if ou in ("um", "µm") else ov
+        m_vbias = re.search(r"(?:bias|偏压)\s*[=:]?\s*(-?\d+(?:\.\d+)?)\s*v\b", low)
+        if m_vbias:
+            eom_parsed["map_bias_v"] = float(m_vbias.group(1))
+
+        # Thermal FEM user parameters
+        if re.search(r"\bpt\b|platinum|铂", low):
+            eom_parsed["heater_material"] = "Pt"
+        elif re.search(r"\btungsten\b|\bw\s*heater|钨", low):
+            eom_parsed["heater_material"] = "W"
+        elif re.search(r"\bnicr\b|镍铬", low):
+            eom_parsed["heater_material"] = "NiCr"
+        elif re.search(r"\btin\b|氮化钛", low):
+            eom_parsed["heater_material"] = "TiN"
+        m_hw = re.search(r"(?:heater[-_\s]*w(?:idth)?|\bw_?h\b|加热器宽)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_hw:
+            eom_parsed["heater_width_um"] = _len_u(float(m_hw.group(1)), m_hw.group(2))
+        m_hgap = re.search(r"(?:heater[-_\s]*gap|oxide[-_\s]*gap|h_?ox|氧化层间距)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(nm|um|µm)", low)
+        if m_hgap:
+            eom_parsed["heater_gap_um"] = _len_u(float(m_hgap.group(1)), m_hgap.group(2))
+        m_ucut = re.search(r"(?:undercut[-_\s]*w(?:idth)?|掏空宽)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(um|µm)", low)
+        if m_ucut:
+            eom_parsed["undercut_width_um"] = float(m_ucut.group(1))
+        m_npitch = re.search(r"(?:neighbor[-_\s]*(?:pitch|d|dist)|邻臂间距)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(um|µm)", low)
+        if m_npitch:
+            eom_parsed["neighbor_pitch_um"] = float(m_npitch.group(1))
+        m_dndt = re.search(r"(?:dn\s*/\s*dt|dn_?dt|热光系数)\s*[=:]\s*(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)", low)
+        if m_dndt:
+            eom_parsed["custom_dn_dt_per_k"] = float(m_dndt.group(1))
+        m_kap = re.search(r"(?:kappa|thermal[-_\s]*cond|热导率)\s*[=:]\s*(\d+(?:\.\d+)?)", low)
+        if m_kap:
+            eom_parsed["custom_core_kappa_w_mk"] = float(m_kap.group(1))
+
+        out["eom"] = eom_parsed
+    elif re.search(
         r"\bmzi\b|\bmzm\b|mach[-_\s]*zehnder|\bramzi\b|mmi[-_\s]*(?:splitter|coupler|2x2|1x2)|"
         r"y[-_\s]*(?:branch|junction|splitter)|马赫[-_\s]*曾德|马赫曾德|多模干涉|\by\s*分支",
         low,
@@ -1717,7 +2192,11 @@ def _process_chat_turn_core(
     # ------------------------------------------------------------------
     # Guided Step 2 -> Step 3: Wavelength set, Core Material NOT yet set
     # ------------------------------------------------------------------
-    if "core_material" not in confirmed and "wavelength" in confirmed:
+    if (
+        "core_material" not in confirmed
+        and "wavelength" in confirmed
+        and intent["action"] not in ("design_mzi", "eom_multiphysics", "io_coupler", "high_q_fdtd")
+    ):
         wl_now = float(cfg_dict["wavelength_nm"])
         session["stage"] = "ask_material"
         session["wizard_step"] = 3
@@ -2469,6 +2948,354 @@ def _process_chat_turn_core(
         if ic_mzi is not None:
             ret_mzi["interconnect_export"] = ic_mzi
         return ret_mzi
+
+    # ------------------------------------------------------------------
+    # Direct Action 2G: EOM RF Electrode + Si PN Doping TCAD + 2D Thermal FEM
+    # ------------------------------------------------------------------
+    if intent["action"] == "eom_multiphysics":
+        eom_opts = intent.get("eom") or {}
+        emode = str(eom_opts.get("mode") or "rf_electrode")
+        out_dir = Path(gds_export_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        gds_eom = None
+        bnd_eom = None
+
+        if emode == "wafer_orientation":
+            wcut_use = str(eom_opts.get("wafer_cut") or "auto")
+            eo_mats = ("LN_Xcut", "LN_Zcut", "LT_Xcut", "LT_Zcut", "BTO", "BTO_ccut", "PZT", "AlN", "ScAlN_10", "ScAlN_20", "ScAlN_30", "4H-SiC", "3C-SiC", "GaN")
+            has_user_eo = any(eom_opts.get(k) is not None for k in ("custom_r33_pm_v", "custom_r13_pm_v", "custom_r51_pm_v", "custom_r22_pm_v"))
+            mat_wo = cfg.core_material if (cfg.core_material in eo_mats or has_user_eo) else ("3C-SiC" if wcut_use in ("cubic_001_43m", "cubic_110_43m") else "LN_Xcut")
+            pol_wo = (
+                "TM0"
+                if wcut_use in ("z_cut_ln", "z_cut_lt", "c_cut_bto", "c_plane_6mm")
+                and "polarization" not in explicit_keys
+                and cfg.polarization == "TE0"
+                and mat_wo not in ("LN_Xcut", "LT_Xcut", "BTO", "PZT")
+                else cfg.polarization
+            )
+            p_wo = PLATFORM_PRESETS.get(mat_wo, PLATFORM_PRESETS["LN_Xcut"])
+            h_wo = cfg.film_height_um if ("film_height_um" in explicit_keys or cfg.core_material == mat_wo) else float(p_wo["film_height_um"])
+            s_wo = cfg.slab_height_um if ("slab_height_um" in explicit_keys or cfg.core_material == mat_wo) else float(p_wo["slab_height_um"])
+            w_wo = cfg.ring_width_um if ("ring_width_um" in explicit_keys or cfg.core_material == mat_wo) else float(p_wo["ring_width_um"])
+            eom_res = analyze_eo_wafer_orientation(
+                core_material=mat_wo,
+                wafer_cut=wcut_use,
+                polarization=pol_wo,
+                wavelength_nm=cfg.wavelength_nm,
+                electrode_gap_um=float(eom_opts.get("electrode_gap_um", 5.0)),
+                eo_overlap_factor=eom_opts.get("eo_overlap_factor"),
+                query_azimuth_deg=eom_opts.get("waveguide_azimuth_deg"),
+                film_height_um=h_wo,
+                slab_height_um=s_wo,
+                sidewall_deg=cfg.sidewall_deg,
+                waveguide_width_um=w_wo,
+                clad_material=cfg.clad_material,
+                top_clad_material=cfg.top_clad_material,
+                custom_r33_pm_v=eom_opts.get("custom_r33_pm_v"),
+                custom_r13_pm_v=eom_opts.get("custom_r13_pm_v"),
+                custom_r51_pm_v=eom_opts.get("custom_r51_pm_v"),
+                custom_r22_pm_v=eom_opts.get("custom_r22_pm_v"),
+                custom_eps_rf_perp=eom_opts.get("custom_eps_rf_perp"),
+            )
+            mm_w = eom_res["metrics"]
+            ax_w = eom_res["crystal_axes"]
+            if zh:
+                msg = (
+                    f"🧭 **已完成 3D 晶体张量电光晶圆切向与面内方位角寻优 (`{eom_res['wafer_cut_name_zh']}`, `{eom_res['polarization']}`)**\n"
+                    f"- **最优波导传播方位角**：**`φ_opt = {mm_w['optimal_azimuth_deg']:.1f}°`**（参考系：`0° = {ax_w['phi0_label']}`，`90° = {ax_w['phi90_label']}`，主参考边 `{ax_w['flat_label']}`）\n"
+                    f"- **峰值有效电光系数与半波电压积**：**`r_eff = {mm_w['r_eff_optimal_pm_per_v']:+.2f} pm/V`** → 直线 MZI **`V_π·L ≈ {mm_w['V_pi_L_optimal_Vcm']:.2f} V·cm`**\n"
+                    f"- **圆微环 360° 积分效率**：不分段单极电极 **`{mm_w['ring_unsplit_efficiency_pct']:.1f}%`** vs 分段双弧推挽电极 **`{mm_w['ring_split_pushpull_efficiency_pct']:.1f}%`**\n"
+                    f"- **版图对准准则**：{eom_res['guide_zh']}"
+                )
+                chips = [
+                    {"label": "📡 按最优晶向生成 GSG 50Ω 行波电极与晶轴罗盘 GDS", "prompt": "设计 TFLN GSG 50欧姆行波电极版图并导出 GDS"},
+                    {"label": "🧭 对比 (001) 立方 3C-SiC 晶向死区", "prompt": "(001) 3C-SiC 晶圆电光波导方位角寻优"},
+                    {"label": "🌡️ 切换至稳态+瞬态热有限元仿真", "prompt": "深空气隔离槽热光移相器瞬态热仿真"},
+                ]
+            else:
+                msg = (
+                    f"🧭 **Solved 3D Crystal-Tensor EO Wafer Orientation & Azimuth (`{eom_res['wafer_cut_name_en']}`, `{eom_res['polarization']}`)**\n"
+                    f"- **Optimal Waveguide Azimuth**: **`φ_opt = {mm_w['optimal_azimuth_deg']:.1f}°`** (`0° = {ax_w['phi0_label']}`, `90° = {ax_w['phi90_label']}`, `{ax_w['flat_label']}`)\n"
+                    f"- **Peak Effective Pockels Tensor**: **`r_eff = {mm_w['r_eff_optimal_pm_per_v']:+.2f} pm/V`** → Straight MZI **`V_π·L ≈ {mm_w['V_pi_L_optimal_Vcm']:.2f} V·cm`**\n"
+                    f"- **Circular MRR 360° Efficiency**: Unsplit ring **`{mm_w['ring_unsplit_efficiency_pct']:.1f}%`** vs Split push-pull arcs **`{mm_w['ring_split_pushpull_efficiency_pct']:.1f}%`**\n"
+                    f"- **Alignment Rule**: {eom_res['guide_en']}"
+                )
+                chips = [
+                    {"label": "📡 Design 50-Ohm GSG CPW + Crystal Compass .GDS", "prompt": "Design TFLN GSG CPW 50-ohm electrode layout and export GDS"},
+                    {"label": "🧭 Check (001) 3C-SiC Cleavage Dead-Zone", "prompt": "Find EO wafer orientation for (001) 3C-SiC"},
+                    {"label": "🌡️ Run Steady + Transient Thermal FEM", "prompt": "Run deep air-trench thermal simulation and crosstalk"},
+                ]
+        elif emode == "pn_doping":
+            pn_cfg = PNDopingTCADConfig(
+                junction_type=str(eom_opts.get("junction_type") or "lateral_pn"),
+                wavelength_nm=cfg.wavelength_nm if cfg.wavelength_nm >= 1150.0 else 1550.0,
+                polarization=cfg.polarization,
+                film_height_um=cfg.film_height_um if "film_height_um" in explicit_keys else 0.22,
+                slab_height_um=cfg.slab_height_um if ("slab_height_um" in explicit_keys and cfg.slab_height_um > 0.01) else 0.09,
+                sidewall_deg=cfg.sidewall_deg if "sidewall_deg" in explicit_keys else 86.0,
+                waveguide_width_um=cfg.ring_width_um if "ring_width_um" in explicit_keys else 0.45,
+                na_core_cm3=float(eom_opts.get("na_core_cm3", 5.0e17)),
+                nd_core_cm3=float(eom_opts.get("nd_core_cm3", 5.0e17)),
+                pn_offset_nm=float(eom_opts.get("pn_offset_nm", 25.0)),
+                map_bias_v=float(eom_opts.get("map_bias_v", -3.0)),
+                active_length_um=float(eom_opts.get("active_length_um", 1500.0)),
+            )
+            eom_res = simulate_pn_doping_tcad(pn_cfg)
+            mm_p = eom_res["metrics"]
+            if eom_opts.get("export_gds"):
+                g_raw = export_pn_doping_gds(eom_res, out_dir / f"MicroRing_Si_PN_{pn_cfg.junction_type}.gds")
+                gds_eom = {
+                    "gds_path": g_raw["gds_path"],
+                    "lyp_path": g_raw["lyp_path"],
+                    "saved_path": g_raw["gds_path"],
+                    "gds_download_url": f"/api/download_file?name={Path(g_raw['gds_path']).name}",
+                    "lyp_download_url": f"/api/download_file?name={Path(g_raw['lyp_path']).name}",
+                    "gds_view": analyze_uploaded_gds(g_raw["gds_path"]),
+                }
+            if eom_opts.get("export_bundle"):
+                bnd_eom = export_tcad_data_bundle(eom_res, out_dir / "tcad_pn_copilot")
+                bnd_eom["zip_download_url"] = f"/api/download_file?name={Path(bnd_eom['zip_path']).name}"
+            if zh:
+                msg = (
+                    f"🔬 **已完成硅基 PN 结二维非线性泊松-玻尔兹曼掺杂仿真 (`{eom_res['junction_name_zh']}`)**\n"
+                    f"- **半波电压长度积**：**`V_π·L = {mm_p['V_pi_L_Vcm']:.3f} V·cm`**（`@ {mm_p['operating_bias_V']} V`，自由载流子损耗 `α_FCA = {mm_p['alpha_FCA_bias_dB_per_cm']:.2f} dB/cm`）\n"
+                    f"- **结电容与串联电阻**：`C_j = {mm_p['Cj_bias_fF_per_um']:.3f} fF/µm`，`R_s = {mm_p['R_series_ohm_cm']:.2f} Ω·cm` → 本征 **`f_RC = {mm_p['f_RC_GHz']:.1f} GHz`**"
+                )
+                chips = [
+                    {"label": "🧬 对比 L 型垂直+横向 PN 结", "prompt": "L型 PN 结掺杂仿真与版图"},
+                    {"label": "📡 设计慢波 T-Rail 50Ω 行波电极", "prompt": "设计石英衬底 TFLN 慢波 T-Rail 50欧姆行波电极版图"},
+                    {"label": "🌡️ 深槽隔热热光移相器瞬态仿真", "prompt": "深槽隔热热光移相器瞬态热仿真与热串扰"},
+                ]
+            else:
+                msg = (
+                    f"🔬 **Solved 2D Nonlinear Poisson-Boltzmann Silicon PN TCAD (`{eom_res['junction_name_en']}`)**\n"
+                    f"- **Modulation Efficiency**: **`V_π·L = {mm_p['V_pi_L_Vcm']:.3f} V·cm`** (`@ {mm_p['operating_bias_V']} V`, FCA loss `α_FCA = {mm_p['alpha_FCA_bias_dB_per_cm']:.2f} dB/cm`)\n"
+                    f"- **RC Parasitics**: `C_j = {mm_p['Cj_bias_fF_per_um']:.3f} fF/µm`, `R_s = {mm_p['R_series_ohm_cm']:.2f} Ω·cm` → **`f_RC = {mm_p['f_RC_GHz']:.1f} GHz`**"
+                )
+                chips = [
+                    {"label": "🧬 Compare L-Shaped PN Junction", "prompt": "Run L-shaped PN doping simulation and GDS layout"},
+                    {"label": "📡 Design Slow-Wave T-Rail 50-Ohm Electrode", "prompt": "Design quartz TFLN slow-wave T-rail CPW electrode layout"},
+                    {"label": "🌡️ Deep-Trench Transient Thermal Simulation", "prompt": "Run deep air-trench thermal simulation and crosstalk"},
+                ]
+        elif emode == "thermal_fem":
+            tstruct = str(eom_opts.get("thermal_structure") or "top_heater")
+            th_cfg = ThermalSimConfig(
+                thermal_structure=tstruct,
+                core_material=cfg.core_material,
+                clad_material=cfg.clad_material,
+                top_clad_material="SiO2" if cfg.top_clad_material == "Air" and tstruct != "doped_si_rib" else cfg.top_clad_material,
+                wavelength_nm=cfg.wavelength_nm,
+                polarization=cfg.polarization,
+                film_height_um=cfg.film_height_um,
+                slab_height_um=cfg.slab_height_um,
+                sidewall_deg=cfg.sidewall_deg,
+                waveguide_width_um=cfg.ring_width_um,
+                box_thickness_um=float(eom_opts.get("box_thickness_um", 2.00)),
+                heater_material=str(eom_opts.get("heater_material") or ("doped_Si" if tstruct == "doped_si_rib" else "TiN")),
+                heater_width_um=float(eom_opts.get("heater_width_um", 1.80)),
+                heater_gap_um=float(eom_opts.get("heater_gap_um", 0.95)),
+                undercut_width_um=float(eom_opts.get("undercut_width_um", 14.0)),
+                active_length_um=float(eom_opts.get("active_length_um", 200.0)),
+                neighbor_pitch_um=float(eom_opts.get("neighbor_pitch_um", 20.0)),
+                custom_dn_dt_per_k=eom_opts.get("custom_dn_dt_per_k"),
+                custom_core_kappa_w_mk=eom_opts.get("custom_core_kappa_w_mk"),
+            )
+            eom_res = simulate_thermal_phase_shifter(th_cfg)
+            mm_t = eom_res["metrics"]
+            if eom_opts.get("export_gds"):
+                g_raw = export_thermal_shifter_gds(eom_res, out_dir / f"MicroRing_Thermal_{tstruct}_{cfg.core_material}.gds")
+                gds_eom = {
+                    "gds_path": g_raw["gds_path"],
+                    "lyp_path": g_raw["lyp_path"],
+                    "saved_path": g_raw["gds_path"],
+                    "gds_download_url": f"/api/download_file?name={Path(g_raw['gds_path']).name}",
+                    "lyp_download_url": f"/api/download_file?name={Path(g_raw['lyp_path']).name}",
+                    "gds_view": analyze_uploaded_gds(g_raw["gds_path"]),
+                }
+            if eom_opts.get("export_bundle"):
+                bnd_eom = export_tcad_data_bundle(eom_res, out_dir / "tcad_th_copilot")
+                bnd_eom["zip_download_url"] = f"/api/download_file?name={Path(bnd_eom['zip_path']).name}"
+            if zh:
+                msg = (
+                    f"🌡️ **已完成二维稳态 + Crank-Nicolson 瞬态热有限元仿真 (`{eom_res['structure_name_zh']}`)**\n"
+                    f"- **半波功耗与电学参数**：**`P_π = {mm_t['P_pi_mW']:.2f} mW`**（`V_π = {mm_t['V_pi_V']:.2f} V`，`R = {mm_t['R_heater_ohm']:.0f} Ω`）\n"
+                    f"- **瞬态开关速度与热串扰**：上升 **`t_rise = {mm_t['t_rise_10_90_us']:.1f} µs`** / 下降 **`t_fall = {mm_t['t_fall_90_10_us']:.1f} µs`**（`f_3dB = {mm_t['f_3dB_thermal_kHz']:.1f} kHz`），`{mm_t['neighbor_pitch_um']:.0f} µm` 邻臂串扰 **`{mm_t['crosstalk_at_neighbor_pct']:.2f}%`**"
+                )
+                chips = [
+                    {"label": "🕳️ 对比 XeF2 衬底掏空悬臂移相器", "prompt": "衬底掏空悬臂加热器热仿真与版图"},
+                    {"label": "🔪 对比深空气隔离槽移相器", "prompt": "深空气隔离槽热仿真与热串扰"},
+                    {"label": "📡 切换至射频 EOM 行波电极设计", "prompt": "设计 TFLN GSG 50欧姆行波电极版图"},
+                ]
+            else:
+                msg = (
+                    f"🌡️ **Solved 2D Steady + Crank-Nicolson Transient Thermal FEM (`{eom_res['structure_name_en']}`)**\n"
+                    f"- **π-Phase Power**: **`P_π = {mm_t['P_pi_mW']:.2f} mW`** (`V_π = {mm_t['V_pi_V']:.2f} V`, `R = {mm_t['R_heater_ohm']:.0f} Ω`)\n"
+                    f"- **Transient Speed & Crosstalk**: **`t_rise = {mm_t['t_rise_10_90_us']:.1f} µs`** / **`t_fall = {mm_t['t_fall_90_10_us']:.1f} µs`** (`f_3dB = {mm_t['f_3dB_thermal_kHz']:.1f} kHz`), Neighbor crosstalk @ `{mm_t['neighbor_pitch_um']:.0f} µm` = **`{mm_t['crosstalk_at_neighbor_pct']:.2f}%`**"
+                )
+                chips = [
+                    {"label": "🕳️ Compare XeF2 Undercut Suspended Heater", "prompt": "Run undercut suspended heater thermal simulation and GDS"},
+                    {"label": "🔪 Compare Deep Air-Trench Heater", "prompt": "Run deep air-trench thermal simulation"},
+                    {"label": "📡 Switch to RF EOM Electrode Design", "prompt": "Design TFLN GSG CPW 50-ohm electrode layout"},
+                ]
+        else:
+            eo_rf_mats = (
+                "LN_Xcut", "LN_Zcut", "LT_Xcut", "LT_Zcut",
+                "BTO", "BTO_ccut", "PZT",
+                "Si", "AlN", "ScAlN_10", "ScAlN_20", "ScAlN_30",
+                "4H-SiC", "3C-SiC", "GaN",
+            )
+            target_bw_req = float(eom_opts.get("target_bw_ghz") or 0.0)
+            mat_use = cfg.core_material if cfg.core_material in eo_rf_mats else "LN_Xcut"
+            if target_bw_req >= 200.0 and "core_material" not in explicit_keys and mat_use == "Si" and not re.search(r"\bsi\b|silicon|soi|\bpn\b|硅光", user_message.lower()):
+                mat_use = "LN_Xcut"
+            p_def = PLATFORM_PRESETS.get(mat_use, PLATFORM_PRESETS["LN_Xcut"])
+            if cfg.core_material != mat_use and "film_height_um" not in explicit_keys:
+                h_use = float(p_def["film_height_um"])
+            else:
+                h_use = cfg.film_height_um
+            if cfg.core_material != mat_use and "slab_height_um" not in explicit_keys:
+                s_use = float(p_def["slab_height_um"])
+            else:
+                s_use = 0.09 if mat_use == "Si" and "slab_height_um" not in explicit_keys and cfg.slab_height_um <= 0.01 else cfg.slab_height_um
+            if cfg.core_material != mat_use and "ring_width_um" not in explicit_keys:
+                w_use = float(p_def["ring_width_um"])
+            else:
+                w_use = cfg.ring_width_um
+
+            etop_str = str(eom_opts.get("electrode_topology") or "auto")
+            if target_bw_req >= 200.0 and etop_str == "auto" and mat_use in ("LN_Xcut", "LT_Xcut", "BTO", "PZT", "3C-SiC"):
+                etop_str = "t_rail_cpw"
+            sub_str = str(eom_opts.get("substrate_type") or "hr_si")
+            if target_bw_req >= 200.0 and not eom_opts.get("substrate_explicit") and mat_use in ("LN_Xcut", "LT_Xcut"):
+                sub_str = "quartz"
+
+            default_gap_e = 2.4 if mat_use == "Si" else (4.0 if mat_use in ("BTO", "PZT") else 5.0)
+            if etop_str == "lumped_ring_gsg":
+                default_len_e = round(0.80 * (2.0 * 3.14159265 * cfg.ring_radius_um + 2.0 * getattr(cfg, "racetrack_straight_um", 0.0)), 1)
+            elif target_bw_req >= 200.0 and mat_use in ("LN_Xcut", "LT_Xcut"):
+                default_len_e = 4500.0
+            else:
+                default_len_e = 2500.0 if mat_use == "Si" else (1500.0 if mat_use in ("BTO", "PZT") else 5000.0)
+            default_tmet_e = 1.50 if target_bw_req >= 200.0 else 1.10
+            default_tper_e = 25.0 if target_bw_req >= 200.0 else 50.0
+            default_fmax_e = max(360.0, round(1.25 * target_bw_req, 1)) if target_bw_req >= 150.0 else 150.0
+
+            rf_cfg = EOMElectrodeConfig(
+                electrode_topology=etop_str,
+                core_material=mat_use,
+                wafer_cut=str(eom_opts.get("wafer_cut") or "auto"),
+                waveguide_azimuth_deg=eom_opts.get("waveguide_azimuth_deg"),
+                clad_material=cfg.clad_material,
+                top_clad_material=cfg.top_clad_material,
+                substrate_type=sub_str,
+                wavelength_nm=cfg.wavelength_nm,
+                polarization=cfg.polarization,
+                film_height_um=h_use,
+                slab_height_um=s_use,
+                sidewall_deg=cfg.sidewall_deg,
+                waveguide_width_um=w_use,
+                box_thickness_um=float(eom_opts.get("box_thickness_um", 2.00 if mat_use == "Si" else 4.70)),
+                metal_material=str(eom_opts.get("metal_material") or "Au"),
+                metal_thickness_um=float(eom_opts.get("metal_thickness_um", default_tmet_e)),
+                signal_width_um=eom_opts.get("signal_width_um"),
+                electrode_gap_um=float(eom_opts.get("electrode_gap_um", default_gap_e)),
+                ground_width_um=float(eom_opts.get("ground_width_um", 65.0)),
+                t_rail_length_um=eom_opts.get("t_rail_length_um"),
+                t_rail_period_um=float(eom_opts.get("t_rail_period_um", default_tper_e)),
+                t_rail_cap_width_um=eom_opts.get("t_rail_cap_width_um"),
+                active_length_um=float(eom_opts.get("active_length_um", default_len_e)),
+                probe_pitch_um=float(eom_opts.get("probe_pitch_um", 150.0)),
+                target_impedance_ohm=float(eom_opts.get("target_impedance_ohm", 50.0)),
+                ring_radius_um=cfg.ring_radius_um,
+                ring_loaded_q=float(eom_opts.get("ring_loaded_q", 3.5e4)),
+                ring_detuning_norm=float(eom_opts.get("ring_detuning_norm", 0.57735)),
+                max_freq_ghz=float(eom_opts.get("max_freq_ghz", default_fmax_e)),
+                na_p_cm3=float(eom_opts.get("na_core_cm3", 5.0e17)),
+                nd_n_cm3=float(eom_opts.get("nd_core_cm3", 5.0e17)),
+                dc_reverse_bias_v=float(eom_opts.get("map_bias_v", -2.0)),
+                custom_r33_pm_v=eom_opts.get("custom_r33_pm_v"),
+                custom_r13_pm_v=eom_opts.get("custom_r13_pm_v"),
+                custom_r51_pm_v=eom_opts.get("custom_r51_pm_v"),
+                custom_r22_pm_v=eom_opts.get("custom_r22_pm_v"),
+                custom_eps_rf_perp=eom_opts.get("custom_eps_rf_perp"),
+            )
+            eom_res = design_eom_electrode(rf_cfg)
+            eom_res["mode"] = "rf_electrode"
+            mm_e = eom_res["metrics"]
+            dd_e = eom_res["dimensions"]
+            bwa = eom_res.get("bandwidth_analysis") or {}
+            if eom_opts.get("export_gds") or re.search(r"layout|版图", user_message.lower()):
+                g_raw = export_eom_electrode_gds(eom_res, out_dir / f"MicroRing_EOM_{eom_res['resolved_topology']}_{mat_use}.gds")
+                gds_eom = {
+                    "gds_path": g_raw["gds_path"],
+                    "lyp_path": g_raw["lyp_path"],
+                    "saved_path": g_raw["gds_path"],
+                    "gds_download_url": f"/api/download_file?name={Path(g_raw['gds_path']).name}",
+                    "lyp_download_url": f"/api/download_file?name={Path(g_raw['lyp_path']).name}",
+                    "gds_view": analyze_uploaded_gds(g_raw["gds_path"]),
+                }
+            if eom_opts.get("export_bundle"):
+                bnd_eom = export_eom_rf_interconnect_bundle(eom_res, out_dir / f"eom_rf_{eom_res['resolved_topology']}")
+                bnd_eom["zip_download_url"] = f"/api/download_file?name={Path(bnd_eom['zip_path']).name}"
+            cav_str_zh = f"，微环腔寿命上限 `{bwa['f_cavity_3dBo_GHz']} GHz`" if bwa.get("f_cavity_3dBo_GHz") else ""
+            cav_str_en = f", Cavity limit `{bwa['f_cavity_3dBo_GHz']} GHz`" if bwa.get("f_cavity_3dBo_GHz") else ""
+            trail_str_zh = (
+                f"，T-Rail 悬臂 `L_rail = {dd_e['t_rail_length_um']:.2f} µm`（周期 `Λ = {dd_e['t_rail_period_um']:.0f} µm`，Bragg 截止 `{mm_e['f_bragg_cutoff_GHz']:.0f} GHz`）"
+                if dd_e.get("t_rail_length_um", 0.0) > 0
+                else ""
+            )
+            trail_str_en = (
+                f", T-rail `L_rail = {dd_e['t_rail_length_um']:.2f} µm` (`Λ = {dd_e['t_rail_period_um']:.0f} µm`, `f_Bragg = {mm_e['f_bragg_cutoff_GHz']:.0f} GHz`)"
+                if dd_e.get("t_rail_length_um", 0.0) > 0
+                else ""
+            )
+            subthz_zh = f" ｜ **`S₂₁_EO(300 GHz) = {mm_e['S21_EO_300GHz_dBe']:.2f} dBe`**" if mm_e.get("S21_EO_300GHz_dBe") is not None else ""
+            subthz_en = f" | **`S₂₁_EO(300 GHz) = {mm_e['S21_EO_300GHz_dBe']:.2f} dBe`**" if mm_e.get("S21_EO_300GHz_dBe") is not None else ""
+            if zh:
+                msg = (
+                    f"📡 **已完成二维准 TEM 射频电光电极与调制器带宽分解 (`{eom_res['topology_name_zh']}`, `{mat_use}` / `{sub_str}`)**\n"
+                    f"- **50 Ω 阻抗与速度匹配**：信号线宽 **`W_S = {dd_e['signal_width_um']:.2f} µm`**，内间距 `G = {dd_e['inner_gap_um']:.2f} µm`{trail_str_zh} → **`Z_0 = {mm_e['Z0_ohm']:.2f} Ω`**，**`n_RF = {mm_e['n_RF']:.3f}`** vs **`n_g = {mm_e['n_g_opt']:.3f}`**\n"
+                    f"- **调制器 3-dB 带宽 (`S₂₁_EO`)**：**`f_3dBo (-6 dBe) = {mm_e['f_3dBo_GHz']:.1f} GHz`** ｜ **`f_3dBe (-3 dBe) = {mm_e['f_3dBe_GHz']:.1f} GHz`**{subthz_zh}（~`{mm_e['max_nrz_gbps']:.0f} Gbps` NRZ / `{mm_e['max_pam4_gbps']:.0f} Gbps` PAM4）\n"
+                    f"- **带宽物理分解与瓶颈 (`{mm_e['limiting_mechanism']}`)**：群速度失配上限 `{bwa.get('f_walkoff_3dBo_GHz', mm_e['f_walkoff_limit_GHz'])} GHz`，射频损耗上限 `{mm_e['f_rf_loss_limit_GHz']} GHz`，集总 RC `{mm_e['f_rc_lumped_GHz']} GHz`{cav_str_zh}；**`V_π·L = {mm_e['V_pi_L_Vcm']:.2f} V·cm`** (`V_π = {mm_e['V_pi_V']:.2f} V`)\n"
+                    f"- **提速建议**：{bwa.get('design_tip_zh', '')}"
+                )
+                chips = [
+                    {"label": "⚡ 300 GHz 石英衬底 TFLN 慢波 T-Rail 版图", "prompt": "设计 300 GHz 石英衬底 X切铌酸锂慢波 T-Rail 行波电极版图"},
+                    {"label": "💍 微环调制器 (MRM) 光子寿命与光学峰值带宽", "prompt": "计算 BTO 微环调制器带宽 Q=12000 detuning=1.4"},
+                    {"label": "🧬 硅光 PN 结掺杂 TCAD 仿真", "prompt": "L型 PN 结掺杂仿真与版图"},
+                ]
+            else:
+                msg = (
+                    f"📡 **Solved 2D Quasi-TEM RF EOM Electrode & Modulator Bandwidth (`{eom_res['topology_name_en']}`, `{mat_use}` on `{sub_str}`)**\n"
+                    f"- **Impedance & Velocity Match**: **`W_S = {dd_e['signal_width_um']:.2f} µm`**, `G = {dd_e['inner_gap_um']:.2f} µm`{trail_str_en} → **`Z_0 = {mm_e['Z0_ohm']:.2f} Ω`**, **`n_RF = {mm_e['n_RF']:.3f}`** vs **`n_g,opt = {mm_e['n_g_opt']:.3f}`**\n"
+                    f"- **Modulator 3-dB Bandwidth (`S₂₁_EO`)**: **`f_3dBo (-6 dBe) = {mm_e['f_3dBo_GHz']:.1f} GHz`** | **`f_3dBe (-3 dBe) = {mm_e['f_3dBe_GHz']:.1f} GHz`**{subthz_en} (~`{mm_e['max_nrz_gbps']:.0f} Gbps` NRZ / `{mm_e['max_pam4_gbps']:.0f} Gbps` PAM4)\n"
+                    f"- **Bottleneck Decomposition (`{mm_e['limiting_mechanism']}`)**: Walk-off ceiling `{bwa.get('f_walkoff_3dBo_GHz', mm_e['f_walkoff_limit_GHz'])} GHz`, RF-loss ceiling `{mm_e['f_rf_loss_limit_GHz']} GHz`, Lumped RC `{mm_e['f_rc_lumped_GHz']} GHz`{cav_str_en}; **`V_π·L = {mm_e['V_pi_L_Vcm']:.2f} V·cm`** (`V_π = {mm_e['V_pi_V']:.2f} V`)\n"
+                    f"- **Bandwidth Tip**: {bwa.get('design_tip_en', '')}"
+                )
+                chips = [
+                    {"label": "⚡ 300 GHz Quartz X-Cut TFLN T-Rail Layout", "prompt": "Design a 300 GHz quartz X-cut TFLN slow-wave T-rail CPW electrode layout"},
+                    {"label": "💍 Microring Modulator (MRM) Optical-Peaking Bandwidth", "prompt": "Calculate BTO microring modulator bandwidth Q=12000 detuning=1.4"},
+                    {"label": "🧬 Silicon L-Shaped PN Doping TCAD", "prompt": "Run L-shaped PN doping simulation and GDS"},
+                ]
+
+        session["last_eom_result"] = eom_res
+        session["wizard_step"] = 6
+        session["ui_view"] = "eom"
+        session["history"] = (history + [{"role": "assistant", "content": msg}])[-16:]
+        ret_eom: dict = {
+            "session": session,
+            "assistant_message": msg,
+            "chips": chips,
+            "eom_result": eom_res,
+            "ui_view": "eom",
+            "wizard_step": 6,
+            "active_tab": "tab-eom",
+        }
+        if gds_eom is not None:
+            ret_eom["gds_export"] = gds_eom
+        if bnd_eom is not None:
+            ret_eom["interconnect_export"] = bnd_eom
+        return ret_eom
 
     # ------------------------------------------------------------------
     # Guided Step 3 -> Step 4 Pre-Check: Material chosen, ask to confirm Wafer Stack

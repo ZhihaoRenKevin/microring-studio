@@ -1226,16 +1226,53 @@ def simulate_mzi(
             slope_dphi_dp = abs(float(np.polyfit(pwr_vec, dphi_arr, 1)[0]))
             p_pi_mw = round(math.pi / max(slope_dphi_dp, 1e-12), 3)
 
-        # MZI is a non-resonant interferometer (no photon-lifetime limit!): electrical RC / thermal sets f_3dB
+        # MZI is a non-resonant interferometer (no photon-lifetime limit!): compute BOTH lumped-RC & 50-Ohm Traveling-Wave f_3dB
         gp = base_tune.get("geometry_physics", {})
+        bw_lumped_rc_ghz: float | None = None
+        bw_tw_3dbe_ghz: float | None = None
+        bw_tw_3dbo_ghz: float | None = None
+        bw_mode = "thermal_transient"
         if mech_used == "thermo_optic":
             bw_val = gp.get("f_3db_to_khz") or eff_tune.get("bandwidth_3db")
             bw_unit = "kHz"
         elif mech_used == "si_pin_injection":
             bw_val = gp.get("f_carrier_ghz")
             bw_unit = "GHz"
+            bw_mode = "carrier_recombination_lifetime"
         else:
-            bw_val = gp.get("f_rc_ghz")
+            bw_lumped_rc_ghz = gp.get("f_rc_ghz")
+            # Evaluate 50-Ohm Traveling-Wave MZM EO response across active arm length l_act_eff_um
+            f_mzi_g = np.linspace(0.2, 300.0, 360)
+            om_mzi = 2.0 * math.pi * f_mzi_g * 1e9
+            ng_mzi = float(arm1_disp["ng_0"])
+            l_mzi_m = max(l_act_eff_um, 10.0) * 1e-6
+            if mech_used == "si_pn_depletion":
+                cj_u = float(gp.get("cj_0v_ff_per_um") or 0.28) * 0.78
+                rs_ocm = float(gp.get("r_series_ohm_cm") or 0.90)
+                cj_m = (cj_u * 1e-9) / (2.0 if use_push_pull else 1.0)
+                rs_m = (rs_ocm * 1e-2) * (2.0 if use_push_pull else 1.0)
+                g_sh = (om_mzi ** 2 * (cj_m ** 2) * rs_m) / (1.0 + (om_mzi * rs_m * cj_m) ** 2)
+                al_np = 0.036 * np.sqrt(f_mzi_g) * 100.0 + 25.0 * g_sh
+                nrf_est = 3.72
+            else:
+                cmat_u = cfg.core_material
+                nrf_map = {"BTO": 3.45, "BTO_ccut": 2.95, "PZT": 2.75, "LN_Xcut": 2.18, "LN_Zcut": 2.15, "LT_Xcut": 2.24, "LT_Zcut": 2.20}
+                nrf_est = nrf_map.get(cmat_u, 2.05)
+                tan_est = 0.025 if "BTO" in cmat_u else (0.012 if cmat_u == "PZT" else 0.004)
+                al_np = 0.032 * np.sqrt(f_mzi_g) * 100.0 + 0.5 * (om_mzi * nrf_est / C0_M_PER_S) * tan_est
+            u_mzi = (-al_np + 1j * om_mzi * (nrf_est - ng_mzi) / C0_M_PER_S) * l_mzi_m
+            h_mzi = np.abs((np.exp(u_mzi) - 1.0) / np.where(np.abs(u_mzi) < 1e-9, 1e-9 + 0j, u_mzi))
+            h_mzi_db = 20.0 * np.log10(np.maximum(h_mzi / max(float(h_mzi[0]), 1e-12), 1e-5))
+            i3e = np.flatnonzero(h_mzi_db <= -3.0103)
+            i3o = np.flatnonzero(h_mzi_db <= -6.0206)
+            bw_tw_3dbe_ghz = round(float(f_mzi_g[int(i3e[0])]) if len(i3e) else 300.0, 2)
+            bw_tw_3dbo_ghz = round(float(f_mzi_g[int(i3o[0])]) if len(i3o) else 300.0, 2)
+            if l_act_eff_um >= 600.0:
+                bw_val = bw_tw_3dbo_ghz
+                bw_mode = "traveling_wave_50ohm"
+            else:
+                bw_val = bw_lumped_rc_ghz
+                bw_mode = "lumped_rc_50ohm"
             bw_unit = "GHz"
 
         # Generate smooth 121-pt Electro-Optic / Thermo-Optic Switching Transfer Curve at wl0_nm
@@ -1302,6 +1339,10 @@ def simulate_mzi(
             "delta_t_pi_k": dt_pi_k,
             "bandwidth_3db": bw_val,
             "bandwidth_unit": bw_unit,
+            "bandwidth_mode": bw_mode,
+            "bandwidth_lumped_rc_ghz": bw_lumped_rc_ghz,
+            "bandwidth_tw_3dbe_ghz": bw_tw_3dbe_ghz,
+            "bandwidth_tw_3dbo_ghz": bw_tw_3dbo_ghz,
             "dynamic_er_bar_db": round(mod_er_bar_db, 2),
             "on_state_il_db": round(mod_il_on_db, 3),
             "geometry_physics": gp,
@@ -1565,26 +1606,51 @@ def export_mzi_gds(
                 layer=lyr_core[0], datatype=lyr_core[1],
             ))
 
-    # Active phase-shifter heaters (10/0) & push-pull GSG electrodes (11/0)
-    hx0 = x_arm_start + 0.10 * l_arm_vis
-    hx1 = x_arm_end - 0.10 * l_arm_vis
+    # Active phase-shifter heaters (10/0) & push-pull RF GSG CPW electrodes + probe launchers (11/0, 12/0, 13/0)
+    hx0 = x_arm_start + 0.08 * l_arm_vis
+    hx1 = x_arm_end - 0.08 * l_arm_vis
     act = mzi_result.get("active_tuning") or {}
+    y_pad_extra = 40.0
     if act.get("mechanism") == "thermo_optic":
+        lyr_via = MICRORING_LAYERS["via"]
         cell.add(gdstk.rectangle((hx0, -0.5 * y_sep - 0.9), (hx1, -0.5 * y_sep + 0.9), layer=lyr_heater[0], datatype=lyr_heater[1]))
-        cell.add(gdstk.rectangle((hx0 - 8.0, -0.5 * y_sep - 16.0), (hx0 + 10.0, -0.5 * y_sep - 2.0), layer=lyr_pad[0], datatype=lyr_pad[1]))
-        cell.add(gdstk.rectangle((hx1 - 10.0, -0.5 * y_sep - 16.0), (hx1 + 8.0, -0.5 * y_sep - 2.0), layer=lyr_pad[0], datatype=lyr_pad[1]))
+        cell.add(gdstk.rectangle((hx0 - 8.0, -0.5 * y_sep - 36.0), (hx0 + 22.0, -0.5 * y_sep - 4.0), layer=lyr_pad[0], datatype=lyr_pad[1]))
+        cell.add(gdstk.rectangle((hx1 - 22.0, -0.5 * y_sep - 36.0), (hx1 + 8.0, -0.5 * y_sep - 4.0), layer=lyr_pad[0], datatype=lyr_pad[1]))
+        cell.add(gdstk.rectangle((hx0, -0.5 * y_sep - 5.0), (hx0 + 4.0, -0.5 * y_sep + 0.5), layer=lyr_pad[0], datatype=lyr_pad[1]))
+        cell.add(gdstk.rectangle((hx1 - 4.0, -0.5 * y_sep - 5.0), (hx1, -0.5 * y_sep + 0.5), layer=lyr_pad[0], datatype=lyr_pad[1]))
+        cell.add(gdstk.rectangle((hx0 + 0.8, -0.5 * y_sep - 0.6), (hx0 + 3.2, -0.5 * y_sep + 0.6), layer=lyr_via[0], datatype=lyr_via[1]))
+        cell.add(gdstk.rectangle((hx1 - 3.2, -0.5 * y_sep - 0.6), (hx1 - 0.8, -0.5 * y_sep + 0.6), layer=lyr_via[0], datatype=lyr_via[1]))
+        y_pad_extra = 55.0
     else:
-        # Push-pull GSG coplanar electrodes straddling Arm 1 & Arm 2
-        cell.add(gdstk.rectangle((hx0, -0.32 * y_sep), (hx1, +0.32 * y_sep), layer=lyr_pad[0], datatype=lyr_pad[1]))
-        cell.add(gdstk.rectangle((hx0, +0.5 * y_sep + 1.8), (hx1, +0.5 * y_sep + 9.0), layer=lyr_pad[0], datatype=lyr_pad[1]))
-        cell.add(gdstk.rectangle((hx0, -0.5 * y_sep - 9.0), (hx1, -0.5 * y_sep - 1.8), layer=lyr_pad[0], datatype=lyr_pad[1]))
+        from .eom_electrode import add_rf_cpw_electrode_polygons
+        gp = act.get("geometry_physics") or {}
+        g_el = max(float(gp.get("electrode_gap_um") or 4.5), w1 + 1.2)
+        ws_el = max(y_sep - g_el, 2.5)
+        pad_meta = add_rf_cpw_electrode_polygons(
+            cell,
+            x_active_start=hx0,
+            x_active_end=hx1,
+            elec_top="gs_coplanar" if act.get("drive_scheme") == "single_arm" else "gsg_cpw",
+            ws_um=ws_el,
+            g_inner_um=g_el,
+            g_trunk_um=g_el,
+            wg_um=28.0,
+            probe_pitch_um=125.0,
+            pad_w_um=68.0,
+            pad_l_um=75.0,
+            termination_mode="external_50ohm_gsg",
+            core_material=str(cfg.get("core_material", "Si")),
+            w_wg_um=w1,
+            y_arm_sep_um=y_sep,
+        )
+        y_pad_extra = float(pad_meta.get("y_pad_top_um", 120.0)) + 20.0
 
     # Port pins & annotation
     cell.add(gdstk.rectangle((0.0, -1.0), (2.0, +1.0), layer=lyr_pin[0], datatype=lyr_pin[1]))
     cell.add(gdstk.rectangle((x_total - 2.0, -1.0), (x_total, +1.0), layer=lyr_pin[0], datatype=lyr_pin[1]))
     cell.add(gdstk.Label(
         f"MZI ({sp_type}) L1={arms['arm1']['length_um']:.0f}um dL={dl_um:.1f}um",
-        (x_arm_start, -0.5 * y_sep - 22.0),
+        (x_arm_start, -0.5 * y_sep - 42.0),
         layer=lyr_txt[0], texttype=lyr_txt[1],
     ))
 
@@ -1595,7 +1661,7 @@ def export_mzi_gds(
         "gds_path": str(out_p),
         "lyp_path": str(lyp_p),
         "cell_name": cell_name,
-        "footprint_um": [round(x_total, 2), round(y_sep + 40.0, 2)],
+        "footprint_um": [round(x_total, 2), round(y_sep + y_pad_extra, 2)],
     }
 
 

@@ -1,4 +1,4 @@
-"""Recipe 00a: Verify MicroRing Studio environment, GPU/AMX/CPU compute & 24 materials.
+"""Recipe 00a: Verify MicroRing Studio environment, GPU/AMX/CPU compute & 29 materials.
 
 Run:
     uv run python examples/00_getting_started/00_check_environment.py

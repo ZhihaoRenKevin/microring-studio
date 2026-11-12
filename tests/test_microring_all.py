@@ -1,4 +1,4 @@
-"""Comprehensive Automated Test Suite for MicroRing Studio v3.6.0.
+"""Comprehensive Automated Test Suite for MicroRing Studio v3.7.0.
 
 Can be executed either with `pytest` (`uv run pytest`) or directly as a standalone
 verification script (`python tests/test_microring_all.py`).
@@ -20,18 +20,26 @@ if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from microring import (
+    EO_WAFER_CUT_CATALOG,
+    EOM_ELECTRODE_CATALOG,
+    EOMElectrodeConfig,
     FIBER_LASER_CATALOG,
     MATERIAL_CATALOG,
     MRRDesignConfig,
     MZI_SPLITTER_CATALOG,
     MZIDesignConfig,
+    PN_JUNCTION_CATALOG,
+    PNDopingTCADConfig,
     RESIST_TONE_CATALOG,
+    THERMAL_STRUCTURE_CATALOG,
     TUNING_MECHANISM_CATALOG,
     T_REF_K,
+    ThermalSimConfig,
     WaveguideCrossSectionSpec,
     agent_active_tuning,
     agent_design_mrr,
     agent_design_mzi,
+    agent_eom_multiphysics,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -39,13 +47,17 @@ from microring import (
     agent_io_coupler,
     agent_status,
     agent_sweep_mrr,
+    analyze_eo_wafer_orientation,
     analyze_high_q_fdtd_convergence,
     analyze_uploaded_gds,
     create_initial_session,
     design_butt_edge_coupler,
+    design_eom_electrode,
     design_grating_coupler,
     detect_hardware_profile,
     export_coupler_cutout_gds,
+    export_eom_electrode_gds,
+    export_eom_rf_interconnect_bundle,
     export_fab_bias_array_gds,
     export_io_coupler_gds,
     export_io_coupler_interconnect,
@@ -53,7 +65,10 @@ from microring import (
     export_mrr_gds,
     export_mzi_gds,
     export_mzi_interconnect_bundle,
+    export_pn_doping_gds,
     export_sweep_array_gds,
+    export_tcad_data_bundle,
+    export_thermal_shifter_gds,
     fit_single_resonance_cmt,
     get_material_fn,
     loss_db_per_cm_to_q_int,
@@ -66,6 +81,8 @@ from microring import (
     run_waveguide_width_sweep,
     simulate_mrr_topology,
     simulate_mzi,
+    simulate_pn_doping_tcad,
+    simulate_thermal_phase_shifter,
     solve_modes_fem,
 )
 import microring.app_server as srv
@@ -121,7 +138,8 @@ async def _asgi_request(
 
 
 def test_materials_and_hardware() -> None:
-    assert len(MATERIAL_CATALOG) == 24
+    assert len(MATERIAL_CATALOG) == 29
+    assert {"LT_Xcut", "LT_Zcut", "BTO", "BTO_ccut", "PZT"}.issubset(MATERIAL_CATALOG.keys())
     for _key, meta in MATERIAL_CATALOG.items():
         wl_m = float(meta["default_band_nm"]) * 1e-9
         props = meta["fn"](wl_m, T_REF_K)
@@ -304,7 +322,7 @@ def test_http_endpoints_and_gds_upload() -> None:
                 assert st == 200 and b"MicroRing Studio" in body and b"setLanguage('zh')" in body
 
                 st, body = await _asgi_request("GET", "/api/materials")
-                assert st == 200 and len(json.loads(body)["materials"]) == 24
+                assert st == 200 and len(json.loads(body)["materials"]) == 29
 
                 st, body_zh = await _asgi_request("POST", "/api/chat_init", query_string="lang=zh")
                 assert st == 200 and json.loads(body_zh)["session"]["lang"] == "zh"
@@ -358,7 +376,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 11
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 12
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -1119,6 +1137,499 @@ def test_mzi_splitters_tuning_gds_and_interconnect() -> None:
     assert len(mzi_txt) < 620, f"MCP design_mzi too verbose ({len(mzi_txt)} chars): {mzi_txt}"
 
 
+def test_eom_electrode_pn_tcad_and_thermal() -> None:
+    assert {"gsg_cpw", "t_rail_cpw", "gs_coplanar", "vertical_microstrip", "lumped_ring_gsg"}.issubset(EOM_ELECTRODE_CATALOG.keys())
+    assert {
+        "x_cut_ln", "y_cut_ln", "z_cut_ln",
+        "x_cut_lt", "z_cut_lt",
+        "a_cut_bto_si", "c_cut_bto", "inplane_poled_pzt",
+        "c_plane_6mm", "a_plane_6mm", "cubic_001_43m", "cubic_110_43m",
+    }.issubset(EO_WAFER_CUT_CATALOG.keys())
+    assert {"lateral_pn", "l_shaped_pn", "u_shaped_pn", "pin_diode"}.issubset(PN_JUNCTION_CATALOG.keys())
+    assert {"top_heater", "deep_trench", "undercut_suspended", "doped_si_rib"}.issubset(THERMAL_STRUCTURE_CATALOG.keys())
+
+    # 0. Exact 3D Crystal-Tensor EO Wafer Orientation & In-Plane Azimuth Finder
+    wo_xln = analyze_eo_wafer_orientation(core_material="LN_Xcut", wafer_cut="x_cut_ln", polarization="TE0")
+    assert wo_xln["metrics"]["optimal_azimuth_deg"] == 0.0
+    assert abs(wo_xln["metrics"]["r_eff_optimal_pm_per_v"] - 30.9) < 0.2
+    assert abs(wo_xln["angular_sweep"]["r_eff_pm_per_v"][90] - (-6.8)) < 0.2   # 90 deg rotates to -r22!
+    assert abs(wo_xln["angular_sweep"]["r_eff_pm_per_v"][180] - (-30.9)) < 0.2  # 180 deg flips sign -> unsplit ring cancels!
+    assert wo_xln["metrics"]["ring_unsplit_efficiency_pct"] < 1.0
+    assert wo_xln["metrics"]["ring_split_pushpull_efficiency_pct"] > 60.0
+
+    # Thin-Film Lithium Tantalate (X-cut TFLT, 3m): ~30.5 pm/V along Y (phi=0) with 19x lower birefringence than X-cut TFLN!
+    wo_xlt = analyze_eo_wafer_orientation(core_material="LT_Xcut", wafer_cut="x_cut_lt", polarization="TE0")
+    assert wo_xlt["metrics"]["optimal_azimuth_deg"] == 0.0
+    assert abs(wo_xlt["metrics"]["r_eff_optimal_pm_per_v"] - 30.5) < 0.2
+    assert wo_xlt["metrics"]["birefringence_span_dn"] < 0.006
+    assert wo_xln["metrics"]["birefringence_span_dn"] > 10.0 * wo_xlt["metrics"]["birefringence_span_dn"]
+
+    # Epitaxial a-oriented BTO-on-Si (4mm): giant shear r42=360 pm/V peaks near diagonal phi~51 deg (|| Si [110] flat), >5x stronger than phi=0!
+    wo_bto = analyze_eo_wafer_orientation(core_material="BTO", wafer_cut="a_cut_bto_si", polarization="TE0")
+    assert 42.0 <= wo_bto["metrics"]["optimal_azimuth_deg"] <= 56.0
+    assert abs(wo_bto["metrics"]["r_eff_optimal_pm_per_v"]) > 250.0
+    assert abs(wo_bto["angular_sweep"]["r_eff_pm_per_v"][0]) < 60.0
+
+    # Lanthanide-seeded MPB PZT (4mm electrode-self-poled): poling aligns P_s || E_RF at all azimuths -> 100% unsplit 360 deg ring!
+    wo_pzt = analyze_eo_wafer_orientation(core_material="PZT", wafer_cut="inplane_poled_pzt", polarization="TE0")
+    assert abs(wo_pzt["metrics"]["r_eff_optimal_pm_per_v"] - 110.0) < 1.0
+    assert wo_pzt["metrics"]["ring_unsplit_efficiency_pct"] > 99.0
+
+    # Cubic -43m (001) 3C-SiC: [100] cleavage (0 deg) is dead (r_eff=0), [110] SEMI flat (45/135 deg) peaks at |r41|=2.7 pm/V!
+    wo_3c = analyze_eo_wafer_orientation(core_material="3C-SiC", wafer_cut="cubic_001_43m", polarization="TE0")
+    assert abs(wo_3c["angular_sweep"]["r_eff_pm_per_v"][0]) < 1e-6
+    assert wo_3c["metrics"]["optimal_azimuth_deg"] in (45.0, 135.0)
+    assert abs(abs(wo_3c["metrics"]["r_eff_optimal_pm_per_v"]) - 2.7) < 0.1
+
+    # C-Plane 6mm Wurtzite ScAlN_20 (TM0 + vertical Ey): 360 deg in-plane isotropic -> unsplit circular ring works at 100%!
+    wo_scaln = analyze_eo_wafer_orientation(core_material="ScAlN_20", wafer_cut="c_plane_6mm", polarization="TM0")
+    assert wo_scaln["metrics"]["ring_unsplit_efficiency_pct"] > 99.0
+
+    # 1. RF Traveling-Wave GSG CPW + Azimuthal Rotation Penalty + Slow-Wave T-Rail CPW
+    rf_gsg = design_eom_electrode(
+        EOMElectrodeConfig(
+            electrode_topology="gsg_cpw",
+            core_material="LN_Xcut",
+            substrate_type="hr_si",
+            electrode_gap_um=5.0,
+            active_length_um=5000.0,
+            run_gap_sweep=True,
+        )
+    )
+    assert 47.0 <= rf_gsg["metrics"]["Z0_ohm"] <= 54.0
+    assert 1.5 <= rf_gsg["metrics"]["V_pi_L_Vcm"] <= 3.2
+    assert rf_gsg["metrics"]["f_3dBo_GHz"] >= 60.0
+    assert rf_gsg["field_map"] is not None and len(rf_gsg["field_map"]["e_mag_v_per_um"]) > 20
+    assert rf_gsg["wafer_orientation"]["metrics"]["active_azimuth_deg"] == 0.0
+
+    # Rotating X-cut TFLN waveguide by 90 deg (propagating along Z instead of Y) switches r33 -> r22 and degrades V_pi*L by >3.5x!
+    rf_misaligned = design_eom_electrode(
+        EOMElectrodeConfig(
+            electrode_topology="gsg_cpw",
+            core_material="LN_Xcut",
+            waveguide_azimuth_deg=90.0,
+            substrate_type="hr_si",
+            electrode_gap_um=5.0,
+            active_length_um=5000.0,
+            run_gap_sweep=False,
+        )
+    )
+    assert rf_misaligned["metrics"]["V_pi_L_Vcm"] > 3.5 * rf_gsg["metrics"]["V_pi_L_Vcm"]
+    assert bool(rf_misaligned["wafer_orientation"]["mismatch_warning"])
+
+    rf_trail = design_eom_electrode(
+        EOMElectrodeConfig(
+            electrode_topology="t_rail_cpw",
+            core_material="LN_Xcut",
+            substrate_type="quartz",
+            electrode_gap_um=5.0,
+            active_length_um=5000.0,
+            run_gap_sweep=False,
+        )
+    )
+    assert 47.0 <= rf_trail["metrics"]["Z0_ohm"] <= 54.5
+    assert rf_trail["dimensions"]["t_rail_length_um"] > 1.0
+    assert rf_trail["metrics"]["f_3dBo_GHz"] >= 80.0
+
+    # Giant-Pockels BTO & PZT RF EOM Electrodes (ultra-sub-V*cm modulation efficiency!)
+    rf_bto = design_eom_electrode(
+        EOMElectrodeConfig(
+            electrode_topology="gsg_cpw",
+            core_material="BTO",
+            substrate_type="hr_si",
+            film_height_um=0.35,
+            slab_height_um=0.12,
+            waveguide_width_um=0.90,
+            electrode_gap_um=4.0,
+            active_length_um=1500.0,
+            run_gap_sweep=False,
+        )
+    )
+    assert rf_bto["metrics"]["V_pi_L_Vcm"] < 0.65
+    assert 42.0 <= rf_bto["wafer_orientation"]["metrics"]["active_azimuth_deg"] <= 56.0
+
+    rf_pzt = design_eom_electrode(
+        EOMElectrodeConfig(
+            electrode_topology="gsg_cpw",
+            core_material="PZT",
+            substrate_type="hr_si",
+            film_height_um=0.32,
+            slab_height_um=0.10,
+            waveguide_width_um=0.85,
+            electrode_gap_um=4.0,
+            active_length_um=1500.0,
+            run_gap_sweep=False,
+        )
+    )
+    assert rf_pzt["metrics"]["V_pi_L_Vcm"] < 1.35
+
+    # 2. 2D Nonlinear Poisson-Boltzmann Silicon PN Doping TCAD (Lateral vs L-Shaped)
+    pn_lat = simulate_pn_doping_tcad(
+        PNDopingTCADConfig(
+            junction_type="lateral_pn",
+            bias_voltages_v=[0.0, -1.5, -3.0, -4.5],
+            map_bias_v=-3.0,
+        )
+    )
+    pn_l = simulate_pn_doping_tcad(
+        PNDopingTCADConfig(
+            junction_type="l_shaped_pn",
+            bias_voltages_v=[0.0, -1.5, -3.0, -4.5],
+            map_bias_v=-3.0,
+        )
+    )
+    # C_j(V) monotonically decreases with reverse bias as depletion region widens
+    cjs_lat = [s["cj_ff_per_um"] for s in pn_lat["states"]]
+    assert cjs_lat[0] > cjs_lat[1] > cjs_lat[2] > cjs_lat[3]
+    assert 0.15 <= pn_lat["metrics"]["Cj_bias_fF_per_um"] <= 0.45
+    assert 0.35 <= pn_lat["metrics"]["R_series_ohm_cm"] <= 2.50
+    assert pn_lat["metrics"]["f_RC_intrinsic_GHz"] > 25.0
+    # L-shaped PN increases optical overlap -> strictly lower V_pi*L and V_pi*L*alpha than lateral PN
+    assert pn_l["metrics"]["V_pi_L_Vcm"] < pn_lat["metrics"]["V_pi_L_Vcm"]
+    assert pn_l["metrics"]["V_pi_L_alpha_V_dB"] < pn_lat["metrics"]["V_pi_L_alpha_V_dB"]
+
+    # 3. 2D Steady-State + Crank-Nicolson Transient Thermal FEM
+    th_top = simulate_thermal_phase_shifter(ThermalSimConfig(thermal_structure="top_heater", core_material="Si"))
+    th_tr = simulate_thermal_phase_shifter(ThermalSimConfig(thermal_structure="deep_trench", core_material="Si"))
+    th_uc = simulate_thermal_phase_shifter(ThermalSimConfig(thermal_structure="undercut_suspended", core_material="Si"))
+    assert th_tr["metrics"]["P_pi_mW"] < th_top["metrics"]["P_pi_mW"]
+    assert th_tr["metrics"]["crosstalk_at_neighbor_pct"] < th_top["metrics"]["crosstalk_at_neighbor_pct"]
+    assert th_uc["metrics"]["P_pi_mW"] < 2.5 and th_uc["metrics"]["P_pi_mW"] < 0.15 * th_top["metrics"]["P_pi_mW"]
+    assert th_top["metrics"]["t_rise_10_90_us"] > 2.0 and th_top["metrics"]["t_fall_90_10_us"] > 2.0
+
+    # 4. Cleanroom .GDS + .S2P/TCAD Bundles + Copilot (EN + ZH) + HTTP + Agent/MCP
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        gds_rf = export_eom_electrode_gds(rf_trail, tmp_path / "eom_trail.gds")
+        assert Path(gds_rf["gds_path"]).is_file() and Path(gds_rf["lyp_path"]).is_file()
+        insp_rf = analyze_uploaded_gds(gds_rf["gds_path"])
+        assert insp_rf["extracted_geometry"]["topology"] == "eom_traveling_wave"
+
+        b_rf = export_eom_rf_interconnect_bundle(rf_trail, tmp_path / "rf_bundle")
+        assert Path(b_rf["s2p_path"]).is_file() and Path(b_rf["zip_path"]).is_file()
+
+        gds_pn = export_pn_doping_gds(pn_l, tmp_path / "si_pn_l.gds")
+        assert {5, 6, 11, 12}.issubset(set(gds_pn["layers"]))
+        b_pn = export_tcad_data_bundle(pn_l, tmp_path / "pn_bundle")
+        assert Path(b_pn["zip_path"]).is_file()
+
+        gds_th = export_thermal_shifter_gds(th_tr, tmp_path / "th_trench.gds")
+        assert 40 in gds_th["layers"]
+
+        c_rf = process_chat_turn(
+            create_initial_session(lang="en"),
+            "Design slow-wave T-rail EOM electrode on quartz X-cut TFLN and export GDS",
+            gds_export_dir=tmp_path,
+        )
+        assert c_rf["ui_view"] == "eom" and c_rf["eom_result"]["resolved_topology"] == "t_rail_cpw"
+        assert "gds_export" in c_rf
+
+        c_pn_zh = process_chat_turn(
+            create_initial_session(lang="zh"),
+            "仿真硅基 L 型 PN 掺杂结并导出 GDS",
+            gds_export_dir=tmp_path,
+        )
+        assert c_pn_zh["ui_view"] == "eom" and c_pn_zh["eom_result"]["mode"] == "pn_doping_tcad"
+        assert "gds_export" in c_pn_zh
+
+        c_th = process_chat_turn(
+            create_initial_session(lang="en"),
+            "Run undercut thermal phase shifter transient simulation",
+            gds_export_dir=tmp_path,
+        )
+        assert c_th["ui_view"] == "eom" and c_th["eom_result"]["mode"] == "thermal_fem"
+
+        c_wo = process_chat_turn(
+            create_initial_session(lang="en"),
+            "eo need to find wafer orientation for X-cut TFLN",
+            gds_export_dir=tmp_path,
+        )
+        assert c_wo["ui_view"] == "eom" and c_wo["eom_result"]["mode"] == "wafer_orientation"
+        assert c_wo["eom_result"]["metrics"]["optimal_azimuth_deg"] == 0.0
+
+        c_bto = process_chat_turn(
+            create_initial_session(lang="en"),
+            "find BTO wafer orientation on Si",
+            gds_export_dir=tmp_path,
+        )
+        assert c_bto["ui_view"] == "eom" and c_bto["eom_result"]["mode"] == "wafer_orientation"
+        assert abs(c_bto["eom_result"]["metrics"]["r_eff_optimal_pm_per_v"]) > 250.0
+        assert c_bto["eom_result"]["metrics"]["eo_overlap_source"] == "solved_2d_fem_cross_section"
+
+        # 5. Strict User-Suggested Parameter Calculation (Zero Preset Lock-In)
+        wo_g32 = analyze_eo_wafer_orientation(
+            core_material="LT_Xcut",
+            film_height_um=0.48,
+            slab_height_um=0.18,
+            waveguide_width_um=1.05,
+            electrode_gap_um=3.2,
+            eo_overlap_factor=None,
+        )
+        wo_g64 = analyze_eo_wafer_orientation(
+            core_material="LT_Xcut",
+            film_height_um=0.48,
+            slab_height_um=0.18,
+            waveguide_width_um=1.05,
+            electrode_gap_um=6.4,
+            eo_overlap_factor=None,
+        )
+        assert wo_g32["metrics"]["eo_overlap_source"] == "solved_2d_fem_cross_section"
+        assert wo_g32["metrics"]["V_pi_L_optimal_Vcm"] < wo_g64["metrics"]["V_pi_L_optimal_Vcm"]
+
+        rf_pzt_custom = design_eom_electrode(
+            EOMElectrodeConfig(
+                electrode_topology="gsg_cpw",
+                core_material="PZT",
+                substrate_type="hr_si",
+                film_height_um=0.40,
+                slab_height_um=0.12,
+                waveguide_width_um=0.95,
+                electrode_gap_um=4.0,
+                active_length_um=1500.0,
+                custom_r33_pm_v=220.0,
+                run_gap_sweep=False,
+            )
+        )
+        assert abs(rf_pzt_custom["metrics"]["r_eff_pm_per_v"] - 220.0) < 0.5
+        assert rf_pzt_custom["metrics"]["V_pi_L_Vcm"] < 0.65 * rf_pzt["metrics"]["V_pi_L_Vcm"]
+
+        th_custom_dndt = simulate_thermal_phase_shifter(
+            ThermalSimConfig(
+                thermal_structure="top_heater",
+                core_material="Si",
+                custom_dn_dt_per_k=3.72e-4,
+            )
+        )
+        assert abs(th_custom_dndt["metrics"]["P_pi_mW"] - 0.5 * th_top["metrics"]["P_pi_mW"]) < 1.2
+
+        c_user_bto = process_chat_turn(
+            create_initial_session(lang="en"),
+            "BTO EOM electrode H=420 nm, slab=150 nm, W=1.05 um, gap=3.2 um, L=2 mm, r42=600 pm/V",
+            gds_export_dir=tmp_path,
+        )
+        assert c_user_bto["ui_view"] == "eom" and c_user_bto["eom_result"]["mode"] == "rf_electrode"
+        u_cfg = c_user_bto["eom_result"]["config"]
+        assert abs(u_cfg["film_height_um"] - 0.42) < 1e-4
+        assert abs(u_cfg["slab_height_um"] - 0.15) < 1e-4
+        assert abs(u_cfg["waveguide_width_um"] - 1.05) < 1e-4
+        assert abs(u_cfg["electrode_gap_um"] - 3.2) < 1e-4
+        assert abs(u_cfg["active_length_um"] - 2000.0) < 1e-2
+        assert abs(u_cfg["custom_r51_pm_v"] - 600.0) < 1e-3
+        assert abs(c_user_bto["eom_result"]["metrics"]["r_eff_pm_per_v"]) > 400.0
+        assert c_user_bto["eom_result"]["metrics"]["f_3dBo_GHz"] > c_user_bto["eom_result"]["metrics"]["f_3dBe_GHz"] > 5.0
+        assert "limiting_mechanism" in c_user_bto["eom_result"]["bandwidth_analysis"]
+
+        # 6. Modulator Bandwidth Decomposition + Microring Modulator CMT Optical Peaking
+        mrm_slope = design_eom_electrode(
+            EOMElectrodeConfig(
+                electrode_topology="lumped_ring_gsg",
+                core_material="PZT",
+                ring_radius_um=30.0,
+                racetrack_straight_um=0.0,
+                active_length_um=188.5,
+                ring_loaded_q=12000.0,
+                ring_detuning_norm=0.57735,
+                run_gap_sweep=False,
+            )
+        )
+        mrm_peaked = design_eom_electrode(
+            EOMElectrodeConfig(
+                electrode_topology="lumped_ring_gsg",
+                core_material="PZT",
+                ring_radius_um=30.0,
+                racetrack_straight_um=0.0,
+                active_length_um=188.5,
+                ring_loaded_q=12000.0,
+                ring_detuning_norm=1.45,
+                run_gap_sweep=False,
+            )
+        )
+        assert mrm_peaked["bandwidth_analysis"]["optical_peaking_dBe"] > 0.5
+        assert mrm_peaked["metrics"]["f_3dBe_GHz"] > 1.35 * mrm_slope["metrics"]["f_3dBe_GHz"]
+        assert pn_lat["states"][-1]["f_tw_3dbo_ghz"] > pn_lat["states"][0]["f_tw_3dbo_ghz"]
+
+        c_bw = process_chat_turn(
+            create_initial_session(lang="en"),
+            "calculate bandwidth of BTO microring modulator Q=12000 detuning=1.4",
+            gds_export_dir=tmp_path,
+        )
+        assert c_bw["ui_view"] == "eom" and c_bw["eom_result"]["resolved_topology"] == "lumped_ring_gsg"
+        assert c_bw["eom_result"]["metrics"]["f_3dBe_GHz"] > 10.0
+
+        # Sub-THz 300-GHz LN Slow-Wave T-Rail physics + Bragg cutoff + Cherenkov contrast + 3D GDS DRC/LVS check
+        trail_300_qtz = design_eom_electrode(
+            EOMElectrodeConfig(
+                electrode_topology="t_rail_cpw",
+                core_material="LN_Xcut",
+                substrate_type="quartz",
+                metal_thickness_um=1.50,
+                t_rail_period_um=25.0,
+                active_length_um=4500.0,
+                max_freq_ghz=360.0,
+                run_gap_sweep=False,
+            )
+        )
+        m300 = trail_300_qtz["metrics"]
+        assert 49.0 <= m300["Z0_ohm"] <= 51.0
+        assert abs(m300["n_RF"] - m300["n_g_opt"]) < 0.015
+        assert m300["alpha_RF_40GHz_dB_per_cm"] < 2.0
+        assert m300["f_3dBe_GHz"] >= 300.0 and m300["S21_EO_300GHz_dBe"] >= -3.0
+        assert m300["alpha_cherenkov_300GHz_dB_per_cm"] == 0.0
+        assert len(trail_300_qtz["field_map"]["stem_boxes_um"]) == 4
+
+        trail_300_coarse = design_eom_electrode(
+            EOMElectrodeConfig(
+                electrode_topology="t_rail_cpw",
+                core_material="LN_Xcut",
+                substrate_type="quartz",
+                metal_thickness_um=1.50,
+                t_rail_period_um=220.0,
+                active_length_um=4500.0,
+                max_freq_ghz=360.0,
+                run_gap_sweep=False,
+            )
+        )
+        assert trail_300_coarse["metrics"]["f_bragg_cutoff_GHz"] < 340.0
+        assert trail_300_coarse["metrics"]["f_3dBe_GHz"] < 300.0
+        assert trail_300_coarse["metrics"]["limiting_mechanism"] == "bragg_periodic_cutoff"
+
+        trail_300_hrsi = design_eom_electrode(
+            EOMElectrodeConfig(
+                electrode_topology="t_rail_cpw",
+                core_material="LN_Xcut",
+                substrate_type="hr_si",
+                metal_thickness_um=1.50,
+                t_rail_period_um=25.0,
+                active_length_um=4500.0,
+                max_freq_ghz=360.0,
+                run_gap_sweep=False,
+            )
+        )
+        assert trail_300_hrsi["metrics"]["alpha_cherenkov_300GHz_dB_per_cm"] > 2.0
+        assert trail_300_hrsi["metrics"]["f_3dBe_GHz"] < m300["f_3dBe_GHz"]
+
+        import gdstk
+
+        gds_300 = export_eom_electrode_gds(trail_300_qtz, tmp_path / "trail_300ghz_drc.gds")
+        lib_300 = gdstk.read_gds(gds_300["gds_path"])
+        top_300 = lib_300.top_level()[0]
+        from shapely.geometry import Point as _ShpPoint, Polygon as _ShpPoly
+        from shapely.ops import unary_union as _shp_union
+
+        def _lyr_geoms(ln: int):
+            ps = [_ShpPoly(p.points) for p in top_300.get_polygons() if p.layer == ln and len(p.points) >= 3]
+            if not ps:
+                return []
+            u = _shp_union(ps)
+            return list(u.geoms) if hasattr(u, "geoms") else [u]
+
+        core_u = _shp_union(_lyr_geoms(1))
+        m1_list = _lyr_geoms(11)
+        via_list = _lyr_geoms(12)
+        m2_list = _lyr_geoms(13)
+        m1_u = _shp_union(m1_list)
+        assert m1_u.intersection(core_u).area == 0.0  # Zero Metal-1 overlap over optical waveguide cores!
+        nodes_3d = [("M1", g) for g in m1_list] + [("VIA", g) for g in via_list] + [("M2", g) for g in m2_list]
+        adj_3d = {i: set() for i in range(len(nodes_3d))}
+        for i_n in range(len(nodes_3d)):
+            for j_n in range(i_n + 1, len(nodes_3d)):
+                ti, gi = nodes_3d[i_n]
+                tj, gj = nodes_3d[j_n]
+                if (ti == tj or "VIA" in (ti, tj)) and gi.intersects(gj):
+                    adj_3d[i_n].add(j_n)
+                    adj_3d[j_n].add(i_n)
+        xm_chk = 0.5 * (m1_u.bounds[0] + m1_u.bounds[2])
+        sig_idx = next(i for i, (t, g) in enumerate(nodes_3d) if t == "M1" and g.contains(_ShpPoint(xm_chk, 0.0)))
+        d300 = trail_300_qtz["dimensions"]
+        yg_chk = 0.5 * d300["signal_width_um"] + d300["trunk_gap_um"] + 20.0
+        gnd_hi_idx = next(i for i, (t, g) in enumerate(nodes_3d) if t == "M1" and g.contains(_ShpPoint(xm_chk, +yg_chk)))
+        gnd_lo_idx = next(i for i, (t, g) in enumerate(nodes_3d) if t == "M1" and g.contains(_ShpPoint(xm_chk, -yg_chk)))
+        vis_3d = {sig_idx}
+        stk_3d = [sig_idx]
+        while stk_3d:
+            cur_n = stk_3d.pop()
+            for nb_n in adj_3d[cur_n]:
+                if nb_n not in vis_3d:
+                    vis_3d.add(nb_n)
+                    stk_3d.append(nb_n)
+        assert gnd_hi_idx not in vis_3d and gnd_lo_idx not in vis_3d  # Zero 3D Signal-to-Ground electrical short!
+
+        c_300 = process_chat_turn(
+            create_initial_session(lang="en"),
+            "Design a 300 GHz LN T-shape electrode modulator",
+            gds_export_dir=tmp_path,
+        )
+        assert c_300["ui_view"] == "eom" and c_300["eom_result"]["resolved_topology"] == "t_rail_cpw"
+        assert c_300["eom_result"]["config"]["substrate_type"] == "quartz"
+        assert c_300["eom_result"]["metrics"]["f_3dBe_GHz"] >= 300.0
+
+        async def _check_eom_http() -> None:
+            old_exp = srv.GDS_EXPORT_DIR
+            srv.GDS_EXPORT_DIR = tmp_path / "srv_eom"
+            try:
+                st0, b0 = await _asgi_request("GET", "/")
+                assert st0 == 200 and b"pill-eom" in b0 and b"view-eom" in b0
+
+                st1, b1 = await _asgi_request(
+                    "POST",
+                    "/api/eom_multiphysics",
+                    json_body={"mode": "rf_electrode", "electrode_topology": "gsg_cpw", "core_material": "LN_Xcut", "run_gap_sweep": False},
+                )
+                d1 = json.loads(b1)
+                assert st1 == 200 and d1["mode"] == "rf_electrode" and 46.0 <= d1["metrics"]["Z0_ohm"] <= 55.0
+
+                st2, b2 = await _asgi_request("POST", "/api/export_eom_multiphysics_gds", json_body={"mode": "rf_electrode", "sim_result": d1})
+                assert st2 == 200 and "gds_download_url" in json.loads(b2)
+
+                st3, b3 = await _asgi_request("POST", "/api/export_eom_multiphysics_bundle", json_body={"mode": "rf_electrode", "sim_result": d1})
+                assert st3 == 200 and "zip_download_url" in json.loads(b3)
+
+                st4, b4 = await _asgi_request(
+                    "POST",
+                    "/api/eom_multiphysics",
+                    json_body={"mode": "pn_doping", "junction_type": "lateral_pn", "bias_voltages_v": "0, -2, -4"},
+                )
+                assert st4 == 200 and json.loads(b4)["mode"] == "pn_doping_tcad"
+
+                st5, b5 = await _asgi_request(
+                    "POST",
+                    "/api/eom_multiphysics",
+                    json_body={"mode": "thermal_fem", "thermal_structure": "deep_trench", "core_material": "Si"},
+                )
+                assert st5 == 200 and json.loads(b5)["mode"] == "thermal_fem"
+
+                st6, b6 = await _asgi_request(
+                    "POST",
+                    "/api/eom_multiphysics",
+                    json_body={"mode": "wafer_orientation", "core_material": "3C-SiC", "wafer_cut": "cubic_001_43m", "polarization": "TE0"},
+                )
+                d6 = json.loads(b6)
+                assert st6 == 200 and d6["mode"] == "wafer_orientation" and d6["metrics"]["optimal_azimuth_deg"] in (45.0, 135.0)
+            finally:
+                srv.GDS_EXPORT_DIR = old_exp
+
+        asyncio.run(_check_eom_http())
+
+    a_rf = agent_eom_multiphysics({"mode": "rf_electrode", "topology": "gsg_cpw", "mat": "LN_Xcut", "export_gds": True})
+    assert 46.0 <= a_rf["Z0_ohm"] <= 55.0 and Path(a_rf["gds"]).is_file()
+
+    a_wo = agent_eom_multiphysics({"mode": "wafer_orientation", "mat": "LN_Xcut", "wafer_cut": "x_cut_ln"})
+    assert a_wo["opt_azimuth_deg"] == 0.0 and a_wo["ring_unsplit_pct"] < 1.0
+
+    mcp_eom = handle_mcp_request({
+        "jsonrpc": "2.0",
+        "id": 115,
+        "method": "tools/call",
+        "params": {
+            "name": "microring_eom_multiphysics",
+            "arguments": {"mode": "thermal_fem", "structure": "undercut_suspended", "mat": "Si", "export_gds": True},
+        },
+    })
+    assert mcp_eom is not None and not mcp_eom["result"]["isError"]
+    eom_txt = mcp_eom["result"]["content"][0]["text"]
+    assert len(eom_txt) < 620, f"MCP eom_multiphysics too verbose ({len(eom_txt)} chars): {eom_txt}"
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -1134,9 +1645,10 @@ def main() -> None:
         ("2D-FEM TO/EO/Si-PN Active Tuning, T/E/V/I Spectra & Lumerical INTERCONNECT", test_active_tuning_2d_fem_and_interconnect),
         ("Photonic IC Butt/2D-FDFD Grating Couplers & High-Q FDTD Convergence", test_io_couplers_and_high_q_fdtd_convergence),
         ("2D-FEM/EME Mach-Zehnder Interferometers (Y-Branch/DC/MMI), Modulators & INTERCONNECT", test_mzi_splitters_tuning_gds_and_interconnect),
+        ("2D-FEM EOM RF Electrodes, Si PN Doping TCAD & Steady/Transient Thermal FEM", test_eom_electrode_pn_tcad_and_thermal),
     ]
     print("=" * 72)
-    print("Running MicroRing Studio v3.6.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.7.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

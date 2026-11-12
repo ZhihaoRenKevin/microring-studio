@@ -4,7 +4,7 @@ Connects `MicroRing Studio` directly to **Claude Code**, **Claude Desktop**, **O
 **Cursor**, and **Antigravity** over JSON-RPC 2.0 (`stdin`/`stdout`).
 
 Token-efficiency guarantees:
-  - Compact tool schemas (<400 tokens total across all 6 tools).
+  - Compact tool schemas across all 12 tools.
   - Heavy 2D FEM, spatial CMT, GPU/AMX TMM spectra, and GDS polygon parsing run 100% locally.
   - Tool responses return single-line scalar KPI JSON (<150 tokens) + local CSV/GDS paths.
 """
@@ -19,6 +19,7 @@ from .agent_tools import (
     agent_active_tuning,
     agent_design_mrr,
     agent_design_mzi,
+    agent_eom_multiphysics,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_high_q_fdtd,
@@ -32,7 +33,7 @@ from .agent_tools import (
 MCP_TOOLS = [
     {
         "name": "microring_status",
-        "description": "Probe local GPU/AMX/CPU accelerator & list supported 18 materials and 7 MRR topologies.",
+        "description": "Probe local GPU/AMX/CPU accelerator & list supported 29 materials and 7 MRR topologies.",
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
@@ -248,6 +249,42 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_eom_multiphysics",
+        "description": "Compute 2D Quasi-TEM RF EOM Electrodes (gsg_cpw, t_rail_cpw, gs_coplanar, vertical_microstrip, lumped_ring_gsg -> Z0, n_RF vs n_g, S21_EO(f), V_pi*L, Touchstone .s2p & RF .GDS), 3D Crystal-Tensor EO Wafer Orientation & 0-360 deg Azimuth Finder (wafer_orientation -> optimal azimuth, signed r_eff(phi), SEMI wafer flat, ring split push-pull efficiency), 2D Nonlinear Poisson-Boltzmann Si PN/PIN Doping TCAD (lateral_pn, l_shaped_pn, u_shaped_pn, pin_diode -> Cj(V), Rs, V_pi*L, FCA & implant .GDS), or 2D Steady+Crank-Nicolson Transient Thermal FEM (top_heater, deep_trench, undercut_suspended, doped_si_rib -> P_pi, t_rise/fall, crosstalk & heater+trench .GDS).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "description": "rf_electrode | wafer_orientation | pn_doping | thermal_fem"},
+                "topology": {"type": "string", "description": "gsg_cpw | t_rail_cpw | gs_coplanar | vertical_microstrip | lumped_ring_gsg"},
+                "wafer_cut": {"type": "string", "description": "auto | x_cut_ln | y_cut_ln | z_cut_ln | x_cut_lt | z_cut_lt | a_cut_bto_si | c_cut_bto | inplane_poled_pzt | c_plane_6mm | a_plane_6mm | cubic_001_43m | cubic_110_43m"},
+                "azimuth_deg": {"type": "number", "description": "In-plane waveguide propagation azimuth phi [deg] relative to wafer primary crystal axis"},
+                "electrode_field_axis": {"type": "string", "description": "auto | horizontal_ex | vertical_ey"},
+                "junction_type": {"type": "string", "description": "lateral_pn | l_shaped_pn | u_shaped_pn | pin_diode"},
+                "structure": {"type": "string", "description": "top_heater | deep_trench | undercut_suspended | doped_si_rib"},
+                "mat": {"type": "string", "description": "Core material (LN_Xcut, LT_Xcut, BTO, PZT, Si, LN_Zcut, LT_Zcut, AlN, ScAlN_20, 4H-SiC, 3C-SiC, Si3N4)"},
+                "substrate": {"type": "string", "description": "hr_si | quartz | undercut_si | std_si | sapphire"},
+                "metal": {"type": "string", "description": "Au | Cu | Al"},
+                "t_metal_um": {"type": "number"},
+                "wl_nm": {"type": "number"},
+                "h_um": {"type": "number"},
+                "slab_um": {"type": "number"},
+                "w_um": {"type": "number"},
+                "l_um": {"type": "number"},
+                "gap_um": {"type": "number"},
+                "ws_um": {"type": "number"},
+                "l_rail_um": {"type": "number"},
+                "t_period_um": {"type": "number"},
+                "t_cap_w_um": {"type": "number"},
+                "f_max_ghz": {"type": "number"},
+                "na_core_cm3": {"type": "number"},
+                "nd_core_cm3": {"type": "number"},
+                "pn_offset_nm": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+                "export_bundle": {"type": "boolean"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -262,6 +299,7 @@ _DISPATCH = {
     "microring_io_coupler": agent_io_coupler,
     "microring_high_q_fdtd": agent_high_q_fdtd,
     "microring_design_mzi": agent_design_mzi,
+    "microring_eom_multiphysics": agent_eom_multiphysics,
 }
 
 
