@@ -148,10 +148,10 @@ STATIC_PERMITTIVITY_DC: dict[str, tuple[float, float]] = {
     "Ge": (16.2, 16.2),
     "Si3N4": (7.5, 7.5),
     "SiRich_SiNx": (8.5, 8.5),
-    "AlN": (9.0, 10.5),
-    "ScAlN_10": (11.0, 12.8),
-    "ScAlN_20": (13.8, 15.6),
-    "ScAlN_30": (17.5, 20.5),
+    "AlN": (9.0, 10.4),
+    "ScAlN_10": (11.5, 13.2),
+    "ScAlN_20": (14.0, 16.5),
+    "ScAlN_30": (17.8, 21.2),
     "4H-SiC": (9.7, 10.0),
     "3C-SiC": (9.7, 9.7),
     "LN_Zcut": (44.0, 28.0),
@@ -160,7 +160,7 @@ STATIC_PERMITTIVITY_DC: dict[str, tuple[float, float]] = {
     "LT_Zcut": (41.0, 43.0),
     "BTO": (252.5, 420.0),
     "BTO_ccut": (420.0, 85.0),
-    "PZT": (180.0, 220.0),
+    "PZT": (320.0, 380.0),
     "SiO2": (3.9, 3.9),
     "CaF2": (6.8, 6.8),
     "MgF2": (5.3, 5.3),
@@ -1767,7 +1767,7 @@ def export_lumerical_interconnect_bundle(
 
     lsf_path = out_dir / "build_microring_interconnect.lsf"
     lsf_code = f"""# ==============================================================================
-# MicroRing Studio v3.7.0 -> Ansys Lumerical INTERCONNECT Turnkey Circuit Script
+# MicroRing Studio v3.7.1 -> Ansys Lumerical INTERCONNECT Turnkey Circuit Script
 # Solver Source : MicroRing 2D Conformal Vector FEM + Spatial CMT (Zero COMSOL)
 # Core Material : {base_cfg.core_material} ({base_cfg.polarization}) | Mechanism: {eff['mechanism']}
 # ==============================================================================
@@ -1884,7 +1884,7 @@ run;
 
 Requires Ansys Lumerical INTERCONNECT (`lumapi`) on the workstation running INTERCONNECT.
 All 2D-FEM effective-index perturbations and passive S-parameters in this folder were
-pre-computed license-free by MicroRing Studio v3.7.0.
+pre-computed license-free by MicroRing Studio v3.7.1.
 """
 from pathlib import Path
 import numpy as np

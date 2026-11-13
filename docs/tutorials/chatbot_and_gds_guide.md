@@ -1,6 +1,6 @@
 # Step-by-Step Guide: Conversational Copilot & Bidirectional GDSII Workflows
 
-This tutorial walks through the core interactive workflows in **MicroRing Studio v3.7.0**.
+This tutorial walks through the core interactive workflows in **MicroRing Studio v3.7.1**.
 
 ---
 

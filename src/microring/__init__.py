@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.7.0"
+__version__ = "3.7.1"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,

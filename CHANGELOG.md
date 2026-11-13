@@ -2,6 +2,21 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.7.1] - 2026-11-13
+
+### Changed & Calibrated Against Peer-Reviewed Experimental Publications
+- **48-Publication / 50-Case Comprehensive Experimental Validation Suite (`benchmarks/run_publication_validation.py` & `docs/VERIFICATION_AND_BENCHMARKS.md`)**:
+  - Expanded the head-to-head first-principles validation benchmark across **48 peer-reviewed Tier 1–4 experimental publications (`50` hardware cases, `50/50 PASS`, zero hardcoded output presets)** spanning all **7 native solver engines** (`2D Conformal Bent Vector Maxwell FEM`, `Spatial Cylindrical CMT + CW/CCW Split-Doublet Fitter`, `2D-FEM Butt/Edge & 2D-FDFD Grating Couplers`, `Twin-Core Supermode & Multi-Mode EME MZI Splitters`, `3D Crystal-Tensor EO Wafer Orientation + Sub-THz 300+ GHz T-Rail CPW + Detuned MRM`, `2D Nonlinear Poisson-Boltzmann Si PN/PIN TCAD`, and `2D Steady/Harmonic/Crank-Nicolson Thermal FEM`) from **`532 nm` Visible to `4200 nm` Mid-IR** across `Si`, `Ge/CaF2`, `Si3N4`, `TiO2`, `Ta2O5`, `Diamond`, `4H-SiC`, `3C-SiC`, `AlN`, `ScAlN (10%/20%/30%)`, `X/Z-cut TFLN`, `X-cut LiTaO3 (LTOI)`, `Epitaxial BTO/Si`, `Poled Thin-Film PZT`, `GaAs/AlGaAs`, `InP MQW`, and `GSST PCM`.
+- **Sputtered `AlN`, `Sc_xAl_{1-x}N` & `4H-SiC` Pockels Tensor Calibration (`materials.py`, `active_tuning.py`)**:
+  - Updated `n_aln_film` (`r33 = +1.50 pm/V`, `r13 = -0.92 pm/V`, opposite signs) and `n_scaln_film(x)` (`x = 0.10, 0.20, 0.30, 0.319`) to match **Y. Yang et al., *Nat. Commun.* 15, 6168 (2024)** (`<= 20% Sc` dip with `r13` sign flip near `x ~ 0.16`, `>= 30% Sc` enhancement to `r33 = 2.07 pm/V`, `r13 = +1.29 pm/V` at `x = 0.319`, plus `S. Wang et al., Laser Photonics Rev. 19, 2401178, 2025` vertical-vs-coplanar electrode gain) and composition-dependent permittivity (`Wingqvist JAP 2010`, `Fichtner JAP 2019`).
+  - Calibrated `n_4h_sic_anisotropic` (`r13 = -0.50 pm/V`, `r33 = 0.03 pm/V`) to **R. Wang, J. Li, L. Cai, & Q. Li, *Opt. Lett.* 48, 1482–1485 (2023)** (measured `|r13| = 0.3–0.7 pm/V` dominating over nearly vanishing `|r33| <= 0.03 pm/V` in high-$Q$ $c$-axis `4H-SiCOI` microresonators, replacing legacy unverified `r33 = 2.7 pm/V`).
+- **Clamped High-Speed Thin-Film `PZT` Calibration (`materials.py`, `active_tuning.py`, `eom_electrode.py`)**:
+  - Calibrated `PZT` clamped RF Pockels tensor (`r33 = 67.0 pm/V`, `r13 = 20.0 pm/V`) and clamped GHz permittivity (`eps_RF = 320, 380`) to **Alexander et al., *Nat. Commun.* 9, 3444 (2018)** (`La2O5Ti`-seeded thin-film PZT), replacing legacy unclamped low-frequency values (`110 pm/V`, `eps_DC = 850`).
+- **Sub-THz (`100–350 GHz`) RF Electrode Loss & Dispersion Physics (`eom_electrode.py`)**:
+  - Added **Hammerstad-Jensen (1980)** frequency-dependent conductor surface-roughness skin resistance (`Rq = 70 nm` electroplated `Au`, `35 nm` `Cu`, `45 nm` `Al`), **Heinrich (IEEE MTT 1993)** finite-thickness vertical-sidewall current relief + exact Gupta Eq. (7.98) half-width arguments (`4*pi*a = 2*pi*W_S`), damped polar optical-phonon / ferroelectric GHz dielectric loss slope $\tan\delta(f)$ (`Unferdorben J. Infrared Millim. THz Waves 2015`, `Eltes JLT 2019`), and physical transverse Signal + Ground T-stem skin resistance $R_{\mathrm{stem,cell}}(f)$ (replacing the fixed `Q_stem = 18` approximation).
+- **2D Thermal FEM Isolation & CMOS `W/M1` Interconnect Heat Sinking (`multiphysics_tcad.py`)**:
+  - Expanded deep Bosch DRIE isolation trench geometry (`42 um` trench depth with adaptive substrate domain height) and modeled periodic CMOS tungsten contact vias + `AlCu` Metal-1 busbar heat sinking on `doped_si_rib` heaters, matching **Jacques et al., *Opt. Express* 27, 10456 (2019)** and **Fang et al., *Opt. Express* 19, 5809 (2011)** across all four heater topologies (`top_heater`, `doped_si_rib`, `deep_trench`, `undercut_suspended`).
+
 ## [3.7.0] - 2026-11-12
 
 ### Added

@@ -1,6 +1,6 @@
 """Cookbook 08: License-Free 2D-FEM EOM RF Electrodes, Si PN Doping TCAD & Thermal FEM.
 
-Demonstrates all three multiphysics & cleanroom layout engines added in MicroRing Studio v3.7.0
+Demonstrates all three multiphysics & cleanroom layout engines in MicroRing Studio v3.7.1
 without Ansys HFSS, Lumerical CHARGE/HEAT/MODE, or COMSOL Multiphysics:
   1. Push-Pull GSG CPW vs Velocity-Matched Slow-Wave T-Rail CPW on X-Cut TFLN (.GDS + .S2P + TWMOD)
   2. 2D Nonlinear Poisson-Boltzmann Silicon Lateral PN vs L-Shaped PN TCAD (.GDS + OMM)

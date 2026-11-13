@@ -361,7 +361,8 @@ def n_aln_film(
 
     Source: Pastrnak & Roskovcova, Phys. Status Solidi 14, K5 (1966);
     Watanabe et al., JAP 104, 103531 (2008) dn/dT = 2.32e-5 K^-1;
-    Xiong et al., Nano Lett. 12, 3562 (2012) r33 ~ 1.0 pm/V, r13 ~ 0.67 pm/V.
+    Yang et al., Nat. Commun. 15, 6168 (2024) measured 1550 nm Pockels r33 = +1.50 pm/V,
+    r13 = -0.92 pm/V (opposite signs in pure wurtzite AlN; Xiong et al., Nano Lett. 2012 ~1.0 pm/V).
     """
     u = max(_check_wl(wavelength_m), 0.25)
     dn_dt = 2.32e-5
@@ -370,8 +371,8 @@ def n_aln_film(
         return MaterialIndexTensor(
             nx=n, ny=n, nz=n,
             dn_dt_per_k=dn_dt,
-            r33_pm_per_v=1.0,
-            r13_pm_per_v=0.67,
+            r33_pm_per_v=1.50,
+            r13_pm_per_v=-0.92,
             n2_m2_per_w=2.3e-19,
             crystal_symmetry="wurtzite_6mm_scalar_override",
             validity_um=(0.30, 5.2),
@@ -384,12 +385,12 @@ def n_aln_film(
     return MaterialIndexTensor(
         nx=no, ny=ne, nz=no,
         dn_dt_per_k=dn_dt,
-        r33_pm_per_v=1.0,
-        r13_pm_per_v=0.67,
+        r33_pm_per_v=1.50,
+        r13_pm_per_v=-0.92,
         n2_m2_per_w=2.3e-19,
         crystal_symmetry="wurtzite_6mm_c_vertical",
         validity_um=(0.26, 5.2),
-        source="Pastrnak & Roskovcova 1966 + Xiong Nano Lett. 2012 (c-axis AlN [no, ne, no])",
+        source="Pastrnak & Roskovcova 1966 + Yang et al. Nat. Commun. 2024 (c-axis AlN, r33=+1.50, r13=-0.92 pm/V)",
         is_anisotropic=True,
     )
 
@@ -399,13 +400,18 @@ def n_scaln_film(
     temperature_k: float = T_REF_K,
     sc_fraction: float = 0.20,
 ) -> MaterialIndexTensor:
-    """Wurtzite c-axis Scandium-Doped Aluminum Nitride (Sc_x Al_{1-x} N, 0 <= x <= 0.40).
+    """Wurtzite c-axis Scandium-Doped Aluminum Nitride (Sc_x Al_{1-x} N, 0 <= x <= 0.43).
 
-    Literature parameterization (model input; actual sputtered film index & r_ij depend on
-    Sc concentration, stress, and XRD c-axis rocking-curve FWHM):
+    Experimental calibration (actual sputtered film index & r_ij depend on Sc fraction x,
+    residual stress, polarity purity, and XRD (0002) rocking-curve FWHM):
       - Optical index increase with Sc content x: Baeumler et al., J. Appl. Phys. 126,
-        115105 (2019); Wingqvist et al., JAP (2010).
-      - Enhanced Pockels r_33(x) trend: Yoshioka et al., APL 123 (2023); Tao et al. (2024).
+        115105 (2019); Wingqvist et al., J. Appl. Phys. 107, 084909 (2010).
+      - Measured 1550 nm Pockels tensor vs Sc content x: Yang et al., Nature Communications
+        15, 6168 (2024) & Wang & Van de Walle, Appl. Phys. Lett. 126 (2025): no EO gain over
+        pure AlN for x <= 0.20 (r33 ~ 1.22-1.34 pm/V), r13(x) crosses zero near x ~ 0.16
+        (-0.92 pm/V at x=0 -> -0.36 pm/V at x=0.10 -> +0.32 pm/V at x=0.20 -> +1.29 pm/V at
+        x=0.319), and r33 reaches 2.07 +/- 0.45 pm/V at x=0.319 before steeper lattice-softening
+        enhancement at x = 0.36-0.40.
     """
     if not (0.0 <= sc_fraction <= 0.43):
         raise ValueError("Wurtzite Sc_x Al_{1-x} N sc_fraction x must be in [0.0, 0.43]")
@@ -422,9 +428,11 @@ def n_scaln_film(
 
     no = base.nx + delta_no + dn_dt * dt
     ne = no + biref_x
-    # Literature nominal Pockels trend (must verify against actual film poling/orientation)
-    r33_est = 1.0 + 12.0 * sc_fraction + 45.0 * (sc_fraction ** 2)
-    r13_est = 0.67 + 3.5 * sc_fraction + 10.0 * (sc_fraction ** 2)
+    # Calibrated to Yang et al. Nat. Commun. 15, 6168 (2024) measured microring Pockels data
+    x2 = sc_fraction * sc_fraction
+    x3 = x2 * sc_fraction
+    r33_est = 1.50 - 4.50 * sc_fraction + 16.50 * x2 + 10.00 * x3
+    r13_est = -0.92 + 5.00 * sc_fraction + 6.00 * x2
     return MaterialIndexTensor(
         nx=no, ny=ne, nz=no,
         dn_dt_per_k=dn_dt,
@@ -433,7 +441,7 @@ def n_scaln_film(
         n2_m2_per_w=3.5e-19,
         crystal_symmetry=f"wurtzite_6mm_c_vertical_Sc{int(round(sc_fraction*100)):02d}",
         validity_um=(0.38, 5.0),
-        source=f"Baeumler JAP 2019 / Yoshioka APL 2023 nominal Sc_{sc_fraction:.2f}Al_{1-sc_fraction:.2f}N (literature model)",
+        source=f"Baeumler JAP 2019 + Yang Nat. Commun. 2024 measured Sc_{sc_fraction:.2f}Al_{1-sc_fraction:.2f}N",
         is_anisotropic=True,
     )
 
@@ -445,8 +453,10 @@ def n_scaln_film(
 def n_4h_sic_anisotropic(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
     """4H-SiC uniaxial Sellmeier dispersion in c-axis-vertical local coordinates `[no, ne, no]`.
 
-    Source: Wang et al., Opt. Lett. 38, 23 (2013);
-    Li et al., PR Applied 2023 (n2 = 8.9e-19 m^2/W); Sato et al. (r33 ~ 2.7 pm/V).
+    Source: S. Wang et al., Opt. Lett. 38, 23 (2013) [Sellmeier];
+    J. Li et al., Phys. Rev. Appl. 2023 (n2 = 8.9e-19 m^2/W);
+    R. Wang, J. Li, L. Cai, & Q. Li, Opt. Lett. 48, 1482-1485 (2023)
+    (|r13| = 0.3-0.7 pm/V ~ 0.50 pm/V, |r33| = 0-0.03 pm/V in high-Q 4H-SiCOI rings).
     """
     u = max(_check_wl(wavelength_m), 0.38)
     x = u * u
@@ -464,12 +474,12 @@ def n_4h_sic_anisotropic(wavelength_m: float, temperature_k: float = T_REF_K) ->
     return MaterialIndexTensor(
         nx=no, ny=ne, nz=no,
         dn_dt_per_k=dn_dt,
-        r33_pm_per_v=2.7,
-        r13_pm_per_v=1.0,
+        r33_pm_per_v=0.03,
+        r13_pm_per_v=-0.50,
         n2_m2_per_w=8.9e-19,
         crystal_symmetry="hexagonal_6mm_c_vertical",
         validity_um=(0.40, 5.2),
-        source="Wang et al. Opt. Lett. 38, 23 (2013) uniaxial 4H-SiC [no, ne, no]",
+        source="S. Wang Opt. Lett. 38, 23 (2013) Sellmeier; R. Wang & Q. Li Opt. Lett. 48, 1482 (2023) Pockels",
         is_anisotropic=True,
     )
 
@@ -705,7 +715,7 @@ def n_pzt_poled(wavelength_m: float, temperature_k: float = T_REF_K) -> Material
 
     Source: Alexander et al., Nature Communications 9, 3444 (2018) (Ghent / Van Thourhout
     CSD PZT on SiO2/SiN: post-fabrication electrical poling across coplanar GSG / ring electrodes
-    aligns remnant polarization P_s || E_RF, yielding high-speed flat EO r_eff ~ 110 pm/V in PZT).
+    aligns remnant polarization P_s || E_RF, yielding clamped high-speed EO r_eff ~ 67 pm/V up to >33 GHz).
     """
     u = min(max(_check_wl(wavelength_m), 0.45), 6.6)
     x = u * u
@@ -715,12 +725,12 @@ def n_pzt_poled(wavelength_m: float, temperature_k: float = T_REF_K) -> Material
     return MaterialIndexTensor(
         nx=ne, ny=no, nz=no,
         dn_dt_per_k=3.50e-5,
-        r33_pm_per_v=110.0,
-        r13_pm_per_v=28.0,
+        r33_pm_per_v=67.0,
+        r13_pm_per_v=20.0,
         n2_m2_per_w=6.0e-19,
         crystal_symmetry="poled_4mm_PZT_inplane",
         validity_um=(0.45, 6.5),
-        source="Alexander et al. Nat. Commun. 9, 3444 (2018) (In-plane electrode-poled MPB PZT thin film)",
+        source="Alexander et al. Nat. Commun. 9, 3444 (2018) (Clamped high-speed poled PZT film, r_eff=67 pm/V)",
         is_anisotropic=True,
     )
 

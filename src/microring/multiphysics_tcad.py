@@ -168,9 +168,9 @@ class ThermalSimConfig:
     heater_gap_um: float = 0.95             # unit: um (vertical oxide gap above core top)
     heater_offset_um: float = 0.0           # unit: um (lateral offset from core center)
     # Air-trench & undercut isolation geometry
-    trench_edge_offset_um: float = 4.50     # unit: um (distance from core center to inner wall of isolation trench)
-    trench_width_um: float = 5.00           # unit: um
-    trench_depth_um: float = 5.50           # unit: um (cuts through top clad + BOX into substrate!)
+    trench_edge_offset_um: float = 2.80     # unit: um (distance from core center to inner wall of DRIE isolation trench)
+    trench_width_um: float = 6.00           # unit: um
+    trench_depth_um: float = 42.0           # unit: um (deep Bosch DRIE trench cutting through top clad + BOX + Si handle)
     undercut_width_um: float = 16.0         # unit: um (width of XeF2 air cavity beneath BOX)
     undercut_depth_um: float = 8.0          # unit: um (height of XeF2 air cavity beneath BOX)
     neighbor_pitch_um: float = 20.0         # unit: um (distance to adjacent MZI arm / neighbor ring for crosstalk)
@@ -760,26 +760,38 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
     y_heat1 = y_heat0 + t_heat
     y_ox_top = max(float(cfg.top_clad_thickness_um), y_heat1 + 0.45)
     y_air_top = y_ox_top + 4.0
-    h_sub = 26.0
+    h_sub = max(26.0, float(cfg.trench_depth_um) + 14.0) if tstruct == "deep_trench" else 26.0
     y_sub_bot = -h_box - h_sub
     x_dom = max(float(cfg.neighbor_pitch_um) + 14.0, 36.0)
 
     inv_tan = 0.0 if cfg.sidewall_deg == 90.0 else 1.0 / math.tan(math.radians(cfg.sidewall_deg))
     w_top = max(0.08, w_wg - 2.0 * max(h_film - h_slab, 0.0) * inv_tan)
 
-    tr_x0 = max(float(cfg.trench_edge_offset_um), 0.5 * max(w_wg, w_heat) + 0.8)
+    tr_x0 = max(float(cfg.trench_edge_offset_um), 0.5 * max(w_wg, w_heat) + 0.35)
     tr_x1 = tr_x0 + max(float(cfg.trench_width_um), 1.0)
-    tr_y_bot = y_ox_top - max(float(cfg.trench_depth_um), 1.5)
+    tr_y_bot = max(y_ox_top - max(float(cfg.trench_depth_um), 1.5), y_sub_bot + 1.5)
     uc_half_w = 0.5 * max(float(cfg.undercut_width_um), 4.0)
     uc_y_bot = -h_box - max(float(cfg.undercut_depth_um), 2.0)
 
+    clr_rib = 0.40
+    w_wing_rib = float(np.clip(0.42 * w_heat, 0.60, 0.85))
+    x_via_in = 0.5 * w_wg + clr_rib + w_wing_rib
+    x_via_out = x_via_in + 0.45
+    x_m1_sink = max(x_via_out + 9.5, 11.5)
     x_knots = [
         -x_dom, -float(cfg.neighbor_pitch_um), -uc_half_w, -tr_x1, -tr_x0,
         -0.5 * w_heat + cfg.heater_offset_um, -0.5 * w_wg, -0.5 * w_top, 0.0,
         +0.5 * w_top, +0.5 * w_wg, +0.5 * w_heat + cfg.heater_offset_um,
         +tr_x0, +tr_x1, +uc_half_w, +float(cfg.neighbor_pitch_um), +x_dom,
     ]
+    if tstruct == "doped_si_rib":
+        x_knots.extend([
+            -x_m1_sink, -x_via_out, -x_via_in, -0.5 * w_wg - clr_rib,
+            +0.5 * w_wg + clr_rib, +x_via_in, +x_via_out, +x_m1_sink,
+        ])
     y_knots = [y_sub_bot, uc_y_bot, tr_y_bot, -h_box, 0.0, h_film, y_heat0, y_heat1, y_ox_top, y_air_top]
+    if tstruct == "doped_si_rib":
+        y_knots.extend([0.90, 1.45])
     if h_slab > 1e-5:
         y_knots.append(h_slab)
 
@@ -811,8 +823,15 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
     k_el[in_air], cv_el[in_air] = k_air, cv_air
 
     if h_slab > 1e-5:
-        in_slab = (yc_um >= 0.0) & (yc_um <= h_slab) & (np.abs(xc_um) <= tr_x0)
-        k_el[in_slab], cv_el[in_slab] = k_core, cv_core
+        slab_half_span = (x_via_in + 0.15) if tstruct == "doped_si_rib" else tr_x0
+        in_slab = (yc_um >= 0.0) & (yc_um <= h_slab) & (np.abs(xc_um) <= slab_half_span)
+        # Sub-100 nm heavily doped SOI slab phonon boundary + impurity scattering (Asheghi et al., J. Heat Transfer 120, 30, 1998)
+        k_slab_eff = (
+            min(k_core, 62.0)
+            if (tstruct == "doped_si_rib" and cfg.core_material == "Si" and cfg.custom_core_kappa_w_mk is None)
+            else k_core
+        )
+        k_el[in_slab], cv_el[in_slab] = k_slab_eff, cv_core
 
     poly_core = Polygon([
         (-0.5 * w_wg, h_slab), (+0.5 * w_wg, h_slab),
@@ -832,9 +851,9 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
             trench_boxes.append([round(bx0, 3), round(tr_y_bot, 3), round(bx1, 3), round(y_ox_top, 3)])
 
     if tstruct == "undercut_suspended":
-        # Out-of-plane anchor thermal conductance along suspended bridge of length L_susp (~min(l_heat, 160 um))
+        # Out-of-plane anchor thermal conductance along suspended bridge between support tethers (~min(l_heat, 95 um))
         # Modeled in 2D by effective air+longitudinal-bridge conductance so 2D does not overestimate 1D infinity!
-        l_susp_m = min(l_heat, 160.0) * 1e-6
+        l_susp_m = min(l_heat, 95.0) * 1e-6
         k_bridge_eff = k_air + (12.0 * (h_box * 1e-6) * k_box * (uc_half_w * 1e-6)) / (l_susp_m ** 2)
         p_uc = box(-uc_half_w, uc_y_bot, +uc_half_w, -h_box)
         m_uc = shapely.contains_xy(p_uc, xc_um, yc_um)
@@ -842,14 +861,27 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
         trench_boxes.append([round(-uc_half_w, 3), round(uc_y_bot, 3), round(+uc_half_w, 3), round(-h_box, 3)])
 
     # Heater geometry & Joule volumetric source for P = 1 mW
+    y_m1_top = min(1.45, y_ox_top - 0.10)
     if tstruct == "doped_si_rib":
-        # Dual symmetric doped-rib heater wings flanking optical core
-        w_wing = max(0.5 * w_heat, 0.45)
-        p_h1 = box(-0.5 * w_wg - 0.15 - w_wing, 0.0, -0.5 * w_wg - 0.15, h_slab)
-        p_h2 = box(+0.5 * w_wg + 0.15, 0.0, +0.5 * w_wg + 0.15 + w_wing, h_slab)
+        # Longitudinal N++ doped-silicon slab strips alongside the rib + end-pad W vias & M1 leads (Jacques OE 27, 10456, 2019, Fig. 1b):
+        # 550 nm clearance keeps optical mode loss-free while 90 nm SOI slab conducts heat directly into the core above the 2 um BOX.
+        w_wing = w_wing_rib
+        p_h1 = box(-0.5 * w_wg - clr_rib - w_wing, 0.0, -0.5 * w_wg - clr_rib, h_slab)
+        p_h2 = box(+0.5 * w_wg + clr_rib, 0.0, +0.5 * w_wg + clr_rib + w_wing, h_slab)
         in_heat = shapely.contains_xy(p_h1, xc_um, yc_um) | shapely.contains_xy(p_h2, xc_um, yc_um)
         area_heat_m2 = 2.0 * (w_wing * 1e-6) * (h_slab * 1e-6)
         heater_boxes = [[round(b, 3) for b in p_h1.bounds], [round(b, 3) for b in p_h2.bounds]]
+        # Periodic/end W contact vias & AlCu M1 pads (~10% longitudinal z-fill along L_heat)
+        fz_end = float(np.clip(20.0 / max(l_heat, 40.0), 0.06, 0.22))
+        k_via_eff = (1.0 - fz_end) * k_top + fz_end * 165.0
+        k_m1_eff = (1.0 - fz_end) * k_top + fz_end * 205.0
+        for sgn in (-1.0, +1.0):
+            vx0, vx1 = sorted([sgn * x_via_in, sgn * x_via_out])
+            mx0, mx1 = sorted([sgn * x_via_in, sgn * x_dom])
+            m_via = shapely.contains_xy(box(vx0, h_slab, vx1, 0.90), xc_um, yc_um)
+            m_m1 = shapely.contains_xy(box(mx0, 0.90, mx1, y_m1_top), xc_um, yc_um)
+            k_el[m_via], cv_el[m_via] = k_via_eff, 1.70e6
+            k_el[m_m1], cv_el[m_m1] = k_m1_eff, 1.75e6
     else:
         p_h = box(cfg.heater_offset_um - 0.5 * w_heat, y_heat0, cfg.heater_offset_um + 0.5 * w_heat, y_heat1)
         in_heat = shapely.contains_xy(p_h, xc_um, yc_um)
@@ -870,11 +902,14 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
 
     K_th = _thermal_stiff_form.assemble(basis, k_th=basis0.interpolate(k_dofs))
     M_th = _thermal_mass_form.assemble(basis, rho_cp=basis0.interpolate(cv_dofs))
-    b_1mw = _thermal_src_form.assemble(basis, q_vol=basis0.interpolate(q_dofs))
+    b_1mw = _thermal_src_form.assemble(basis, q_vol=basis0.interpolate(q_vol_dofs if False else q_dofs))
 
     px_um = mesh.p[0] * 1e6
     py_um = mesh.p[1] * 1e6
-    sink_nodes = np.flatnonzero((py_um <= y_sub_bot + 1e-4) | (np.abs(px_um) >= x_dom - 1e-4))
+    sink_mask = (py_um <= y_sub_bot + 1e-4) | (np.abs(px_um) >= x_dom - 1e-4)
+    if tstruct == "doped_si_rib":
+        sink_mask = sink_mask | ((np.abs(px_um) >= x_m1_sink - 1e-4) & (py_um >= 0.90 - 1e-4) & (py_um <= y_m1_top + 1e-4))
+    sink_nodes = np.flatnonzero(sink_mask)
     free_mask = np.ones(basis.N, dtype=bool)
     free_mask[sink_nodes] = False
     free_idx = np.flatnonzero(free_mask)

@@ -1,4 +1,4 @@
-"""Comprehensive Automated Test Suite for MicroRing Studio v3.7.0.
+"""Comprehensive Automated Test Suite for MicroRing Studio v3.7.1.
 
 Can be executed either with `pytest` (`uv run pytest`) or directly as a standalone
 verification script (`python tests/test_microring_all.py`).
@@ -1170,9 +1170,9 @@ def test_eom_electrode_pn_tcad_and_thermal() -> None:
     assert abs(wo_bto["metrics"]["r_eff_optimal_pm_per_v"]) > 250.0
     assert abs(wo_bto["angular_sweep"]["r_eff_pm_per_v"][0]) < 60.0
 
-    # Lanthanide-seeded MPB PZT (4mm electrode-self-poled): poling aligns P_s || E_RF at all azimuths -> 100% unsplit 360 deg ring!
+    # Lanthanide-seeded MPB PZT (4mm electrode-self-poled, Alexander Nat. Commun. 2018): clamped RF r_eff = 67 pm/V -> 100% unsplit 360 deg ring!
     wo_pzt = analyze_eo_wafer_orientation(core_material="PZT", wafer_cut="inplane_poled_pzt", polarization="TE0")
-    assert abs(wo_pzt["metrics"]["r_eff_optimal_pm_per_v"] - 110.0) < 1.0
+    assert abs(wo_pzt["metrics"]["r_eff_optimal_pm_per_v"] - 67.0) < 1.0
     assert wo_pzt["metrics"]["ring_unsplit_efficiency_pct"] > 99.0
 
     # Cubic -43m (001) 3C-SiC: [100] cleavage (0 deg) is dead (r_eff=0), [110] SEMI flat (45/135 deg) peaks at |r41|=2.7 pm/V!
@@ -1181,8 +1181,20 @@ def test_eom_electrode_pn_tcad_and_thermal() -> None:
     assert wo_3c["metrics"]["optimal_azimuth_deg"] in (45.0, 135.0)
     assert abs(abs(wo_3c["metrics"]["r_eff_optimal_pm_per_v"]) - 2.7) < 0.1
 
-    # C-Plane 6mm Wurtzite ScAlN_20 (TM0 + vertical Ey): 360 deg in-plane isotropic -> unsplit circular ring works at 100%!
+    # C-Plane 6mm Wurtzite AlN & ScAlN (Yang et al., Nat. Commun. 15, 6168, 2024):
+    # Opposite-sign AlN r33=+1.50 / r13=-0.92 pm/V; no r33 gain over AlN at <=20% Sc; r13 flips sign near ~16% Sc; enhanced at >=30% Sc!
+    wo_aln_te = analyze_eo_wafer_orientation(core_material="AlN", wafer_cut="c_plane_6mm", polarization="TE0")
+    wo_aln_tm = analyze_eo_wafer_orientation(core_material="AlN", wafer_cut="c_plane_6mm", polarization="TM0")
+    wo_sc10_tm = analyze_eo_wafer_orientation(core_material="ScAlN_10", wafer_cut="c_plane_6mm", polarization="TM0")
     wo_scaln = analyze_eo_wafer_orientation(core_material="ScAlN_20", wafer_cut="c_plane_6mm", polarization="TM0")
+    wo_sc20_te = analyze_eo_wafer_orientation(core_material="ScAlN_20", wafer_cut="c_plane_6mm", polarization="TE0")
+    wo_sc30_tm = analyze_eo_wafer_orientation(core_material="ScAlN_30", wafer_cut="c_plane_6mm", polarization="TM0")
+    assert abs(wo_aln_tm["metrics"]["r_eff_optimal_pm_per_v"] - 1.50) < 0.05
+    assert abs(wo_aln_te["metrics"]["r_eff_optimal_pm_per_v"] - (-0.92)) < 0.05
+    assert abs(wo_sc10_tm["metrics"]["r_eff_optimal_pm_per_v"]) < abs(wo_aln_tm["metrics"]["r_eff_optimal_pm_per_v"])
+    assert abs(wo_scaln["metrics"]["r_eff_optimal_pm_per_v"]) < abs(wo_aln_tm["metrics"]["r_eff_optimal_pm_per_v"])
+    assert wo_sc20_te["metrics"]["r_eff_optimal_pm_per_v"] > 0.0  # r13 flips from negative (AlN) to positive above ~16% Sc!
+    assert wo_sc30_tm["metrics"]["r_eff_optimal_pm_per_v"] > 1.80
     assert wo_scaln["metrics"]["ring_unsplit_efficiency_pct"] > 99.0
 
     # 1. RF Traveling-Wave GSG CPW + Azimuthal Rotation Penalty + Slow-Wave T-Rail CPW
@@ -1261,7 +1273,7 @@ def test_eom_electrode_pn_tcad_and_thermal() -> None:
             run_gap_sweep=False,
         )
     )
-    assert rf_pzt["metrics"]["V_pi_L_Vcm"] < 1.35
+    assert rf_pzt["metrics"]["V_pi_L_Vcm"] < 1.65
 
     # 2. 2D Nonlinear Poisson-Boltzmann Silicon PN Doping TCAD (Lateral vs L-Shaped)
     pn_lat = simulate_pn_doping_tcad(
@@ -1290,9 +1302,11 @@ def test_eom_electrode_pn_tcad_and_thermal() -> None:
 
     # 3. 2D Steady-State + Crank-Nicolson Transient Thermal FEM
     th_top = simulate_thermal_phase_shifter(ThermalSimConfig(thermal_structure="top_heater", core_material="Si"))
+    th_dop = simulate_thermal_phase_shifter(ThermalSimConfig(thermal_structure="doped_si_rib", core_material="Si"))
     th_tr = simulate_thermal_phase_shifter(ThermalSimConfig(thermal_structure="deep_trench", core_material="Si"))
     th_uc = simulate_thermal_phase_shifter(ThermalSimConfig(thermal_structure="undercut_suspended", core_material="Si"))
     assert th_tr["metrics"]["P_pi_mW"] < th_top["metrics"]["P_pi_mW"]
+    assert th_dop["metrics"]["tau_thermal_us"] < th_top["metrics"]["tau_thermal_us"]
     assert th_tr["metrics"]["crosstalk_at_neighbor_pct"] < th_top["metrics"]["crosstalk_at_neighbor_pct"]
     assert th_uc["metrics"]["P_pi_mW"] < 2.5 and th_uc["metrics"]["P_pi_mW"] < 0.15 * th_top["metrics"]["P_pi_mW"]
     assert th_top["metrics"]["t_rise_10_90_us"] > 2.0 and th_top["metrics"]["t_fall_90_10_us"] > 2.0
@@ -1648,7 +1662,7 @@ def main() -> None:
         ("2D-FEM EOM RF Electrodes, Si PN Doping TCAD & Steady/Transient Thermal FEM", test_eom_electrode_pn_tcad_and_thermal),
     ]
     print("=" * 72)
-    print("Running MicroRing Studio v3.7.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.7.1 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

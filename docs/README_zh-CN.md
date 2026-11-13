@@ -6,7 +6,7 @@
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.7.0](https://img.shields.io/badge/release-v3.7.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.7.0)
+[![Release: v3.7.1](https://img.shields.io/badge/release-v3.7.1-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.7.1)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
@@ -19,9 +19,9 @@
 
 ## 核心亮点
 
-1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（`v3.7.0` 新增）**：
-   - **行波与慢波 `T-Rail` 电极自动综合（`design_eom_electrode`）**：二维各向异性 Laplace 有限元 + Ghione 保角趋肤损耗 + 对称 ABCD Bloch-Floquet 周期单元色散（`f_Bragg`）+ Frankel-Rutledge Cherenkov 衬底辐射诊断，连续二维反解 `50 Ω` 线宽 $W_S$ 与速度匹配悬臂 $L_{\mathrm{rail}}$（石英衬底 `X切 TFLN` 达 **`f_3dBe > 300 GHz`**，`S21_EO(300 GHz) = -1.56 dBe`），一键导出零短路双层金属跨桥（`METAL_2 13/0 + VIA 12/0`）`.GDS` 掩膜、IEEE Touchstone `.s2p` 与 INTERCONNECT `TWMOD` 模型包。
-   - **三维晶体张量晶圆切向与 `0°–360°` 方位角寻优 + 5 种新铁电材料（`LT` / `BTO` / `PZT`）**：精确计算 `TFLN`、`超低双折射钽酸锂 TFLT`、`硅基外延钛酸钡 BTO`（$r_{42}^S = 360\text{ pm/V}$）、`面内自极化 PZT`（$r_{\mathrm{eff}} = 110\text{ pm/V}$）、`ScAlN` 与 `3C/4H-SiC` 的最佳传输角、SEMI 参考边对准及圆环微环劈裂推挽效率。
+1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（`v3.7.1` 对标 48 篇同行评审实验论文 / 50 项硬件基准 `50/50 PASS`）**：
+   - **行波与慢波 `T-Rail` 电极自动综合（`design_eom_electrode`）**：二维各向异性 Laplace 有限元 + Ghione/Heinrich 保角趋肤损耗 + Hammerstad-Jensen 粗糙度 + 对称 ABCD Bloch-Floquet 周期单元色散（`f_Bragg`）+ Frankel-Rutledge Cherenkov 衬底辐射诊断，连续二维反解 `50 Ω` 线宽 $W_S$ 与速度匹配悬臂 $L_{\mathrm{rail}}$（石英衬底 `X切 TFLN` 达 **`f_3dBe > 300 GHz`**，`S21_EO(300 GHz) = -2.30 dBe`），一键导出零短路双层金属跨桥（`METAL_2 13/0 + VIA 12/0`）`.GDS` 掩膜、IEEE Touchstone `.s2p` 与 INTERCONNECT `TWMOD` 模型包。
+   - **三维晶体张量晶圆切向与 `0°–360°` 方位角寻优 + 5 种新铁电材料（`LT` / `BTO` / `PZT`）**：精确计算 `TFLN`、`超低双折射钽酸锂 TFLT`、`硅基外延钛酸钡 BTO`（$r_{42}^S = 360\text{ pm/V}$）、`面内自极化 PZT`（$r_{\mathrm{eff}} = 67\text{ pm/V}$）、`ScAlN` 与 `3C/4H-SiC` 的最佳传输角、SEMI 参考边对准及圆环微环劈裂推挽效率。
    - **二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD` 与稳态 + Crank-Nicolson 瞬态热有限元**：自研阻尼牛顿迭代提取 `横向 / L型 / U型 / PIN` 结二维载流子分布、$C_j(V)$、$R_s$、$V_\pi L(V)$ 与多层离子注入 `.GDS`；热有限元完整求解 `顶层 TiN`、`深空气隔离槽`、`XeF2 掏空悬臂`（$P_\pi < 1\text{ mW}$）与 `重掺杂硅脊` 的瞬态升降温波形 $t_{10\text{--}90\%}$ 与邻臂热串扰。
 2. **零 3D-FDTD 马赫-曾德尔干涉仪（`MZI`）与高速电光/热光调制器套件（`v3.6.0`）**：
    - **可选 4 类 `50:50` 分束/合束器，全部由原生 2D 保形全矢量 FEM + 多模本征模展开（`EME`）直接求解**：**`2x2 DC` 定向耦合器**采用严格镜像对称双芯奇偶超模色散（$n_{\mathrm{even}}, n_{\mathrm{odd}}$，插损 `0.044 dB`）；**`1x2` / `2x2 MMI` 多模干涉仪**采用多阶导模 2D-FEM `EME` + 复坡印廷锥形波导重叠积分 + 自成像长度自动寻优（输出二维 `|E(x,z)|` 干涉自成像场图）；**`1x2 Y 分支`**采用分叉缩腰尖端偶超模重叠积分（`130 nm` 工艺最小间距下插损 `0.273 dB`）。
@@ -63,8 +63,8 @@
 
 | 操作系统 | 安装包文件 | 安装与首次打开方法 |
 | :--- | :--- | :--- |
-| **macOS（Apple Silicon）** | [**`MicroRing-Studio-v3.7.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | 双击打开 `.dmg`，将 **`MicroRing Studio.app`** 拖入 **`Applications（应用程序）`**。*（首次打开开源未公证应用时，请右键点击 **`MicroRing Studio.app`** $\rightarrow$ 选择 **打开（Open）**，或在 **系统设置 $\rightarrow$ 隐私与安全性** 中点击“仍要打开”。）* |
-| **Windows 10 / 11（64位）** | **`MicroRing-Studio-v3.7.0-Windows-Setup-x64.exe`** *（或免安装 `.zip`）* | 双击运行 **`Setup.exe`** 安装向导（无需管理员密码，自动创建桌面与开始菜单快捷方式）；也可按下方“方式三”下载源码 ZIP 后双击 `launchers\MicroRing_Windows.bat` 一键自动配置。 |
+| **macOS（Apple Silicon）** | [**`MicroRing-Studio-v3.7.1-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | 双击打开 `.dmg`，将 **`MicroRing Studio.app`** 拖入 **`Applications（应用程序）`**。*（首次打开开源未公证应用时，请右键点击 **`MicroRing Studio.app`** $\rightarrow$ 选择 **打开（Open）**，或在 **系统设置 $\rightarrow$ 隐私与安全性** 中点击“仍要打开”。）* |
+| **Windows 10 / 11（64位）** | **`MicroRing-Studio-v3.7.1-Windows-Setup-x64.exe`** *（或免安装 `.zip`）* | 双击运行 **`Setup.exe`** 安装向导（无需管理员密码，自动创建桌面与开始菜单快捷方式）；也可按下方“方式三”下载源码 ZIP 后双击 `launchers\MicroRing_Windows.bat` 一键自动配置。 |
 
 *（独立桌面版导出的 `.gds` 版图、`.lyp` 图层配色与 `.csv` 光谱默认保存在本地 `~/Documents/MicroRing_Studio/` 目录。）*
 
@@ -207,8 +207,9 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. 实验透射谱拟合（背向散射双峰劈裂 Q_int / Q_ext / 2g 与多 FSR 群折射率提取）：
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# 运行全套 14 项自动化物理与接口验证测试：
+# 运行全套 14 项自动化物理测试 + 48 篇同行评审实验论文（50 项硬件基准）头对头核验：
 python tests/test_microring_all.py
+python benchmarks/run_publication_validation.py
 ```
 
 ---

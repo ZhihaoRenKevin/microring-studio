@@ -6,7 +6,7 @@
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.7.0](https://img.shields.io/badge/release-v3.7.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.7.0)
+[![Release: v3.7.1](https://img.shields.io/badge/release-v3.7.1-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.7.1)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./docs/VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./docs/tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -24,7 +24,7 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
 2. **High-Q microring non-convergence in time-domain FDTD**: For a low-loss `Si3N4`, `TFLN`, or `SiC` ring (`Q_loaded = 3 x 10^6`, `tau_ph = 2.49 ns`), reaching `auto shutoff min = 1e-5` in 3D FDTD requires **`28.6 ns` (`> 8,200` cavity round-trips)**; stopping FDTD early produces severe FFT sinc-ringing and collapses the apparent extinction ratio from `64 dB` down to `< 2 dB`.
 3. **Layout-to-circuit disconnect**: A `.gds` mask drawn in KLayout or `gdsfactory` has to be manually re-measured for simulation, while device sweeps rarely export directly into `127 um` fiber-array test loops or `Ansys Lumerical INTERCONNECT` circuit compact models.
 
-**MicroRing Studio (`v3.7.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app:
+**MicroRing Studio (`v3.7.1`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app, **validated head-to-head against [48 peer-reviewed experimental publications (`50/50 PASS`)](./docs/VERIFICATION_AND_BENCHMARKS.md#7-head-to-head-validation-against-48-peer-reviewed-experimental-publications-50-cases-v371)** from `532 nm` Visible to `4200 nm` Mid-IR:
 - **EOM RF Electrode Layout, 3D EO Wafer Orientation, 2D Si PN Doping TCAD & Steady/Transient Thermal FEM (`📡 EOM · PN · Thermal`, Zero HFSS / CHARGE / HEAT / COMSOL)**:
   - **Sub-THz (`100–300+ GHz`) Traveling-Wave & Slow-Wave `T-Rail` RF EOM Electrodes (`design_eom_electrode`)**: Synthesizes `50 Ohm` `GSG CPW`, velocity-matched periodic slow-wave `T-Rail CPW` ($n_{\mathrm{RF}} \approx n_g$, `f_3dBe > 300 GHz` on Quartz/Undercut-Si with ABCD Bloch-Floquet Bragg cutoff & Frankel-Rutledge Cherenkov radiation diagnostics), `GS`, `Vertical Microstrip`, and two-sideband CMT optical-peaking `Ring GSG` electrodes across `TFLN`, `TFLT`, `BTO`, `PZT`, `ScAlN`, `SiC`, and `Si PN`, exporting DRC/LVS-clean `.GDS` masks (`100/125/150/200 um` GSG probe pads with `METAL_2`/`VIA` crossover bridges, Step-2 slab corridors, Layer `66/0` Wafer Flat + Crystal Compass), IEEE Touchstone `.s2p`, and Lumerical INTERCONNECT `TWMOD` bundles.
   - **3D Crystal-Tensor EO Wafer Orientation & Azimuth Finder (`analyze_eo_wafer_orientation`)**: Sweeps `0°–360°` propagation azimuth across `3m` (`X/Y/Z-cut TFLN & TFLT`), `4mm` (`a-cut/c-cut BTO` & radially self-poled `PZT`), `6mm` (`C/A-plane AlN/ScAlN/4H-SiC`), and `-43m` (`(001)/(110) 3C-SiC`), reporting optimal waveguide angle vs SEMI wafer flat, leaky shear-walk-off warnings, and circular microring unsplit vs split push-pull efficiency.
@@ -57,7 +57,7 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
   - **Topologies**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, and `vernier_crow_ad` (2nd-order CROW / Vernier filter).
   - **Materials (29)**:
     - *Visible / VNIR / Quantum (`400–950 nm`)*: `TiO2` (anatase, athermal $dn/dT < 0$), `Ta2O5`, `GaN` (uniaxial), `Diamond` (UV–LWIR), `Al2O3`, `AlN`, `Si3N4`, `4H-SiC`, `LN Z/X-cut`, `LT Z/X-cut`.
-    - *O-Band (`1310 nm`), C/L-Band (`1550 nm`) & SWIR (`2000 nm`)*: `Si (SOI)`, `a-Si:H`, `LPCVD Si3N4`, `Si-Rich SiNx`, `4H-SiC`, `3C-SiC`, `AlN`, `ScAlN (10% / 20% / 30% Sc)`, `Z/X-cut TFLN (LiNbO3)`, `Z/X-cut TFLT (LiTaO3, ultra-low Δn = 0.0038)`, `Epitaxial BTO (BaTiO3, r_42^S = 360 pm/V)`, `In-Plane Poled PZT (PbZrTiO3, r_eff = 110 pm/V)`, `GSST` (amorphous & crystalline PCM).
+    - *O-Band (`1310 nm`), C/L-Band (`1550 nm`) & SWIR (`2000 nm`)*: `Si (SOI)`, `a-Si:H`, `LPCVD Si3N4`, `Si-Rich SiNx`, `4H-SiC`, `3C-SiC`, `AlN`, `ScAlN (10% / 20% / 30% Sc)`, `Z/X-cut TFLN (LiNbO3)`, `Z/X-cut TFLT (LiTaO3, ultra-low Δn = 0.0038)`, `Epitaxial BTO (BaTiO3, r_42^S = 360 pm/V)`, `In-Plane Poled PZT (PbZrTiO3, r_eff = 67 pm/V)`, `GSST` (amorphous & crystalline PCM).
     - *Mid-IR (`3.0–14.0 µm`)*: `Ge` (`Ge-on-CaF2`, `Ge-on-MgF2`, `Ge-on-Si`), `Diamond`, `Si` (suspended / sapphire), `CaF2`, `MgF2`, `Air`, `SiO2` (with automatic $>3.6\text{ µm}$ multiphonon & interband absorption warnings!).
 - **Hardware-Aware Across macOS & Windows (`CUDA GPU` vs `CPU`)**: Automatically probes **NVIDIA CUDA (`FP64`)** on Windows/Linux workstations, **Apple Silicon Accelerate AMX / Metal (`MLX`/`MPS`)** on M-series Macs, or **Multi-Core Vectorized CPU** on standard laptops (>25 Million wavelength pts/s for broadband TMM spectra).
 
@@ -92,8 +92,8 @@ Download the pre-built desktop installer from [**GitHub Releases**](https://gith
 
 | Operating System | Download Package | How to Install & Open |
 | :--- | :--- | :--- |
-| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.7.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
-| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.7.0-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
+| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.7.1-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
+| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.7.1-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
 
 *(Exported `.gds` masks, `.lyp` color maps, and `.csv` spectra from the standalone desktop app are saved locally in `~/Documents/MicroRing_Studio/`.)*
 
@@ -238,8 +238,9 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. Fit CW/CCW split-doublet & multi-FSR experimental spectra via CMT:
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# Run all 14 automated verification suites:
+# Run all 14 automated verification suites + 50-case / 48-paper experimental publication validation:
 python tests/test_microring_all.py
+python benchmarks/run_publication_validation.py
 ```
 
 ---

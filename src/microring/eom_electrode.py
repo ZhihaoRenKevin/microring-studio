@@ -112,6 +112,7 @@ ELECTRODE_METAL_CATALOG: dict[str, dict] = {
         "name_en": "Electroplated Gold (Au)",
         "name_zh": "电镀金 (Au)",
         "rho_ohm_m": 2.44e-8,          # unit: Ohm*m at 300 K
+        "rq_roughness_m": 70.0e-9,     # unit: m (RMS surface roughness of electroplated RF Au)
         "n_opt_1550": 0.52,
         "k_opt_1550": 10.70,
     },
@@ -119,6 +120,7 @@ ELECTRODE_METAL_CATALOG: dict[str, dict] = {
         "name_en": "CMOS Damascene Copper (Cu)",
         "name_zh": "CMOS 大马士革铜 (Cu)",
         "rho_ohm_m": 1.72e-8,          # unit: Ohm*m at 300 K
+        "rq_roughness_m": 35.0e-9,     # unit: m (CMP damascene Cu)
         "n_opt_1550": 0.61,
         "k_opt_1550": 8.30,
     },
@@ -126,6 +128,7 @@ ELECTRODE_METAL_CATALOG: dict[str, dict] = {
         "name_en": "Sputtered CMOS Aluminum (Al)",
         "name_zh": "溅射铝电极 (Al)",
         "rho_ohm_m": 2.82e-8,          # unit: Ohm*m at 300 K
+        "rq_roughness_m": 45.0e-9,     # unit: m (sputtered Al)
         "n_opt_1550": 1.44,
         "k_opt_1550": 16.00,
     },
@@ -169,15 +172,15 @@ RF_SUBSTRATE_CATALOG: dict[str, dict] = {
     },
 }
 
-# Material RF loss tangents at microwave frequencies (10–60 GHz)
+# Baseline low-GHz dielectric RF loss tangents tan(delta_0) (1–40 GHz)
 DIELECTRIC_LOSS_TANGENT_RF: dict[str, float] = {
-    "LN_Xcut": 0.0040,
-    "LN_Zcut": 0.0040,
+    "LN_Xcut": 0.0038,
+    "LN_Zcut": 0.0038,
     "LT_Xcut": 0.0030,
     "LT_Zcut": 0.0030,
-    "BTO": 0.0250,
-    "BTO_ccut": 0.0250,
-    "PZT": 0.0200,
+    "BTO": 0.0320,
+    "BTO_ccut": 0.0320,
+    "PZT": 0.0420,
     "SiO2": 0.0006,
     "Si": 0.0015,
     "Si3N4": 0.0012,
@@ -188,6 +191,30 @@ DIELECTRIC_LOSS_TANGENT_RF: dict[str, float] = {
     "4H-SiC": 0.0010,
     "3C-SiC": 0.0018,
     "GaN": 0.0020,
+    "Air": 0.0,
+}
+
+# Sub-THz polar optical-phonon / ferroelectric relaxation slope d(tan_delta) / d(f / 100 GHz)
+# Sources: Unferdorben et al., J. Infrared Millim. Terahertz Waves 36, 621 (2015) (LiNbO3/LiTaO3 TO1 phonon wing);
+# Eltes et al., J. Lightwave Technol. 37, 1456 (2019) (BTO GHz ferroelectric relaxation); Alexander Nat. Commun. 2018 (PZT).
+DIELECTRIC_PHONON_SLOPE_PER_100GHZ: dict[str, float] = {
+    "LN_Xcut": 0.0065,
+    "LN_Zcut": 0.0065,
+    "LT_Xcut": 0.0055,
+    "LT_Zcut": 0.0055,
+    "BTO": 0.0950,
+    "BTO_ccut": 0.0950,
+    "PZT": 0.0680,
+    "SiO2": 0.0008,
+    "Si": 0.0005,
+    "Si3N4": 0.0009,
+    "AlN": 0.0012,
+    "ScAlN_10": 0.0020,
+    "ScAlN_20": 0.0030,
+    "ScAlN_30": 0.0040,
+    "4H-SiC": 0.0008,
+    "3C-SiC": 0.0014,
+    "GaN": 0.0015,
     "Air": 0.0,
 }
 
@@ -513,11 +540,11 @@ def _crystal_principal_tensors(
         return _apply_custom_crystal_overrides({
             "point_group": "4mm",
             "n_cryst": (no, no, ne),
-            "eps_rf_cryst": (220.0, 220.0, 180.0),
-            "r13": 28.0,
-            "r33": 110.0,
+            "eps_rf_cryst": (380.0, 380.0, 320.0),
+            "r13": float(m_pzt.r13_pm_per_v),
+            "r33": float(m_pzt.r33_pm_per_v),
             "r22": 0.0,
-            "r51": 45.0,
+            "r51": 38.0,
             "r41": 0.0,
         }, overrides)
 
@@ -1034,16 +1061,16 @@ def analyze_eo_wafer_orientation(
     elif wc == "inplane_poled_pzt":
         guide_en = (
             "Lanthanide-seeded Thin-Film PZT (Alexander et al. Nat. Commun. 2018): ferroelectric domains are electrically poled post-fabrication (~15–25 V/µm) "
-            "directly across the coplanar GSG or concentric ring electrodes, self-aligning remnant polarization P_s || E_RF at ANY wafer azimuth (r_eff ≈ 110 pm/V, "
+            f"directly across the coplanar GSG or concentric ring electrodes, self-aligning remnant polarization P_s || E_RF at ANY wafer azimuth (|r_eff| ≈ {abs(r_eff_opt):.1f} pm/V, "
             "100% unsplit 360° circular microring modulation efficiency!)."
         )
         guide_zh = (
             "镧系籽晶锆钛酸铅薄膜 PZT（Alexander et al. Nat. Commun. 2018）：器件流片后直接利用共面 GSG 或同心圆环电极施加直流极化电场 (~15–25 V/µm)，"
-            "使剩余铁电极化 P_s 在任意方位角自对准射频电场 E_RF（r_eff ≈ 110 pm/V，且圆微环支持免分瓣 360° 全周 100% 调制！）。"
+            f"使剩余铁电极化 P_s 在任意方位角自对准射频电场 E_RF（|r_eff| ≈ {abs(r_eff_opt):.1f} pm/V，且圆微环支持免分瓣 360° 全周 100% 调制！）。"
         )
     elif wc == "y_cut_ln":
-        guide_en = "Orient straight MZI arms at φ = 0° (Waveguide || Crystal X-axis, transverse GSG E_x || Crystal Z / c-axis -> r₃₃ = 30.9 pm/V). Avoid φ = 90° (Waveguide || Z-axis gives r_eff = 0.0 pm/V!)."
-        guide_zh = "将直波导沿 φ = 0°（波导 || 晶体 X 轴，横向共面电场 E_x || 晶体 Z 轴）排布以获取 r₃₃ = 30.9 pm/V；严禁沿 φ = 90° (Z 轴) 传播（r_eff = 0）！"
+        guide_en = f"Orient straight MZI arms at φ = 0° (Waveguide || Crystal X-axis, transverse GSG E_x || Crystal Z / c-axis -> |r_eff| = {abs(r_eff_opt):.1f} pm/V). Avoid φ = 90° (Waveguide || Z-axis gives r_eff = 0.0 pm/V!)."
+        guide_zh = f"将直波导沿 φ = 0°（波导 || 晶体 X 轴，横向共面电场 E_x || 晶体 Z 轴）排布以获取 |r_eff| = {abs(r_eff_opt):.1f} pm/V；严禁沿 φ = 90° (Z 轴) 传播（r_eff = 0）！"
     elif wc in ("z_cut_ln", "z_cut_lt", "c_cut_bto", "c_plane_6mm"):
         guide_en = (
             f"Out-of-plane c-axis ({meta['normal_label']}): EO response is 100% azimuthally isotropic across 0°–360° under vertical E_y field "
@@ -1155,14 +1182,16 @@ def _cpw_holloway_kuester_dl_dn(
     b_span_m = ws_m + 2.0 * g_m
     k = float(np.clip(ws_m / b_span_m, 0.04, 0.96))
     kk = float(ellipk(k * k))
-    # Exact Ghione (IEEE Trans. MTT 41, 1499, 1993, Eq. 11) / Holloway-Kuester denominator: 8*a*(1-k^2)*K(k)^2 = 4*W_S*(1-k^2)*K(k)^2
+    # Exact Gupta Eq. (7.98) / Ghione (IEEE Trans. MTT 41, 1499, 1993, Eq. 11): 4*pi*a = 2*pi*W_S, 4*pi*b = 2*pi*b_span
     denom = 4.0 * ws_m * (1.0 - k * k) * (kk * kk)
-    arg_sig = max(4.0 * math.pi * ws_m * (1.0 - k) / (tm_m * (1.0 + k)), 1.5)
-    arg_gnd = max(4.0 * math.pi * b_span_m * (1.0 - k) / (tm_m * (1.0 + k)), 1.5)
+    arg_sig = max(2.0 * math.pi * ws_m * (1.0 - k) / (tm_m * (1.0 + k)), 1.5)
+    arg_gnd = max(2.0 * math.pi * b_span_m * (1.0 - k) / (tm_m * (1.0 + k)), 1.5)
     term_sig = math.pi + math.log(arg_sig)
     term_gnd = math.pi + math.log(arg_gnd)
-    k_rough = 1.08 * (1.32 if elec_top == "gs_coplanar" else 1.0)
-    return k_rough * MU0_H_PER_M * (term_sig + k * term_gnd) / max(denom, 1e-18)
+    # Heinrich (IEEE Trans. MTT 41, 45, 1993) vertical-sidewall relief when electroplated metal thickness tm is comparable to slot gap g
+    thick_wall_relief = (1.0 + 1.45 * (tm_m / max(g_m, 1e-7))) ** (-0.48)
+    asym_factor = 1.32 if elec_top == "gs_coplanar" else 1.0
+    return asym_factor * thick_wall_relief * MU0_H_PER_M * (term_sig + k * term_gnd) / max(denom, 1e-18)
 
 
 def _solve_single_cpw_cross_section(
@@ -1332,16 +1361,18 @@ def _solve_single_cpw_cross_section(
     y_axis_um = _graded_1d_axis(y_knots, focus_y, h_fine=0.12, h_mid=0.65, h_far=6.5)
     mesh, xc_um, yc_um = _rectilinear_mesh_tri(x_axis_um, y_axis_um)
 
-    # Build element-wise relative permittivity arrays + loss-tangent array
+    # Build element-wise relative permittivity arrays + loss-tangent & polar-phonon slope arrays
     exx_el = np.ones(mesh.nelements, dtype=float)
     eyy_el = np.ones(mesh.nelements, dtype=float)
     tand_el = np.zeros(mesh.nelements, dtype=float)
+    tand_slope_el = np.zeros(mesh.nelements, dtype=float)
     in_sub = yc_um < -hbox
     in_box = (yc_um >= -hbox) & (yc_um < 0.0)
 
     exx_el[in_sub] = eps_sub[0]
     eyy_el[in_sub] = eps_sub[1]
     tand_el[in_sub] = float(sub_info["tan_delta"])
+    tand_slope_el[in_sub] = 0.0004 if substrate_type == "quartz" else 0.0006
 
     arm_centers = [-x_wg_pos, +x_wg_pos] if twin_arms else [x_wg_pos]
     if substrate_type == "undercut_si" and elec_top != "vertical_microstrip":
@@ -1354,17 +1385,20 @@ def _solve_single_cpw_cross_section(
         exx_el[in_cavity] = 1.0
         eyy_el[in_cavity] = 1.0
         tand_el[in_cavity] = 0.0
+        tand_slope_el[in_cavity] = 0.0
         in_sub = in_sub & (~in_cavity)
 
     exx_el[in_box] = eps_box[0]
     eyy_el[in_box] = eps_box[1]
     tand_el[in_box] = DIELECTRIC_LOSS_TANGENT_RF.get(clad_material, 0.0006)
+    tand_slope_el[in_box] = DIELECTRIC_PHONON_SLOPE_PER_100GHZ.get(clad_material, 0.0008)
 
     if has_top_oxide:
         in_top = (yc_um >= 0.0) & (yc_um <= y_ox_top)
         exx_el[in_top] = eps_top[0]
         eyy_el[in_top] = eps_top[1]
         tand_el[in_top] = DIELECTRIC_LOSS_TANGENT_RF.get(top_clad_material, 0.0006)
+        tand_slope_el[in_top] = DIELECTRIC_PHONON_SLOPE_PER_100GHZ.get(top_clad_material, 0.0008)
 
     slab_boxes: list[list[float]] = []
     if h_slab_um > 1e-5:
@@ -1380,11 +1414,13 @@ def _solve_single_cpw_cross_section(
             exx_el[in_slab_etched] = eps_box[0]
             eyy_el[in_slab_etched] = eps_box[1]
             tand_el[in_slab_etched] = DIELECTRIC_LOSS_TANGENT_RF.get(clad_material, 0.0006)
+            tand_slope_el[in_slab_etched] = DIELECTRIC_PHONON_SLOPE_PER_100GHZ.get(clad_material, 0.0008)
         else:
             in_slab = (yc_um >= 0.0) & (yc_um <= h_slab_um)
         exx_el[in_slab] = eps_core[0]
         eyy_el[in_slab] = eps_core[1]
         tand_el[in_slab] = DIELECTRIC_LOSS_TANGENT_RF.get(core_material, 0.002)
+        tand_slope_el[in_slab] = DIELECTRIC_PHONON_SLOPE_PER_100GHZ.get(core_material, 0.002)
 
     in_core_right = np.zeros(mesh.nelements, dtype=bool)
     for idx_arm, x0 in enumerate(arm_centers):
@@ -1398,6 +1434,7 @@ def _solve_single_cpw_cross_section(
         exx_el[mask_c] = eps_core[0]
         eyy_el[mask_c] = eps_core[1]
         tand_el[mask_c] = DIELECTRIC_LOSS_TANGENT_RF.get(core_material, 0.002)
+        tand_slope_el[mask_c] = DIELECTRIC_PHONON_SLOPE_PER_100GHZ.get(core_material, 0.002)
         if idx_arm == len(arm_centers) - 1:
             in_core_right = mask_c
 
@@ -1472,6 +1509,7 @@ def _solve_single_cpw_cross_section(
     # Exclude interior of metal polygons where grad(phi) = 0
     u_tot = max(float(np.sum(u_el)), 1e-18)
     eff_tan_delta = float(np.sum(u_el * tand_el) / u_tot)
+    eff_tan_delta_slope = float(np.sum(u_el * tand_slope_el) / u_tot)
     sub_energy_fill = float(np.sum(u_el[in_sub]) / u_tot)
 
     # Core-averaged E-field per 1 V inside right/primary waveguide core
@@ -1527,6 +1565,7 @@ def _solve_single_cpw_cross_section(
         "l_ext_h_per_m": l_ext_h_m,
         "dl_dn_h_per_m2": dl_dn_h_per_m2,
         "eff_tan_delta": eff_tan_delta,
+        "eff_tan_delta_slope": eff_tan_delta_slope,
         "sub_energy_fill": sub_energy_fill,
         "sub_sigma_s_per_m": float(sub_info["sigma_s_per_m"]),
         "sub_eps_rf": float(sub_info["eps_rf"]),
@@ -1921,8 +1960,8 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             # Longitudinal current flows in the main trunk -> L_ext = L_trunk; segmented T-caps add capacitive loading
             c_tot = d_t * cs_cap["c_diel_f_per_m"] + (1.0 - d_t) * cs_trunk["c_diel_f_per_m"]
             l_ext = cs_trunk["l_ext_h_per_m"]
-            # Include small eddy/charging skin-loss increment (~8-12%) from periodic T-stems & T-caps
-            eddy_factor = 1.0 + 0.12 * d_t * (lr / max(ws_try + g_trunk, 5.0))
+            # Include eddy magnetic-flux coupling from periodic T-stems & T-caps onto trunk conductor perimeter
+            eddy_factor = 1.0 + 0.24 * d_t * (lr / max(ws_try + g_trunk, 5.0))
             merged = dict(cs_cap)
             merged.update({
                 "c_diel_f_per_m": c_tot,
@@ -1932,6 +1971,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
                 "l_ext_h_per_m": l_ext,
                 "dl_dn_h_per_m2": cs_trunk["dl_dn_h_per_m2"] * eddy_factor,
                 "eff_tan_delta": d_t * cs_cap["eff_tan_delta"] + (1.0 - d_t) * cs_trunk["eff_tan_delta"],
+                "eff_tan_delta_slope": d_t * cs_cap["eff_tan_delta_slope"] + (1.0 - d_t) * cs_trunk["eff_tan_delta_slope"],
                 "sub_energy_fill": d_t * cs_cap["sub_energy_fill"] + (1.0 - d_t) * cs_trunk["sub_energy_fill"],
                 "g_inner_um": g_in,
                 "g_trunk_um": g_trunk,
@@ -1945,6 +1985,10 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             return z0, nrf, merged
 
         g_use = max(g_raw, cfg.waveguide_width_um + 0.6) if elec_top != "vertical_microstrip" else float(cfg.electrode_gap_um)
+        # In ultra-high-permittivity perovskite modulators (BTO eps~250, PZT eps~350), the ferroelectric film is terminated
+        # outside the waveguide corridor so wide CPW trunks/grounds rest on low-eps SiO2; 1-step rib LNOI/LTOI keeps its continuous slab!
+        _ferro_planar = elec_top != "vertical_microstrip" and cfg.core_material in ("BTO", "BTO_ccut", "PZT")
+        slab_corr_std = (0.5 * g_use + 2.8) if (_ferro_planar and cfg.slab_height_um > 1e-5) else None
         cs = _solve_single_cpw_cross_section(
             elec_top="gsg_cpw" if elec_top == "lumped_ring_gsg" else elec_top,
             core_material=cfg.core_material,
@@ -1962,6 +2006,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             w_gnd_um=cfg.ground_width_um,
             t_metal_um=cfg.metal_thickness_um,
             v_buf_um=vbuf_raw,
+            slab_corridor_half_um=slab_corr_std,
             eps_core_override=eps_core_az,
             compute_wheeler_loss=full,
             export_field_map=full,
@@ -2178,7 +2223,10 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
     wg_eff_m = min(cfg.ground_width_um, 3.0 * (0.5 * ws_opt + g_trunk_um)) * 1e-6
     n_gnd = 2.0 if elec_top in ("gsg_cpw", "t_rail_cpw", "lumped_ring_gsg") else 1.0
     r_dc_ohm_m = rho_m * (1.0 / (ws_m * tm_m) + 1.0 / (n_gnd * wg_eff_m * tm_m))
+    rq_rough_m = float(metal_spec.get("rq_roughness_m", 65.0e-9))
     tan_d_used = float(cfg.custom_tan_delta_rf) if cfg.custom_tan_delta_rf is not None else float(rf_cs["eff_tan_delta"])
+    tan_d_slope_used = 0.0 if cfg.custom_tan_delta_rf is not None else float(rf_cs.get("eff_tan_delta_slope", 0.0))
+    c_trunk_slope = 0.0 if cfg.custom_tan_delta_rf is not None else 0.55 * tan_d_slope_used
     if elec_top == "lumped_ring_gsg":
         ring_perim_um = 2.0 * math.pi * max(float(cfg.ring_radius_um), 2.0) + 2.0 * max(float(cfg.racetrack_straight_um), 0.0)
         eff_active_len_um = float(cfg.active_length_um) if float(cfg.active_length_um) <= ring_perim_um * 1.02 else round(0.80 * ring_perim_um, 2)
@@ -2214,16 +2262,21 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         u_safe = np.where(small, 1e-6 + 0j, u_c)
         return np.where(small, 1.0 + 0.5 * u_c, (np.exp(u_safe) - 1.0) / u_safe)
 
-    def _eval_eo_spectrum_on_grid(fg_ghz: np.ndarray) -> dict[str, np.ndarray]:
+    def _eval_eo_raw(fg_ghz: np.ndarray) -> dict[str, np.ndarray]:
         fg_hz = fg_ghz * 1e9
         om = 2.0 * math.pi * fg_hz
-        rs_f = np.sqrt(math.pi * fg_hz * MU0_H_PER_M * rho_m)
+        # Hammerstad-Jensen (IEEE MTT-S 1980) conductor surface-roughness skin-resistance enhancement K_rough(f)
+        delta_skin_m = np.sqrt(rho_m / np.maximum(math.pi * fg_hz * MU0_H_PER_M, 1.0))
+        k_rough_f = 1.0 + (2.0 / math.pi) * np.arctan(1.4 * ((rq_rough_m / np.maximum(delta_skin_m, 1e-9)) ** 2))
+        rs_f = np.sqrt(math.pi * fg_hz * MU0_H_PER_M * rho_m) * k_rough_f
         rhf_m = (rs_f / MU0_H_PER_M) * dl_dn
         rrf_m = np.sqrt(r_dc_ohm_m ** 2 + rhf_m ** 2)
         lint_m = (rhf_m / om) / np.sqrt(1.0 + (r_dc_ohm_m / np.maximum(rhf_m, 1e-9)) ** 2)
         ltot_m = l_ext_m + lint_m
 
-        gd_m = om * c_diel_m * tan_d_used
+        # Frequency-dependent polar-phonon / ferroelectric dielectric loss tangent tan_delta(f)
+        tan_d_f = tan_d_used + tan_d_slope_used * (fg_ghz / 100.0)
+        gd_m = om * c_diel_m * tan_d_f
         if rf_cs["sub_sigma_s_per_m"] > 1e-6:
             tau_s = EPS0_F_PER_M * float(rf_cs["sub_eps_rf"]) / float(rf_cs["sub_sigma_s_per_m"])
             gsub_m = float(rf_cs["sub_energy_fill"]) * c_diel_m * (om ** 2 * tau_s) / (1.0 + (om * tau_s) ** 2)
@@ -2244,12 +2297,22 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
 
         if elec_top == "t_rail_cpw" and l_rail_opt > 0.2:
             # Exact symmetric ABCD Bloch-Floquet unit-cell [trunk/2 - T-cap - trunk/2] dispersion
-            q_stem = 18.0
-            stem_enh = 1.0 / (1.0 - (om / om_stem_rad) ** 2 + 1j * (om / (q_stem * om_stem_rad)))
-            y_tr = (om * c_trunk_base_m * tan_d_used + gsub_m + gpn_m) + 1j * om * (c_trunk_base_m + cpn_e)
+            # Transverse skin-current charging resistance across Signal + Ground T-stems & T-caps + 90-deg corner crowding
+            w_stem_m = max(float(cfg.t_rail_stem_width_um), 1.0) * 1e-6
+            w_cap_m = max(w_cap_bar_um, 1.2) * 1e-6
+            l_stem_m = max(l_rail_opt, 0.5) * 1e-6
+            l_cap_wing_m = max(duty_eo * lam_seg_m - w_stem_m, 0.0)
+            r_stem_geom = (l_stem_m / (w_stem_m + tm_m)) + l_cap_wing_m / (24.0 * (w_cap_m + tm_m)) + 2.5
+            r_stem_cell = 2.0 * rs_f * r_stem_geom
+            c_rail_cell = max(dc_rail_m * duty_eo * lam_seg_m, 1e-18)
+            stem_enh = 1.0 / (1.0 - (om / om_stem_rad) ** 2 + 1j * om * c_rail_cell * r_stem_cell)
+            tan_d_tr_f = tan_d_used + c_trunk_slope * (fg_ghz / 100.0)
+            y_tr = (om * c_trunk_base_m * tan_d_tr_f + gsub_m + gpn_m) + 1j * om * (c_trunk_base_m + cpn_e)
             y_cap = gtot_m + 1j * om * (c_trunk_base_m + cpn_e + dc_rail_m * stem_enh)
+            y_cap_ohm = gtot_m + 1j * om * (c_trunk_base_m + cpn_e + dc_rail_m)
             gam_1 = np.sqrt(z_ser * y_tr)
             gam_2 = np.sqrt(z_ser * y_cap)
+            gam_2_ohm = np.sqrt(z_ser * y_cap_ohm)
             z_1 = np.sqrt(z_ser / np.maximum(y_tr, 1e-18))
             z_2 = np.sqrt(z_ser / np.maximum(y_cap, 1e-18))
 
@@ -2267,6 +2330,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             sgn_re = np.where(np.real(w_bl) >= 0.0, 1.0, -1.0)
             phi_bl = np.maximum(np.unwrap(sgn_re * np.imag(w_bl)), 1e-9)
             gam_rf = (np.abs(np.real(w_bl)) + 1j * phi_bl) / lam_seg_m
+            alpha_ohmic_np_m = (1.0 - duty_eo) * np.real(gam_1) + duty_eo * np.real(gam_2_ohm)
 
             b_cell = z_1 * sh1 * ch2 + (z_2 * (ch1h ** 2) + ((z_1 ** 2) / z_2) * (sh1h ** 2)) * sh2
             c_cell = (sh1 / z_1) * ch2 + ((ch1h ** 2) / z_2 + (z_2 / (z_1 ** 2)) * (sh1h ** 2)) * sh2
@@ -2275,6 +2339,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             y_sh = gtot_m + 1j * om * ctot_m
             zc_c = np.sqrt(z_ser / y_sh)
             gam_rf = np.sqrt(z_ser * y_sh)
+            alpha_ohmic_np_m = np.real(gam_rf)
 
         # Frankel-Rutledge Cherenkov substrate shockwave radiation (IEEE Trans. MTT 39, 910, 1991, Eq. 5)
         # Occurs when n_RF(f) < sqrt(eps_sub) on non-undercut planar CPW; zero on Quartz (n_sub=1.95 < n_RF=2.265) or Undercut-Si!
@@ -2321,13 +2386,13 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             m_tot = m_tw
             h_cav_db = np.zeros_like(fg_ghz)
 
-        al_np_l = np.maximum(np.real(gam_rf) * l_m, 1e-9)
-        loss_only_db = 20.0 * np.log10(np.maximum((1.0 - np.exp(-al_np_l)) / al_np_l, 1e-5))
+        al_np_l = np.maximum((alpha_ohmic_np_m + alpha_rad_np_m) * l_m, 1e-9)
+        loss_lin = np.maximum((1.0 - np.exp(-al_np_l)) / al_np_l, 1e-5)
         al_rad_np_l = np.maximum(alpha_rad_np_m * l_m, 1e-9)
         rad_only_db = 20.0 * np.log10(np.maximum((1.0 - np.exp(-al_rad_np_l)) / al_rad_np_l, 1e-5))
-        heo_n = np.abs(m_tot) / max(float(np.abs(m_tot[0])), 1e-15)
         return {
-            "s21_eo_dbe": 20.0 * np.log10(np.maximum(heo_n, 1e-5)),
+            "m_abs": np.abs(m_tot),
+            "loss_lin": loss_lin,
             "s21_rf_db": s21_rf_d,
             "s11_rf_db": 20.0 * np.log10(np.maximum(np.abs(s11_c), 1e-5)),
             "s11_rf": s11_c,
@@ -2338,9 +2403,36 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             "c_tot_f_m": ctot_m,
             "l_tot_h_m": ltot_m,
             "l_int_h_m": lint_m,
-            "loss_only_dbe": loss_only_db,
             "rad_only_dbe": rad_only_db,
             "h_cav_dbe": h_cav_db,
+        }
+
+    # Standard OIF/IEEE & Wang et al. (Nature 562, 101, 2018, Fig. 3c) traveling-wave 0-dBe reference at 1.5 GHz
+    # (above the sub-GHz ohmic R_DC -> Z_0 transition); lumped/open-circuit/ring modulators reference at DC (50 MHz).
+    f_ref_eo_ghz = 0.05 if is_open else 1.50
+    ref_pt = _eval_eo_raw(np.array([f_ref_eo_ghz], dtype=float))
+    m_ref_eo = max(float(ref_pt["m_abs"][0]), 1e-15)
+    loss_ref_eo = 1.0 if is_open else max(float(ref_pt["loss_lin"][0]), 1e-15)
+
+    def _eval_eo_spectrum_on_grid(fg_ghz: np.ndarray) -> dict[str, np.ndarray]:
+        raw = _eval_eo_raw(fg_ghz)
+        heo_n = raw["m_abs"] / m_ref_eo
+        loss_only_db = 20.0 * np.log10(np.maximum(raw["loss_lin"] / loss_ref_eo, 1e-5))
+        return {
+            "s21_eo_dbe": 20.0 * np.log10(np.maximum(heo_n, 1e-5)),
+            "s21_rf_db": raw["s21_rf_db"],
+            "s11_rf_db": raw["s11_rf_db"],
+            "s11_rf": raw["s11_rf"],
+            "alpha_rf_db_cm": raw["alpha_rf_db_cm"],
+            "alpha_cherenkov_db_cm": raw["alpha_cherenkov_db_cm"],
+            "n_rf_vec": raw["n_rf_vec"],
+            "z0_re_vec": raw["z0_re_vec"],
+            "c_tot_f_m": raw["c_tot_f_m"],
+            "l_tot_h_m": raw["l_tot_h_m"],
+            "l_int_h_m": raw["l_int_h_m"],
+            "loss_only_dbe": loss_only_db,
+            "rad_only_dbe": raw["rad_only_dbe"],
+            "h_cav_dbe": raw["h_cav_dbe"],
         }
 
     f_ghz = np.linspace(0.10, max(float(cfg.max_freq_ghz), 10.0), max(int(cfg.num_freq_points), 32))

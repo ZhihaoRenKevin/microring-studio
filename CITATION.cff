@@ -6,8 +6,8 @@ authors:
   - family-names: "Ren"
     given-names: "Zhihao"
     orcid: "https://orcid.org/0000-0002-2520-0784"
-version: 3.7.0
-date-released: "2026-11-12"
+version: 3.7.1
+date-released: "2026-11-13"
 license: MIT
 repository-code: "https://github.com/ZhihaoRenKevin/microring-studio"
 keywords:
