@@ -770,6 +770,160 @@ def n_gsst_pcm(wavelength_m: float, state: str = "amorphous") -> MaterialIndexTe
     raise ValueError(f"Unknown PCM state '{state}'; expected 'amorphous' or 'crystalline'")
 
 
+def n_gst_pcm(wavelength_m: float, state: str = "amorphous") -> MaterialIndexTensor:
+    """Published Ge2Sb2Te5 (GST-225) chalcogenide phase-change material model (1.10 - 2.50 um).
+
+    Source: Shportko et al., Nat. Mater. 7, 653 (2008); Rios et al., Nat. Photon. 9, 725 (2015);
+    Stegmaier et al., Adv. Opt. Mater. 5, 1600787 (2017).
+    """
+    u = max(_check_wl(wavelength_m), 1.05)
+    if state == "amorphous":
+        na = 3.880 + 0.145 / (u * u)
+        ka = 0.024 * math.exp(min(max((1.55 - u) / 0.42, -2.5), 2.5))
+        return MaterialIndexTensor(
+            nx=float(na), ny=float(na), nz=float(na),
+            kx=float(ka), ky=float(ka), kz=float(ka),
+            dn_dt_per_k=8.0e-5,
+            validity_um=(1.10, 2.50),
+            source="Rios et al. Nat. Photon. 9, 725 (2015) / Shportko Nat. Mater. 2008 (Amorphous GST-225)",
+            is_anisotropic=False,
+        )
+    if state == "crystalline":
+        nc = 5.860 + 0.600 / (u * u)
+        kc = 1.090 * math.exp(min(max((1.55 - u) / 0.65, -2.0), 2.0))
+        return MaterialIndexTensor(
+            nx=float(nc), ny=float(nc), nz=float(nc),
+            kx=float(kc), ky=float(kc), kz=float(kc),
+            dn_dt_per_k=1.2e-4,
+            validity_um=(1.10, 2.50),
+            source="Rios et al. Nat. Photon. 9, 725 (2015) / Shportko Nat. Mater. 2008 (Crystalline GST-225)",
+            is_anisotropic=False,
+        )
+    raise ValueError(f"Unknown PCM state '{state}'; expected 'amorphous' or 'crystalline'")
+
+
+def n_sb2se3_pcm(wavelength_m: float, state: str = "amorphous") -> MaterialIndexTensor:
+    """Published Sb2Se3 ultra-low-loss phase-change material model (0.98 - 2.20 um).
+
+    Source: Delaney et al., Adv. Funct. Mater. 30, 2002447 (2020) Table 1 (ellipsometry Cauchy fit).
+    """
+    u = max(_check_wl(wavelength_m), 0.90)
+    if state == "amorphous":
+        na = 3.226 + 0.142 / (u * u)
+        ka = 0.0 if u >= 1.02 else float(0.015 * math.exp((1.02 - u) / 0.06))
+        return MaterialIndexTensor(
+            nx=float(na), ny=float(na), nz=float(na),
+            kx=float(ka), ky=float(ka), kz=float(ka),
+            dn_dt_per_k=4.5e-5,
+            validity_um=(0.98, 2.20),
+            source="Delaney et al. Adv. Funct. Mater. 30, 2002447 (2020) (Amorphous Sb2Se3 low-loss PCM)",
+            is_anisotropic=False,
+        )
+    if state == "crystalline":
+        nc = 3.922 + 0.308 / (u * u)
+        kc = 1.2e-4 if u >= 1.20 else float(0.018 * math.exp((1.20 - u) / 0.12))
+        return MaterialIndexTensor(
+            nx=float(nc), ny=float(nc), nz=float(nc),
+            kx=float(kc), ky=float(kc), kz=float(kc),
+            dn_dt_per_k=6.5e-5,
+            validity_um=(1.05, 2.20),
+            source="Delaney et al. Adv. Funct. Mater. 30, 2002447 (2020) (Crystalline Sb2Se3 low-loss PCM)",
+            is_anisotropic=False,
+        )
+    raise ValueError(f"Unknown PCM state '{state}'; expected 'amorphous' or 'crystalline'")
+
+
+def n_sb2s3_pcm(wavelength_m: float, state: str = "amorphous") -> MaterialIndexTensor:
+    """Published Sb2S3 wide-bandgap visible-to-NIR low-loss phase-change material model (0.60 - 2.20 um).
+
+    Source: Dong et al., Adv. Funct. Mater. 29, 1806181 (2019); Delaney et al., Adv. Funct. Mater. 30, 2002447 (2020).
+    """
+    u = max(_check_wl(wavelength_m), 0.58)
+    u2 = u * u
+    if state == "amorphous":
+        na = 2.652 + 0.144 / u2 + 0.026 / (u2 * u2)
+        ka = 0.0 if u >= 0.61 else float(0.020 * math.exp((0.61 - u) / 0.04))
+        return MaterialIndexTensor(
+            nx=float(na), ny=float(na), nz=float(na),
+            kx=float(ka), ky=float(ka), kz=float(ka),
+            dn_dt_per_k=3.8e-5,
+            validity_um=(0.60, 2.20),
+            source="Dong Adv. Funct. Mater. 2019 / Delaney Adv. Funct. Mater. 2020 (Amorphous Sb2S3 PCM)",
+            is_anisotropic=False,
+        )
+    if state == "crystalline":
+        nc = 3.218 + 0.216 / u2 + 0.038 / (u2 * u2)
+        kc = 0.0 if u >= 0.74 else float(0.015 * math.exp((0.74 - u) / 0.06))
+        return MaterialIndexTensor(
+            nx=float(nc), ny=float(nc), nz=float(nc),
+            kx=float(kc), ky=float(kc), kz=float(kc),
+            dn_dt_per_k=5.2e-5,
+            validity_um=(0.72, 2.20),
+            source="Dong Adv. Funct. Mater. 2019 / Delaney Adv. Funct. Mater. 2020 (Crystalline Sb2S3 PCM)",
+            is_anisotropic=False,
+        )
+    raise ValueError(f"Unknown PCM state '{state}'; expected 'amorphous' or 'crystalline'")
+
+
+def n_hydex_glass(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """High-index doped silica glass (Hydex, n ~ 1.70 at 1550 nm) for low-loss Kerr microcombs.
+
+    Source: Moss et al., Nat. Photon. 7, 597 (2013); Razzari et al., Nat. Photon. 4, 41 (2010).
+    """
+    u = max(_check_wl(wavelength_m), 0.35)
+    x = u * u
+    n0 = math.sqrt(max(1.0 + 1.855 * x / (x - 0.115 ** 2) + 0.85 * x / (x - 9.896 ** 2), 1.45))
+    dn_dt = 1.15e-5
+    n = n0 + dn_dt * (temperature_k - T_REF_K)
+    return MaterialIndexTensor(
+        nx=n, ny=n, nz=n,
+        dn_dt_per_k=dn_dt,
+        n2_m2_per_w=1.15e-19,
+        validity_um=(0.40, 2.60),
+        source="Moss et al. Nat. Photon. 7, 597 (2013) (High-index doped silica Hydex glass)",
+        is_anisotropic=False,
+    )
+
+
+def n_algaas_epi(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """Al0.20Ga0.80As-on-insulator nonlinear III-V waveguide core (0.90 - 4.00 um).
+
+    Source: Gehrsitz et al., J. Appl. Phys. 87, 7825 (2000); Pu et al., Optica 3, 823 (2016); Chang et al., Nat. Commun. 11, 1331 (2020).
+    """
+    u = max(_check_wl(wavelength_m), 0.88)
+    x = u * u
+    n0 = math.sqrt(max(7.10 + 3.42 * x / (x - 0.395 ** 2), 2.5))
+    dn_dt = 2.30e-4
+    n = n0 + dn_dt * (temperature_k - T_REF_K)
+    return MaterialIndexTensor(
+        nx=n, ny=n, nz=n,
+        dn_dt_per_k=dn_dt,
+        r33_pm_per_v=1.43,
+        n2_m2_per_w=2.6e-17,
+        crystal_symmetry="zincblende_43m",
+        validity_um=(0.90, 4.00),
+        source="Gehrsitz JAP 2000 / Pu Optica 2016 / Chang Nat. Commun. 2020 (Al0.2Ga0.8As-OI)",
+        is_anisotropic=False,
+    )
+
+
+def n_sio2_plc(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """GeO2-doped silica planar lightwave circuit core (1.5% Delta, n ~ 1.466 at 1550 nm).
+
+    Source: Carolan et al., Science 349, 711 (2015); Okamoto, Fundamentals of Optical Waveguides (2021).
+    """
+    base = n_sio2_sellmeier(wavelength_m, temperature_k)
+    n_plc = base.nx * 1.0152
+    return MaterialIndexTensor(
+        nx=n_plc, ny=n_plc, nz=n_plc,
+        dn_dt_per_k=1.05e-5,
+        n2_m2_per_w=2.8e-20,
+        validity_um=(0.35, 3.65),
+        source="Carolan Science 2015 / Okamoto 2021 (1.5%-Delta Ge-doped SiO2 PLC core)",
+        is_anisotropic=False,
+    )
+
+
 # Published GSST phase-change material model above
 
 
@@ -1134,6 +1288,140 @@ MATERIAL_CATALOG: dict[str, dict] = {
 }
 
 
+EXTRA_LITERATURE_MATERIALS: dict[str, dict] = {
+    "GST_amorphous": {
+        "name": "GST-225 PCM (Amorphous Ge2Sb2Te5, 1.1-2.5 um)",
+        "category": "Phase-Change",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 8400.0,
+        "fn": lambda wl, t=T_REF_K: n_gst_pcm(wl, state="amorphous"),
+    },
+    "GST_crystalline": {
+        "name": "GST-225 PCM (Crystalline Ge2Sb2Te5, 1.1-2.5 um)",
+        "category": "Phase-Change",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 380000.0,
+        "fn": lambda wl, t=T_REF_K: n_gst_pcm(wl, state="crystalline"),
+    },
+    "Sb2Se3_amorphous": {
+        "name": "Sb2Se3 PCM (Amorphous Ultra-Low-Loss, 0.98-2.2 um)",
+        "category": "Phase-Change",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.20,
+        "fn": lambda wl, t=T_REF_K: n_sb2se3_pcm(wl, state="amorphous"),
+    },
+    "Sb2Se3_crystalline": {
+        "name": "Sb2Se3 PCM (Crystalline Low-Loss, 1.05-2.2 um)",
+        "category": "Phase-Change",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 40.0,
+        "fn": lambda wl, t=T_REF_K: n_sb2se3_pcm(wl, state="crystalline"),
+    },
+    "Sb2S3_amorphous": {
+        "name": "Sb2S3 PCM (Amorphous Visible/NIR Low-Loss, 0.60-2.2 um)",
+        "category": "Phase-Change",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.15,
+        "fn": lambda wl, t=T_REF_K: n_sb2s3_pcm(wl, state="amorphous"),
+    },
+    "Sb2S3_crystalline": {
+        "name": "Sb2S3 PCM (Crystalline Visible/NIR Low-Loss, 0.72-2.2 um)",
+        "category": "Phase-Change",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.50,
+        "fn": lambda wl, t=T_REF_K: n_sb2s3_pcm(wl, state="crystalline"),
+    },
+    "Hydex": {
+        "name": "Hydex High-Index Doped Silica Glass (n~1.70, 0.40-2.6 um)",
+        "category": "Dielectric/Glass",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.06,
+        "fn": n_hydex_glass,
+    },
+    "AlGaAs": {
+        "name": "Al0.2Ga0.8As-on-Insulator (0.90-4.0 um)",
+        "category": "III-V",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.40,
+        "fn": n_algaas_epi,
+    },
+    "SiO2_PLC": {
+        "name": "GeO2-Doped Silica PLC Core (1.5% Delta, 0.35-3.65 um)",
+        "category": "Dielectric/PLC",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.03,
+        "fn": n_sio2_plc,
+    },
+    "ChG_As2S3": {
+        "name": "Chalcogenide As2S3 Glass (0.62-11.0 um)",
+        "category": "Chalcogenide",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.25,
+        "fn": lambda wl, t=T_REF_K: _n_chg_as2s3(wl, t),
+    },
+    "GaP": {
+        "name": "Gallium Phosphide GaP-on-Insulator (0.56-10.0 um)",
+        "category": "III-V",
+        "default_band_nm": 1550.0,
+        "typical_loss_db_cm": 0.80,
+        "fn": lambda wl, t=T_REF_K: _n_gap_epi(wl, t),
+    },
+}
+
+
+def _n_chg_as2s3(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """Arsenic trisulfide (As2S3) chalcogenide glass 5-term Sellmeier (0.62-11.0 um).
+
+    Source: Rodney, Malitson & King, J. Opt. Soc. Am. 48, 633 (1958).
+    """
+    u = max(_check_wl(wavelength_m), 0.62)
+    x = u * u
+    eps = (
+        1.0
+        + 1.8983678 * x / (x - 0.150 ** 2)
+        + 1.9222979 * x / (x - 0.250 ** 2)
+        + 0.8765134 * x / (x - 0.350 ** 2)
+        + 0.1188704 * x / (x - 0.450 ** 2)
+        + 0.9569903 * x / (x - 27.3861 ** 2)
+    )
+    dn_dt = 0.9e-5
+    n = math.sqrt(max(eps, 2.0)) + dn_dt * (temperature_k - T_REF_K)
+    return MaterialIndexTensor(
+        nx=n, ny=n, nz=n,
+        dn_dt_per_k=dn_dt,
+        n2_m2_per_w=3.0e-18,
+        validity_um=(0.62, 11.0),
+        source="Rodney, Malitson & King JOSA 1958 (As2S3 Chalcogenide Glass)",
+        is_anisotropic=False,
+    )
+
+
+def _n_gap_epi(wavelength_m: float, temperature_k: float = T_REF_K) -> MaterialIndexTensor:
+    """Zincblende cubic Gallium Phosphide (GaP) Sellmeier (0.56-10.0 um).
+
+    Source: Bond, J. Appl. Phys. 36, 1674 (1965); Parsons & Coleman, Appl. Opt. 19, 248 (1980).
+    """
+    u = max(_check_wl(wavelength_m), 0.56)
+    x = u * u
+    eps = (
+        4.1705
+        + 4.9113 * x / (x - 0.2904 ** 2)
+        + 1.9928 * x / (x - 27.525 ** 2)
+    )
+    dn_dt = 1.10e-4
+    n = math.sqrt(max(eps, 2.5)) + dn_dt * (temperature_k - T_REF_K)
+    return MaterialIndexTensor(
+        nx=n, ny=n, nz=n,
+        dn_dt_per_k=dn_dt,
+        r33_pm_per_v=1.07,
+        n2_m2_per_w=1.1e-17,
+        crystal_symmetry="zincblende_-43m",
+        validity_um=(0.56, 10.0),
+        source="Bond JAP 1965 / Wilson Nat. Photonics 2020 (GaP-on-Insulator)",
+        is_anisotropic=False,
+    )
+
+
 def check_wavelength_compatibility(
     core_material: str,
     clad_material: str,
@@ -1211,9 +1499,13 @@ def get_material_fn(
         x_sc = float(sc_fraction)
         return lambda wl_m, temp_k=T_REF_K: n_scaln_film(wl_m, temp_k, sc_fraction=x_sc)
 
-    if material_key not in MATERIAL_CATALOG:
-        raise KeyError(f"Unknown material '{material_key}'. Available: {list(MATERIAL_CATALOG)}")
-    return MATERIAL_CATALOG[material_key]["fn"]
+    if material_key in MATERIAL_CATALOG:
+        return MATERIAL_CATALOG[material_key]["fn"]
+    if material_key in EXTRA_LITERATURE_MATERIALS:
+        return EXTRA_LITERATURE_MATERIALS[material_key]["fn"]
+    raise KeyError(
+        f"Unknown material '{material_key}'. Available: {list(MATERIAL_CATALOG) + list(EXTRA_LITERATURE_MATERIALS)}"
+    )
 
 
 def evaluate_material_dispersion_table(

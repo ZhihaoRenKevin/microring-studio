@@ -430,7 +430,15 @@ def solve_modes_fem(
     if n_guess is not None:
         sigma = (k0 * float(n_guess)) ** 2
     else:
-        max_eps_re = float(np.max(np.real(np.concatenate([eps_x_dofs, eps_y_dofs]))))
+        guide_eps = [
+            float(np.real(c))
+            for c in mat_core.complex_eps_diag()
+        ]
+        if "upper_core" in region_mats:
+            guide_eps.extend(float(np.real(c)) for c in region_mats["upper_core"].complex_eps_diag())
+        if "cap" in region_mats and spec.cap_h_um > 0.45 * max(spec.h_film_um, 0.05):
+            guide_eps.extend(float(np.real(c)) for c in region_mats["cap"].complex_eps_diag())
+        max_eps_re = max(guide_eps)
         sigma = (k0 ** 2) * max_eps_re * 1.02
 
     eig_solver = solver_eigen_scipy(k=num_modes, sigma=sigma)
@@ -554,7 +562,7 @@ def solve_modes_fem(
 
         core_elems_list = [
             mesh.subdomains[k]
-            for k in ("core", "slab", "upper_core")
+            for k in (("core", "upper_core") if math.isfinite(bend_radius_m) and "core" in (mesh.subdomains or {}) else ("core", "slab", "upper_core"))
             if mesh.subdomains is not None and k in mesh.subdomains
         ]
         if core_elems_list:
@@ -1183,8 +1191,10 @@ def solve_perturbed_neff_sweep_fem(
         xs = xs[:, order_idx]
         betas = betas_raw[order_idx]
 
-        # Evaluate polarization, node count & reference B-overlap for each candidate mode
-        candidates: list[tuple[int, float, int, float, np.ndarray]] = []
+        # Evaluate polarization, node count, central-ridge confinement & reference B-overlap
+        ridge_half_m = max(0.95 * w_core_m, 0.80e-6)
+        ridge_mask_q = np.abs(q_coords[0]) <= ridge_half_m
+        candidates: list[tuple[int, float, int, float, np.ndarray, float]] = []
         for m_i in range(len(betas)):
             u_raw = xs[:, m_i]
             bu = neg_B @ u_raw
@@ -1195,9 +1205,12 @@ def solve_perturbed_neff_sweep_fem(
             (et_v, _), _ = basis.split(u_raw)
             et_df = et_basis.interpolate(et_v)
             et_arr = np.asarray(et_df, dtype=complex)
+            et2_q = (np.abs(et_arr[0]) ** 2 + np.abs(et_arr[1]) ** 2) * dx_quad
             ex2_i = float(np.sum((np.abs(et_arr[0]) ** 2) * dx_quad))
             ey2_i = float(np.sum((np.abs(et_arr[1]) ** 2) * dx_quad))
-            te_f = ex2_i / max(ex2_i + ey2_i, 1e-30)
+            et_tot = max(ex2_i + ey2_i, 1e-30)
+            te_f = ex2_i / et_tot
+            ridge_f = float(np.sum(et2_q[ridge_mask_q]) / et_tot)
 
             et_ln = (probe_et_line @ et_v).reshape(2, -1)
             l_comp = et_ln[0] if te_f >= 0.5 else et_ln[1]
@@ -1208,19 +1221,21 @@ def solve_perturbed_neff_sweep_fem(
                 nd = int(np.sum(sig[:-1] * sig[1:] < 0.0)) if len(sig) >= 2 else 0
             else:
                 nd = 0
-            candidates.append((m_i, te_f, nd, ov, u_unit))
+            candidates.append((m_i, te_f, nd, ov, u_unit, ridge_f))
 
         if u_ref_norm is None:
             pol_cands = [c for c in candidates if (c[1] >= 0.5) == want_te]
-            fund_cands = [c for c in pol_cands if c[2] == 0]
-            chosen = (fund_cands or pol_cands or candidates)[0]
+            conf_pol = [c for c in pol_cands if c[5] >= 0.22]
+            use_pol = conf_pol if conf_pol else pol_cands
+            fund_cands = [c for c in use_pol if c[2] == 0]
+            chosen = (fund_cands or use_pol or candidates)[0]
         else:
             # Lock onto continuous mode branch via transverse B-inner-product overlap
             pol_cands = [c for c in candidates if (c[1] >= 0.35 if want_te else c[1] <= 0.65)]
             pool = pol_cands if pol_cands else candidates
             chosen = max(pool, key=lambda c: c[3])
 
-        sel_i, te_frac, nodes, ov_val, u_sel_unit = chosen
+        sel_i, te_frac, nodes, ov_val, u_sel_unit, _ridge_f = chosen
         beta_sel = complex(betas[sel_i])
         neff_sel = beta_sel / k0
 

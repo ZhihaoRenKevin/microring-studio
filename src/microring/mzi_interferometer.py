@@ -50,6 +50,7 @@ from .eigenmode_solver import (
 from .gds_bridge import MICRORING_LAYERS, write_klayout_layer_props
 from .materials import (
     C0_M_PER_S,
+    EXTRA_LITERATURE_MATERIALS,
     MATERIAL_CATALOG,
     T_REF_K,
     check_wavelength_compatibility,
@@ -276,6 +277,9 @@ def design_directional_coupler_eme(
     wl0_nm = float(cfg.wavelength_nm)
     wl_scale = float(np.clip(wl0_nm / 1550.0, 0.32, 4.50))
     mesh_res = round(float(np.clip(0.042 * wl_scale, 0.016, 0.140)), 4)
+    min_core_dim_um = min(float(cfg.arm1_width_um), float(cfg.film_height_um))
+    if min_core_dim_um > 1.8:
+        mesh_res = max(mesh_res, round(0.065 * min_core_dim_um, 4))
     box_pad = round(max(2.0, 1.45 * wl0_nm * 1e-3), 3)
 
     core_fn = get_material_fn(cfg.core_material)
@@ -369,7 +373,7 @@ def design_directional_coupler_eme(
     alpha_db_cm = (
         float(cfg.alpha_loss_db_per_cm)
         if cfg.alpha_loss_db_per_cm is not None
-        else float(MATERIAL_CATALOG.get(cfg.core_material, {}).get("typical_loss_db_cm", 1.0))
+        else float((MATERIAL_CATALOG.get(cfg.core_material) or EXTRA_LITERATURE_MATERIALS.get(cfg.core_material) or {}).get("typical_loss_db_cm", 1.0))
     )
     # Small bend/transition excess loss (~0.04 dB) + propagation loss along DC + S-bends
     il_dc_db = 0.04 + alpha_db_cm * ((l_dc_use_um + l_sbend) * 1e-4)
@@ -599,7 +603,7 @@ def design_mmi_coupler_eme(
     alpha_db_cm = (
         float(cfg.alpha_loss_db_per_cm)
         if cfg.alpha_loss_db_per_cm is not None
-        else float(MATERIAL_CATALOG.get(cfg.core_material, {}).get("typical_loss_db_cm", 1.0))
+        else float((MATERIAL_CATALOG.get(cfg.core_material) or EXTRA_LITERATURE_MATERIALS.get(cfg.core_material) or {}).get("typical_loss_db_cm", 1.0))
     )
     # Adiabatic access taper loss (~0.03 dB) + MMI propagation loss
     taper_amp = 10.0 ** (-0.5 * (0.03 + alpha_db_cm * ((l_mmi_um + 2.0 * cfg.mmi_taper_length_um) * 1e-4)) / 10.0)
@@ -767,7 +771,7 @@ def design_y_branch_eme(
     alpha_db_cm = (
         float(cfg.alpha_loss_db_per_cm)
         if cfg.alpha_loss_db_per_cm is not None
-        else float(MATERIAL_CATALOG.get(cfg.core_material, {}).get("typical_loss_db_cm", 1.0))
+        else float((MATERIAL_CATALOG.get(cfg.core_material) or EXTRA_LITERATURE_MATERIALS.get(cfg.core_material) or {}).get("typical_loss_db_cm", 1.0))
     )
     l_tot_y = float(cfg.y_taper_length_um + cfg.y_branch_length_um)
     # Adiabatic S-bend curvature penalty if y_branch_length_um is very short
@@ -870,6 +874,9 @@ def simulate_mzi(
     wl_um = wl0_nm * 1e-3
     wl_scale = float(np.clip(wl0_nm / 1550.0, 0.32, 4.50))
     mesh_res = round(float(np.clip(0.038 * wl_scale, 0.015, 0.130)), 4)
+    min_arm_dim_um = min(float(cfg.arm1_width_um), float(cfg.film_height_um))
+    if min_arm_dim_um > 1.8:
+        mesh_res = max(mesh_res, round(0.065 * min_arm_dim_um, 4))
     box_pad = round(max(2.0, 1.40 * wl_um), 3)
 
     wavelength_warnings = check_wavelength_compatibility(
@@ -966,10 +973,11 @@ def simulate_mzi(
     neff1_pas = arm1_disp["neff_0"] + arm1_disp["dn_dlambda_per_nm"] * dl_wl + 0.5 * arm1_disp["d2n_dlambda2_per_nm2"] * (dl_wl ** 2)
     neff2_pas = arm2_disp["neff_0"] + arm2_disp["dn_dlambda_per_nm"] * dl_wl + 0.5 * arm2_disp["d2n_dlambda2_per_nm2"] * (dl_wl ** 2)
 
+    _mzi_cat_entry = MATERIAL_CATALOG.get(cfg.core_material) or EXTRA_LITERATURE_MATERIALS.get(cfg.core_material) or {}
     alpha_pas_db_cm = (
         float(cfg.alpha_loss_db_per_cm)
         if cfg.alpha_loss_db_per_cm is not None
-        else float(MATERIAL_CATALOG.get(cfg.core_material, {}).get("typical_loss_db_cm", 1.0))
+        else float(_mzi_cat_entry.get("typical_loss_db_cm", 1.0))
     )
 
     # Optional Ring-Assisted MZI (RAMZI) all-pass ring coupled onto Arm 1

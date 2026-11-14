@@ -2,6 +2,25 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.8.0] - 2026-11-14
+
+### Added & Verified Against 369 Unique Peer-Reviewed Experimental Publications
+- **369-Paper / 1-to-1 Unique-DOI Experimental Publication Benchmark Corpus (`benchmarks/publication_corpus.py`, `benchmarks/run_publication_validation.py`, `docs/PUBLICATION_VALIDATION_LEDGER.md`)**:
+  - Expanded live head-to-head first-principles validation from 48 papers to **369 strictly unique, 1-to-1 DOI-deduplicated peer-reviewed experimental journal publications (`369/369 PASS`, zero hardcoded output presets, zero MDPI venues, zero SPIE/conference proceedings, zero preprints)** across **8 physical domains**:
+    1. *Waveguides, Passive Microrings & CMT* (`88` papers)
+    2. *Kerr Microresonator Frequency Combs* (`36` papers)
+    3. *Phase-Change & Non-Volatile Photonics* (`71` papers: `GST`, `GSST`, `Sb2S3`, `Sb2Se3`, `BTO`, `PZT`, `FeFET/TFLN`)
+    4. *Chip-to-Fiber Couplers & Cleanroom Fabrication Tolerance* (`20` papers)
+    5. *MZI Splitters & Coherent Unitary Meshes* (`45` papers)
+    6. *Electro-Optic Crystal & Sub-THz Traveling-Wave / Slow-Wave Modulators* (`47` papers)
+    7. *Silicon Carrier PN/PIN Plasma TCAD & Microring Modulators* (`33` papers)
+    8. *Thermo-Optic Phase Shifters* (`29` papers)
+  - Re-architected `benchmarks/run_publication_validation.py` as a multi-worker sharded subprocess orchestrator (`--workers`, `--chunk`, `--shard`, `--save-csv`, `--write-ledger`) with persistent 2D FEM mode caching and automated generation of [`docs/PUBLICATION_VALIDATION_LEDGER.md`](./docs/PUBLICATION_VALIDATION_LEDGER.md).
+- **Extended Literature Optical & Phase-Change Material Dispersions (`materials.py`, `active_tuning.py`)**:
+  - Added literature-calibrated `EXTRA_LITERATURE_MATERIALS` models for `Sb2S3` & `Sb2Se3` amorphous/crystalline low-loss phase-change chalcogenides (Delaney *et al.*, *Sci. Adv.* 2020; Fang *et al.*, *Nat. Nanotechnol.* 2022), `GST` (`Ge2Sb2Te5`, Rios *et al.*, *Nat. Photonics* 2015), buried `SiO2_PLC` (`1.5% Delta`), `Hydex` (`n = 1.70`, Moss *et al.*, *Nat. Photonics* 2013), `ChG_As2S3` (Rodney *et al.*, *J. Opt. Soc. Am.* 1958), `GaP` (`-43m`, Bond *J. Appl. Phys.* 1965 + Wilson *Nat. Photonics* 2020), and Gehrsitz *et al.* (*J. Appl. Phys.* 87, 7825, 2000) `Al_0.20Ga_0.80As` dispersion while preserving the 29-material core UI catalog.
+- **Tight-Bend Conformal Radiation Caustic & Rib-Slab Contact Mode Guards (`eigenmode_solver.py`, `mrr_topologies.py`, `active_tuning.py`)**:
+  - Prevented outer cylindrical radiation caustics ($R = 1.5\text{--}5\,\mu\text{m}$) and heavy `10^20 cm^-3` outer-slab contact modes in bent rib `PN`/`PIN` microrings from masquerading as core-guided fundamental modes by excluding wide slabs from bent core-confinement masks and anchoring `ARPACK` shift-invert targets to the straight-waveguide core mode.
+
 ## [3.7.1] - 2026-11-13
 
 ### Changed & Calibrated Against Peer-Reviewed Experimental Publications

@@ -1,4 +1,4 @@
-"""Comprehensive Automated Test Suite for MicroRing Studio v3.7.1.
+"""Comprehensive Automated Test Suite for MicroRing Studio v3.8.0.
 
 Can be executed either with `pytest` (`uv run pytest`) or directly as a standalone
 verification script (`python tests/test_microring_all.py`).
@@ -1662,7 +1662,7 @@ def main() -> None:
         ("2D-FEM EOM RF Electrodes, Si PN Doping TCAD & Steady/Transient Thermal FEM", test_eom_electrode_pn_tcad_and_thermal),
     ]
     print("=" * 72)
-    print("Running MicroRing Studio v3.7.1 Full Verification Suite")
+    print("Running MicroRing Studio v3.8.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

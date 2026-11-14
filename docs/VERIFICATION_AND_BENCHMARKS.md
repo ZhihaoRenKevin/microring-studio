@@ -129,15 +129,26 @@ python examples/01_devices_and_sweeps/08_eom_rf_electrode_pn_tcad_and_thermal.py
 
 ---
 
-## 7. Head-to-Head Validation Against 48 Peer-Reviewed Experimental Publications (50 Cases, `v3.7.1`)
+## 7. Live First-Principles Validation Against 369 Unique Peer-Reviewed Experimental Publications (`v3.8.0`)
 
 Reproducible locally with zero commercial solver licenses via:
 
 ```bash
-python benchmarks/run_publication_validation.py --save-csv
+python benchmarks/run_publication_validation.py --workers 3 --chunk 6 --save-csv --write-ledger
 ```
 
-Every metric across all **50 hardware benchmarks (`50/50 PASS`)** is solved organically from the published cross-sectional device geometry and literature-cited material tensors across all **7 native physical solver engines** (`2D Conformal Bent Vector Maxwell FEM`, `Spatial Cylindrical CMT + CW/CCW Split-Doublet Fitter`, `2D-FEM Butt/Edge & 2D-FDFD Grating Couplers`, `Twin-Core Supermode & Multi-Mode EME MZI Splitters`, `3D Crystal-Tensor EO Wafer Orientation + 2D Quasi-TEM CPW Laplace FEM + ABCD Bloch-Floquet 300+ GHz T-Rail + Detuned MRM`, `2D Nonlinear Poisson-Boltzmann PN/PIN TCAD`, and `2D Steady/Harmonic/Crank-Nicolson Thermal FEM`) from `532 nm` Visible to `4200 nm` Mid-IR, with zero hardcoded output presets and strictly Tier 1–4 peer-reviewed journals.
+- **Full 369-Paper Ledger**: [**`docs/PUBLICATION_VALIDATION_LEDGER.md`**](./PUBLICATION_VALIDATION_LEDGER.md) (`Pub-001` .. `Pub-369`, `369/369 PASS`, `100%` 1-to-1 unique DOIs, zero MDPI venues, zero SPIE/conference proceedings, zero preprints, zero hardcoded output presets).
+- **8-Domain Coverage (`369` Unique Journal DOIs)**:
+  1. *I. Waveguides, Passive Microrings & CMT* (`88` papers)
+  2. *II. Kerr Microresonator Frequency Combs* (`36` papers)
+  3. *III. Phase-Change & Non-Volatile Photonics* (`71` papers: `GST`, `GSST`, `Sb2S3`, `Sb2Se3`, `BTO`, `PZT`, `FeFET/TFLN`)
+  4. *IV. Chip-to-Fiber Couplers & Cleanroom Fabrication Tolerance* (`20` papers)
+  5. *V. MZI Splitters & Unitary Meshes* (`45` papers)
+  6. *VI. Electro-Optic Crystal & Sub-THz Modulators* (`47` papers)
+  7. *VII. Silicon Carrier PN/PIN Plasma TCAD* (`33` papers)
+  8. *VIII. Thermo-Optic Phase Shifters* (`29` papers)
+
+Every metric is solved organically from the published cross-sectional device geometry and literature-cited material tensors across all **7 native physical solver engines** (`2D Conformal Bent Vector Maxwell FEM`, `Spatial Cylindrical CMT + CW/CCW Split-Doublet Fitter`, `2D-FEM Butt/Edge & 2D-FDFD Grating Couplers`, `Twin-Core Supermode & Multi-Mode EME MZI Splitters`, `3D Crystal-Tensor EO Wafer Orientation + 2D Quasi-TEM CPW Laplace FEM + ABCD Bloch-Floquet 300+ GHz T-Rail + Detuned MRM`, `2D Nonlinear Poisson-Boltzmann PN/PIN TCAD`, and `2D Steady/Harmonic/Crank-Nicolson Thermal FEM`) from `450 nm` Visible to `4200 nm` Mid-IR. Representative anchor cases are summarized below; see [**`PUBLICATION_VALIDATION_LEDGER.md`**](./PUBLICATION_VALIDATION_LEDGER.md) for the complete 369-entry table.
 
 ### Domain I: Waveguides, Passive Microrings, Pulley Couplers, PCM & CMT Fitter (`Pub-01` .. `Pub-12`)
 

@@ -367,12 +367,13 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
         """Damped Newton-Raphson solver for 2D Nonlinear Poisson-Boltzmann PDE + Gauss-Law terminal charge."""
         # Keep p-contact at reference 0 V and apply reverse bias V_bias <= 0 by raising n-side quasi-Fermi phi_Fn = -V_bias
-        v_clamped = min(float(v_bias_v), 0.55)
+        v_fwd_lim = 1.05 if cfg.junction_type == "pin_diode" else 0.55
+        v_clamped = min(float(v_bias_v), v_fwd_lim)
         phi_fp = 0.0
         phi_fn = -v_clamped
 
         # Smooth warm-start across both Si and cladding so heavy 1e20 N++ wing starts near charge neutrality
-        dv_shift = -(v_clamped - min(float(v_init_v), 0.55))
+        dv_shift = -(v_clamped - min(float(v_init_v), v_fwd_lim))
         n_side_w = 0.5 * (1.0 + np.tanh((px_um - xj) / 0.08))
         psi = psi_init + dv_shift * n_side_w
         psi[p_cont_nodes] = phi_fp + vt * np.arcsinh(net_doping_m3[p_cont_nodes] / (2.0 * ni_m3))

@@ -120,16 +120,32 @@ THERMAL_CONDUCTIVITY_W_MK: dict[str, float] = {
     "Diamond": 2000.0,
     "GSST_amorphous": 0.45,
     "GSST_crystalline": 1.20,
+    "GST_amorphous": 0.25,
+    "GST_crystalline": 1.15,
+    "Sb2Se3_amorphous": 0.36,
+    "Sb2Se3_crystalline": 0.98,
+    "Sb2S3_amorphous": 0.45,
+    "Sb2S3_crystalline": 1.16,
+    "Hydex": 1.50,
+    "AlGaAs": 12.0,
+    "GaP": 110.0,
+    "ChG_As2S3": 0.24,
+    "SiO2_PLC": 1.40,
     "Air": 0.026,
 }
 
 # Volumetric heat capacity rho * C_p [J/(m^3*K)] for thermal time-constant estimation
 VOLUMETRIC_HEAT_CAPACITY_J_M3K: dict[str, float] = {
     "SiO2": 1.63e6,
+    "SiO2_PLC": 1.65e6,
+    "Hydex": 1.72e6,
     "Si": 1.63e6,
     "Si3N4": 2.20e6,
     "AlN": 2.40e6,
     "4H-SiC": 2.21e6,
+    "AlGaAs": 1.78e6,
+    "GaP": 1.80e6,
+    "ChG_As2S3": 1.45e6,
     "LN_Xcut": 2.91e6,
     "LN_Zcut": 2.91e6,
     "LT_Xcut": 3.17e6,
@@ -162,6 +178,9 @@ STATIC_PERMITTIVITY_DC: dict[str, tuple[float, float]] = {
     "BTO_ccut": (420.0, 85.0),
     "PZT": (320.0, 380.0),
     "SiO2": (3.9, 3.9),
+    "SiO2_PLC": (4.0, 4.0),
+    "Hydex": (4.5, 4.5),
+    "AlGaAs": (12.2, 12.2),
     "CaF2": (6.8, 6.8),
     "MgF2": (5.3, 5.3),
     "Al2O3": (9.4, 9.4),
@@ -171,6 +190,12 @@ STATIC_PERMITTIVITY_DC: dict[str, tuple[float, float]] = {
     "Diamond": (5.7, 5.7),
     "GSST_amorphous": (14.0, 14.0),
     "GSST_crystalline": (28.0, 28.0),
+    "GST_amorphous": (16.5, 16.5),
+    "GST_crystalline": (36.0, 36.0),
+    "Sb2Se3_amorphous": (14.5, 14.5),
+    "Sb2Se3_crystalline": (22.0, 22.0),
+    "Sb2S3_amorphous": (11.5, 11.5),
+    "Sb2S3_crystalline": (17.5, 17.5),
     "Air": (1.0, 1.0),
 }
 
@@ -523,19 +548,20 @@ def solve_2d_electrostatic_eo_fem(
         v_buf = max(float(electrode_voffset_um), 0.25)
         y_el0 = y_core_top + v_buf
         y_el1 = y_el0 + t_elec
-        d_bot = min(h_box, 0.65)
+        d_bot = max(h_box, 0.35) if h_box >= 1.0 else min(h_box, 0.65)
+        y_bot_dom = -max(h_box, d_bot + 0.30)
         g_eff = y_el0 + d_bot
         y_ox_top = max(float(top_clad_thickness_um), y_el1 + 0.35)
         y_dom_top = y_ox_top + 1.5
         x_dom = max(10.0, 0.5 * w_elec + 5.0, 0.5 * cfg.ring_width_um + 5.0)
         # Put +1 V on bottom electrode and 0 V on top electrode so +V gives upward +E_y > 0
-        sig_poly = box(-0.5 * max(w_elec * 1.5, cfg.ring_width_um + 2.0), -h_box, 0.5 * max(w_elec * 1.5, cfg.ring_width_um + 2.0), -d_bot)
+        sig_poly = box(-0.5 * max(w_elec * 1.5, cfg.ring_width_um + 2.0), y_bot_dom, 0.5 * max(w_elec * 1.5, cfg.ring_width_um + 2.0), -d_bot)
         gnd_poly = box(-0.5 * w_elec, y_el0, 0.5 * w_elec, y_el1)
         x_knots = [
             -x_dom, -0.5 * w_elec, -0.5 * cfg.ring_width_um, -0.5 * w_top,
             0.0, 0.5 * w_top, 0.5 * cfg.ring_width_um, 0.5 * w_elec, x_dom,
         ]
-        y_knots = [-h_box, -d_bot, 0.0, y_core_top, y_el0, y_el1, y_ox_top, y_dom_top]
+        y_knots = [y_bot_dom, -d_bot, 0.0, y_core_top, y_el0, y_el1, y_ox_top, y_dom_top]
 
     if cfg.slab_height_um > 1e-6:
         y_knots.append(cfg.slab_height_um)
@@ -1272,6 +1298,8 @@ def run_active_tuning_analysis(
         bend_radius_m=bend_r_m,
         polarization=work_cfg.polarization,
         core_mesh_res_um=mesh_res_um,
+        n_guess=neff_0_rt,
+        num_modes=6 if math.isfinite(bend_r_m) else 4,
     )
 
     neff_intrinsic_fem = float(fem_rows[0]["neff_real"])

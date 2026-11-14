@@ -42,6 +42,7 @@ from .hardware_accel import accelerated_tmm_spectrum, detect_hardware_profile
 from .materials import (
     C0_M_PER_S,
     EPS0_F_PER_M,
+    EXTRA_LITERATURE_MATERIALS,
     MATERIAL_CATALOG,
     T_REF_K,
     check_wavelength_compatibility,
@@ -124,6 +125,7 @@ class MRRDesignConfig:
     cap_h_um: float = 0.0
     cap_w_um: float | None = None
     cap_material: str | None = None
+    cap_length_um: float | None = None      # optional localized PCM/active patch length along ring (None = full ring)
     # Resonator & coupler layout parameters
     ring_radius_um: float = 40.0            # unit: um (R1)
     ring2_radius_um: float = 42.5           # unit: um (R2, used for vernier_crow_ad)
@@ -153,9 +155,11 @@ def _select_target_polarization(modes: list[EigenmodeResult], pol: str) -> Eigen
     candidates = [m for m in modes if (m.te_fraction >= 0.5) == want_te]
     if not candidates:
         return modes[0]
+    confined = [m for m in candidates if m.core_confinement >= 0.20]
+    base_pool = confined if confined else candidates
     # Prefer fundamental (0 interior nodes) with highest Re(n_eff)
-    fund = [m for m in candidates if m.ex_core_nodes == 0]
-    pool = fund if fund else candidates
+    fund = [m for m in base_pool if m.ex_core_nodes == 0]
+    pool = fund if fund else base_pool
     return max(pool, key=lambda m: float(np.real(m.n_eff)))
 
 
@@ -191,6 +195,16 @@ def _mode_cache_key(
     c_val = spec.core_material_fn(wavelength_m, spec.temperature_k) if spec.core_material_fn else None
     cl_val = spec.clad_material_fn(wavelength_m, spec.temperature_k) if spec.clad_material_fn else None
     tp_val = spec.top_clad_material_fn(wavelength_m, spec.temperature_k) if spec.top_clad_material_fn else cl_val
+    up_val = (
+        spec.upper_core_material_fn(wavelength_m, spec.temperature_k)
+        if spec.upper_core_h_um > 0 and spec.upper_core_material_fn is not None
+        else None
+    )
+    cp_val = (
+        spec.cap_material_fn(wavelength_m, spec.temperature_k)
+        if spec.cap_h_um > 0 and spec.cap_material_fn is not None
+        else None
+    )
     payload = {
         "v": "microring_v3_fem1",
         "geom": [
@@ -215,6 +229,20 @@ def _mode_cache_key(
         "res_um": round(core_mesh_res_um, 5),
         "grid": bool(export_grid),
     }
+    if up_val is not None or spec.upper_w_bottom_um is not None:
+        payload["n_upper"] = (
+            [round(up_val.nx, 7), round(up_val.ny, 7), round(up_val.nz, 7), round(up_val.kx, 8)] if up_val else None
+        )
+        payload["upper_w_um"] = round(spec.upper_w_bottom_um, 6) if spec.upper_w_bottom_um is not None else None
+    if cp_val is not None or spec.cap_w_um is not None:
+        payload["n_cap"] = (
+            [round(cp_val.nx, 7), round(cp_val.ny, 7), round(cp_val.nz, 7), round(cp_val.kx, 8)] if cp_val else None
+        )
+        payload["cap_w_um"] = round(spec.cap_w_um, 6) if spec.cap_w_um is not None else None
+    if spec.twin_core_gap_um > 0.0:
+        payload["twin_gap_um"] = round(spec.twin_core_gap_um, 6)
+    if math.isfinite(bend_radius_m) and (bend_radius_m < 8e-6 or spec.h_slab_um > 0.0):
+        payload["caustic_guard_v"] = 2
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:24]
 
 
@@ -240,6 +268,13 @@ def _solve_single_mode(
             pass
 
     n_modes = 4
+    n_guess_bent: float | None = None
+    if solver_backend != "fde" and math.isfinite(bend_radius_m) and (bend_radius_m < 8e-6 or spec.h_slab_um > 0.0):
+        straight_ref = _solve_single_mode(
+            spec, wavelength_m, math.inf, pol, solver_backend, core_mesh_res_um, export_grid=False
+        )
+        n_guess_bent = float(np.real(straight_ref.n_eff)) * 1.01
+        n_modes = 6
     wl_scale_grid = float(np.clip((wavelength_m * 1e9) / 1550.0, 0.65, 2.80))
     grid_step_um = 0.025 if abs(wl_scale_grid - 1.0) < 0.05 else round(max(0.016, 0.025 * wl_scale_grid), 4)
     if solver_backend == "fde":
@@ -256,6 +291,7 @@ def _solve_single_mode(
             wavelength_m,
             bend_radius_m=bend_radius_m,
             num_modes=n_modes,
+            n_guess=n_guess_bent,
             core_mesh_res_um=core_mesh_res_um,
             clad_mesh_res_um=max(core_mesh_res_um * 5.0, 0.14 * wl_scale_grid),
             eval_grid_step_um=grid_step_um,
@@ -527,7 +563,11 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
     alpha_db_cm = (
         float(cfg.alpha_loss_db_per_cm)
         if cfg.alpha_loss_db_per_cm is not None
-        else float(MATERIAL_CATALOG.get(cfg.core_material, {}).get("typical_loss_db_cm", 1.0))
+        else float(
+            MATERIAL_CATALOG.get(cfg.core_material, EXTRA_LITERATURE_MATERIALS.get(cfg.core_material, {})).get(
+                "typical_loss_db_cm", 1.0
+            )
+        )
     )
 
     # Wavelength-adaptive domain box & mesh resolution across Visible (400 nm) -> O/C -> Mid-IR (12 um)
@@ -542,6 +582,9 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             else float(cfg.core_mesh_res_um)
         )
     )
+    min_core_dim_um = min(float(cfg.ring_width_um), float(cfg.film_height_um))
+    if min_core_dim_um > 1.8 and abs(cfg.core_mesh_res_um - 0.045) < 1e-6:
+        eff_mesh_um = max(eff_mesh_um, round(0.065 * min_core_dim_um, 4))
     uhq_gap_floor = round(2.20 * wl_scale, 3) if alpha_db_cm < 0.08 else 0.0
     box_pad_um = 2.5 if abs(wl_scale - 1.0) < 0.05 else round(max(1.8, 1.35 * wl_um), 3)
     max_gap_um = max(cfg.gap_thru_um, cfg.gap_drop_um, cfg.inter_ring_gap_um, round(0.72 * wl_um, 3), 0.70, uhq_gap_floor)
@@ -558,6 +601,13 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
         cfg.core_material, cfg.clad_material, cfg.top_clad_material, cfg.wavelength_nm
     )
 
+    has_partial_cap = (
+        cfg.cap_h_um > 0.0
+        and cap_fn is not None
+        and cfg.cap_length_um is not None
+        and float(cfg.cap_length_um) > 0.0
+    )
+
     ring_spec = WaveguideCrossSectionSpec(
         w_bottom_um=cfg.ring_width_um,
         h_film_um=cfg.film_height_um,
@@ -569,9 +619,9 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
         interlayer_h_um=cfg.interlayer_h_um,
         upper_core_h_um=cfg.upper_core_h_um,
         upper_core_material_fn=up_fn,
-        cap_h_um=cfg.cap_h_um,
-        cap_w_um=cfg.cap_w_um,
-        cap_material_fn=cap_fn,
+        cap_h_um=0.0 if has_partial_cap else cfg.cap_h_um,
+        cap_w_um=None if has_partial_cap else cfg.cap_w_um,
+        cap_material_fn=None if has_partial_cap else cap_fn,
         x_min_um=x_min_ring_um,
         x_max_um=x_max_ring_um,
         h_box_um=box_pad_um,
@@ -664,6 +714,58 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
     k_clad_bulk = (1.0 - ring_bent_mode.core_confinement) * 0.5 * (max(mat_clad_val.kx, 0.0) + max(mat_top_val.kx, 0.0))
     k_eff_mat = max(neff_imag_modal, k_core_bulk + k_clad_bulk)
     alpha_power_per_m = alpha_db_cm * 100.0 * (math.log(10.0) / 10.0) + (4.0 * math.pi * k_eff_mat / wl_m)
+
+    cap_patch_summary: dict | None = None
+    if has_partial_cap:
+        l_cap_um = min(max(float(cfg.cap_length_um), 0.0), l_rt_um)
+        duty_cap = l_cap_um / max(l_rt_um, 1e-9)
+        cap_ring_spec = WaveguideCrossSectionSpec(
+            w_bottom_um=cfg.ring_width_um,
+            h_film_um=cfg.film_height_um,
+            h_slab_um=cfg.slab_height_um,
+            sidewall_deg=cfg.sidewall_deg,
+            core_material_fn=core_fn,
+            clad_material_fn=clad_fn,
+            top_clad_material_fn=top_fn,
+            interlayer_h_um=cfg.interlayer_h_um,
+            upper_core_h_um=cfg.upper_core_h_um,
+            upper_core_material_fn=up_fn,
+            cap_h_um=cfg.cap_h_um,
+            cap_w_um=cfg.cap_w_um,
+            cap_material_fn=cap_fn,
+            domain_width_um=max(5.2, cfg.ring_width_um + 3.6 * wl_scale),
+            h_box_um=box_pad_um,
+            h_top_clad_um=box_pad_um,
+            temperature_k=T_REF_K,
+        )
+        r_cap_m = math.inf if cfg.topology.startswith("racetrack") else r1_m
+        cap_mode = _solve_single_mode(
+            cap_ring_spec, wl_m, r_cap_m, cfg.polarization, cfg.solver_backend, eff_mesh_um, export_grid=False
+        )
+        neff_cap_real = float(np.real(cap_mode.n_eff))
+        neff_cap_imag = float(abs(np.imag(cap_mode.n_eff)))
+        ng_cap = _compute_group_index_fast(
+            cap_ring_spec, wl_m, r_cap_m, cfg.polarization, cfg.solver_backend, eff_mesh_um, neff_cap_real
+        )
+        ref_bare_neff = float(np.real(ring_straight_mode.n_eff)) if cfg.topology.startswith("racetrack") else neff_bent
+        neff_rt = neff_rt + duty_cap * (neff_cap_real - ref_bare_neff)
+        ng_rt = (1.0 - duty_cap) * ng_rt + duty_cap * ng_cap
+        alpha_cap_excess_per_m = 4.0 * math.pi * max(neff_cap_imag - neff_imag_modal, 0.0) / wl_m
+        alpha_power_per_m = alpha_power_per_m + duty_cap * alpha_cap_excess_per_m
+        loss_db_per_um = (4.0 * math.pi * neff_cap_imag / wl_m) * 1e-6 * (10.0 / math.log(10.0))
+        cap_patch_summary = {
+            "cap_material": cfg.cap_material,
+            "cap_h_um": cfg.cap_h_um,
+            "cap_w_um": cfg.cap_w_um if cfg.cap_w_um is not None else cfg.ring_width_um,
+            "cap_length_um": round(l_cap_um, 4),
+            "duty_fraction": round(duty_cap, 6),
+            "n_eff_cap_real": round(neff_cap_real, 6),
+            "n_eff_cap_imag": round(neff_cap_imag, 7),
+            "delta_neff_vs_bare": round(neff_cap_real - ref_bare_neff, 6),
+            "modal_loss_db_per_um": round(loss_db_per_um, 5),
+            "patch_insertion_loss_db": round(loss_db_per_um * l_cap_um, 4),
+        }
+
     a_rt = math.exp(-0.5 * alpha_power_per_m * (l_rt_um * 1e-6))
     kp_intrinsic_loss = 1.0 - (a_rt ** 2)
     q_int = (2.0 * math.pi * ng_rt) / max(alpha_power_per_m * wl_m, 1e-18)
@@ -1123,6 +1225,7 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             "log10_Q_ext": np.round(np.log10(np.maximum(np.asarray(coupler_sweep["Q_ext"], dtype=float), 1.0)), 4).tolist(),
         },
         "vernier": vernier_summary,
+        "cap_patch": cap_patch_summary,
         "tuning": tuning_info,
         "wavelength_warnings": wavelength_warnings,
         "coupler_sweep": coupler_sweep,

@@ -37,3 +37,4 @@
 - [Codex & Claude Integration Guide](./tutorials/ai_agents_codex_claude.md)
 - [Chatbot & Bidirectional GDS Guide](./tutorials/chatbot_and_gds_guide.md)
 - [Cross-Solver Verification & Lumerical Benchmarks](./VERIFICATION_AND_BENCHMARKS.md)
+- [369-Paper Experimental Publication Validation Ledger](./PUBLICATION_VALIDATION_LEDGER.md)

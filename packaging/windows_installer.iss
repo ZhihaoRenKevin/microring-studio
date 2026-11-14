@@ -3,10 +3,10 @@
 ; and optional Desktop shortcuts, and provides standard Windows Add/Remove Programs uninstall.
 
 #ifndef MyAppVersion
-  #define MyAppVersion "3.7.1"
+  #define MyAppVersion "3.8.0"
 #endif
 #ifndef OutputBaseFilename
-  #define OutputBaseFilename "MicroRing-Studio-v3.7.1-Windows-Setup-x64"
+  #define OutputBaseFilename "MicroRing-Studio-v3.8.0-Windows-Setup-x64"
 #endif
 
 [Setup]
