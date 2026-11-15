@@ -109,6 +109,86 @@ def export_sweep_array_gds(
     return str(out.resolve())
 
 
+def export_mrr_gds_with_pdk(
+    cfg: MRRDesignConfig,
+    output_path: str | Path,
+    *,
+    pdk: str | dict = "gsip_soi220",
+    conformal_rib_slab: bool = True,
+    run_drc: bool = True,
+) -> dict:
+    """Export any MRR topology mapped onto a Foundry PDK layer table with rib-slab wedge fillets & `.lyrdb` DRC."""
+    from .foundry_pdk import (
+        _iter_polygons,
+        apply_rib_slab_wedge_fillets,
+        get_foundry_pdk,
+        run_gds_polygon_drc,
+        write_pdk_klayout_lyp,
+    )
+    from .mrr_topologies import build_mrr_gds_library
+
+    pdk_dict = get_foundry_pdk(pdk) if isinstance(pdk, str) else pdk
+    lyrs = pdk_dict["layers"]
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    # Build canonical geometry on generic layers, then remap to target PDK + conformal filleted rib slab
+    base_lib = build_mrr_gds_library(replace(cfg, slab_height_um=0.0))
+    src_cell = base_lib.top_level()[0]
+    src_cell.flatten()
+
+    lib = gdstk.Library(unit=1e-6, precision=1e-9)
+    cell = lib.new_cell(src_cell.name)
+
+    generic_to_role = {1: "core", 2: "slab", 10: "heater", 11: "electrode", 12: "via", 13: "metal2", 65: "pin", 66: "label"}
+    core_shapely: list[Polygon] = []
+
+    for poly in src_cell.polygons:
+        role = generic_to_role.get(int(poly.layer), "core")
+        if role in lyrs:
+            t_lyr, t_dt, _c, _d = lyrs[role]
+            cell.add(gdstk.Polygon(poly.points, layer=t_lyr, datatype=t_dt))
+        if role == "core":
+            sp = Polygon(poly.points)
+            if not sp.is_valid:
+                sp = sp.buffer(0.0)
+            core_shapely.extend(_iter_polygons(sp))
+
+    if cfg.slab_height_um > 0.0 and "slab" in lyrs and core_shapely:
+        t_lyr, t_dt, _c, _d = lyrs["slab"]
+        if conformal_rib_slab:
+            raw_slabs = [cp.buffer(2.20, quad_segs=48) for cp in core_shapely]
+            filleted = apply_rib_slab_wedge_fillets(raw_slabs, fillet_radius_um=0.40)
+            for pg in filleted:
+                if len(pg.interiors) == 0:
+                    cell.add(gdstk.Polygon(np.asarray(pg.exterior.coords[:-1], dtype=float), layer=t_lyr, datatype=t_dt))
+                else:
+                    cy_c = float(pg.centroid.y)
+                    b = pg.bounds
+                    for hb in (shapely.box(b[0] - 1, b[1] - 1, b[2] + 1, cy_c), shapely.box(b[0] - 1, cy_c, b[2] + 1, b[3] + 1)):
+                        for sub_pg in _iter_polygons(pg.intersection(hb)):
+                            cell.add(gdstk.Polygon(np.asarray(sub_pg.exterior.coords[:-1], dtype=float), layer=t_lyr, datatype=t_dt))
+        else:
+            b = unary_union(core_shapely).bounds
+            cell.add(gdstk.rectangle((b[0] - 4.0, b[1] - 4.0), (b[2] + 4.0, b[3] + 4.0), layer=t_lyr, datatype=t_dt))
+
+    l_lbl, dt_lbl, _c, _d = lyrs.get("label", (66, 0, "#ffffff", "Label"))
+    for lbl in src_cell.labels:
+        cell.add(gdstk.Label(lbl.text, lbl.origin, layer=l_lbl, texttype=dt_lbl))
+
+    lib.write_gds(str(out))
+    lyp_file = write_pdk_klayout_lyp(pdk_dict, out.with_suffix(".lyp"))
+    res = {
+        "gds_path": str(out.resolve()),
+        "lyp_path": lyp_file,
+        "pdk_name": pdk_dict["name_en"],
+        "cell_name": cell.name,
+    }
+    if run_drc:
+        res["drc"] = run_gds_polygon_drc(out, pdk_dict, cell_name=cell.name)
+    return res
+
+
 def _measure_local_bus_width(bus_poly: Polygon, near_pt: Point) -> float:
     """Estimate waveguide width of `bus_poly` near coupling point `near_pt` [um]."""
     # Cast short orthogonal chords at 0 deg and 90 deg and take the narrower waveguide cross-width

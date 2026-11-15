@@ -2,6 +2,26 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.9.0] - 2026-11-15
+
+### Added (100% Native Python Solvers, Zero Commercial Solver Dependency)
+- **Switchable Provenance-Tagged Foundry PDK Profiles, Headless Polygon DRC (`.lyrdb`), 3D Multi-Metal Union-Find LVS & Native GDS Cutline 2D-FEM (`foundry_pdk.py`, `gds_bridge.py`)**:
+  - Added 6 provenance-tagged foundry PDK profiles (`gsip_soi220`, `cornerstone_soi220`, `siepic_ebeam_soi220`, `tfln_xcut_600`, `scaln_soi_bilayer`, `microring_generic`) with NDA-safe CSV export/import (`export_pdk_csv_tables`, `load_pdk_from_csv_dir`) and KLayout `.lyp` generation.
+  - Added pure-Python headless morphological polygon DRC (`run_gds_polygon_drc` + `write_klayout_lyrdb`) checking `MIN_WIDTH`, `MIN_SPACE`, concave acute air notches, `MIN_ENCLOSURE`, `COPLANAR_CLEARANCE`, `FORBIDDEN_OVERLAP`, and `OPTICAL_KEEPOUT` via `gdstk` + `shapely`, plus `apply_rib_slab_wedge_fillets` eliminating acute sub-DRC cusps at ring-to-bus rib-slab junctions.
+  - Added 3D Union-Find multi-metal electrical connectivity LVS (`extract_3d_electrical_lvs`) across `p_contact`/`n_contact`/`heater`/`electrode`/`metal2`/`metal3` and `viac`/`via`/`via2`, catching floating vias, `SIG`/`GND`/`HEATER` shorts, metal-only heater bypasses, and open PN junctions.
+  - Added Co-Integrated Dual-Drive `PN + TiN Heater` Ring Modulator layout builder (`build_pn_heater_ring_modulator_gds`: `G1, S, G2` North + `H1, H2` South pads) and Native Own-Solver GDS Cutline Layer Builder (`solve_gds_cutline_multiphysics`: 10-point vertical refractive-index probe + 2D Vector Maxwell FEM + 2D Poisson-Boltzmann PN TCAD + 2D Thermal FEM directly from `.gds` polygons without Lumerical `addlayerbuilder`).
+- **Co-Integrated PN Contact Parasitic Heat-Sinking & Galerkin Boundary Thermal Flux Conservation (`multiphysics_tcad.py`)**:
+  - Extended `simulate_thermal_phase_shifter` with parasitic `W-VIAC` / `M1` PN electrode heat-stealing (`include_pn_contact_sinking`, `pn_contact_heat_stealing_pct`) and explicit Galerkin boundary flux conservation verification (`flux_balance_ratio`, `power_conservation_error_pct`), plus `simulate_cointegrated_pn_heater_ring`.
+- **`PRISM`-Style Physics Closure Gates & Prediction-Gated Closed-Loop Real-2D-FEM Optimizer (`prism_optimizer.py`)**:
+  - Added `audit_mrr_and_pn_physics_closure` verifying cavity $Q$-budget closure ($1/Q_L = \sum_i 1/Q_i$ vs full-spectrum TMM FWHM $Q_L$), broadband unitary passivity ($0 \le T_{\mathrm{thru}} + T_{\mathrm{drop}} \le 1$), and core-vs-slab carrier perturbation additivity.
+  - Added `run_prism_closed_loop_optimizer` (`pn_ring_modulator`, `high_er_pulley_mrr`, `low_vpil_eom`) coupling an online regularized quadratic Bayesian surrogate with pre-simulation prediction locking, `>2*sigma` understanding-gate recalibrations, standardized scaling laws, and auditable `prism_journal_<problem>.jsonl` logs using real 2D-FEM solvers.
+- **Multi-Channel Microring WDM Optical Link, `NRZ`/`PAM4` Eye-Diagram, PRBS BER & PI Heater Relocking (`wdm_link.py`)**:
+  - Added `simulate_wdm_microring_link` evaluating 4/8-channel `NRZ` and `PAM4` PRBS waveforms driven by 2D-FEM ring modulator compact metrics across 5 physical scenarios (`nominal`, `thermal_drift`, `heater_relocked`, `dense_crosstalk`, `low_laser_power`), extracting 2-UI folded eye diagrams, OMA, Q-factor, BER, closed-loop PI `TiN` heater wavelength-locking trajectories, and complete `pJ/bit` link energy budgets.
+- **Multi-Parameter Foundry Process Corners (`fab_tolerance.py`)**:
+  - Added `run_foundry_process_corners` (`Nominal / SS / FF / SF / FS` + correlated Gaussian wafer Monte-Carlo yield envelopes across simultaneous $\Delta W$, anti-correlated coupler gap $-\eta\Delta W$, $\Delta H_{\mathrm{core}}$, $\Delta H_{\mathrm{slab}}$, sidewall angle, and PN doping).
+- **Stage 11 Workbench UI (`🏭 PDK · PRISM · WDM`), Bilingual Copilot, CLI & 15-Tool MCP Server**:
+  - Wired across Web/Desktop UI (`ui_frontend.py`, `app_server.py`), Bilingual Copilot (`copilot.py`), CLI (`microring agent pdk-drc | prism-optimize | wdm-link | fab-tolerance --corners`), MCP (`15` tools), and `17/17` automated verification suites (`tests/test_microring_all.py`).
+
 ## [3.8.0] - 2026-11-14
 
 ### Added & Verified Against 369 Unique Peer-Reviewed Experimental Publications

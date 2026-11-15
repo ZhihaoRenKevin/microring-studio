@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.8.0"
+__version__ = "3.9.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -22,8 +22,11 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_pdk_drc,
+    agent_prism_optimize,
     agent_status,
     agent_sweep_mrr,
+    agent_wdm_link,
     agent_width_cutoff,
 )
 from .eom_electrode import (
@@ -37,6 +40,20 @@ from .eom_electrode import (
     export_eom_electrode_gds,
     export_eom_rf_interconnect_bundle,
 )
+from .foundry_pdk import (
+    FOUNDRY_PDK_CATALOG,
+    DRCViolation,
+    apply_rib_slab_wedge_fillets,
+    build_pn_heater_ring_modulator_gds,
+    export_pdk_csv_tables,
+    extract_3d_electrical_lvs,
+    get_foundry_pdk,
+    load_pdk_from_csv_dir,
+    run_gds_polygon_drc,
+    solve_gds_cutline_multiphysics,
+    write_klayout_lyrdb,
+    write_pdk_klayout_lyp,
+)
 from .multiphysics_tcad import (
     PN_JUNCTION_CATALOG,
     THERMAL_STRUCTURE_CATALOG,
@@ -45,6 +62,7 @@ from .multiphysics_tcad import (
     export_pn_doping_gds,
     export_tcad_data_bundle,
     export_thermal_shifter_gds,
+    simulate_cointegrated_pn_heater_ring,
     simulate_pn_doping_tcad,
     simulate_thermal_phase_shifter,
 )
@@ -66,10 +84,12 @@ from .fab_tolerance import (
     RESIST_TONE_CATALOG,
     export_fab_bias_array_gds,
     run_fabrication_error_analysis,
+    run_foundry_process_corners,
 )
 from .gds_bridge import (
     MICRORING_LAYERS,
     analyze_uploaded_gds,
+    export_mrr_gds_with_pdk,
     export_sweep_array_gds,
     write_klayout_layer_props,
 )
@@ -116,20 +136,35 @@ from .mzi_interferometer import (
     export_mzi_interconnect_bundle,
     simulate_mzi,
 )
+from .prism_optimizer import (
+    PRISM_PROBLEM_CATALOG,
+    audit_mrr_and_pn_physics_closure,
+    run_prism_closed_loop_optimizer,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
+from .wdm_link import (
+    WDM_SCENARIO_CATALOG,
+    WDMLinkConfig,
+    simulate_wdm_microring_link,
+)
 
 __all__ = [
     "__version__",
+    "DRCViolation",
     "FIBER_LASER_CATALOG",
+    "FOUNDRY_PDK_CATALOG",
     "HEATER_METAL_CATALOG",
     "MATERIAL_CATALOG",
     "MICRORING_LAYERS",
     "MZI_SPLITTER_CATALOG",
+    "PRISM_PROBLEM_CATALOG",
     "RESIST_TONE_CATALOG",
     "TOPOLOGY_CATALOG",
     "TUNING_MECHANISM_CATALOG",
     "T_REF_K",
     "WAVEBAND_PRESETS",
+    "WDM_SCENARIO_CATALOG",
+    "WDMLinkConfig",
     "CMTFitSummary",
     "EigenmodeResult",
     "MRRDesignConfig",
@@ -150,20 +185,39 @@ __all__ = [
     "THERMAL_STRUCTURE_CATALOG",
     "ThermalSimConfig",
     "analyze_eo_wafer_orientation",
+    "apply_rib_slab_wedge_fillets",
+    "audit_mrr_and_pn_physics_closure",
+    "build_pn_heater_ring_modulator_gds",
     "design_eom_electrode",
     "export_eom_electrode_gds",
     "export_eom_rf_interconnect_bundle",
+    "export_mrr_gds_with_pdk",
+    "export_pdk_csv_tables",
     "export_pn_doping_gds",
     "export_tcad_data_bundle",
     "export_thermal_shifter_gds",
+    "extract_3d_electrical_lvs",
+    "get_foundry_pdk",
+    "load_pdk_from_csv_dir",
+    "run_foundry_process_corners",
+    "run_gds_polygon_drc",
+    "run_prism_closed_loop_optimizer",
+    "simulate_cointegrated_pn_heater_ring",
     "simulate_pn_doping_tcad",
     "simulate_thermal_phase_shifter",
+    "simulate_wdm_microring_link",
+    "solve_gds_cutline_multiphysics",
+    "write_klayout_lyrdb",
+    "write_pdk_klayout_lyp",
     "agent_fit_spectrum",
     "agent_high_q_fdtd",
     "agent_inspect_gds",
     "agent_io_coupler",
+    "agent_pdk_drc",
+    "agent_prism_optimize",
     "agent_status",
     "agent_sweep_mrr",
+    "agent_wdm_link",
     "agent_width_cutoff",
     "analyze_high_q_fdtd_convergence",
     "analyze_uploaded_gds",

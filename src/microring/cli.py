@@ -26,8 +26,11 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_pdk_drc,
+    agent_prism_optimize,
     agent_status,
     agent_sweep_mrr,
+    agent_wdm_link,
     agent_width_cutoff,
 )
 from .copilot import create_initial_session, process_chat_turn
@@ -138,6 +141,8 @@ def main() -> None:
     p_at.add_argument("--gap", type=float, default=None, dest="gap_um")
     p_at.add_argument("--wl", type=float, default=None, dest="wl_nm")
     p_at.add_argument("--cc", action="store_true", dest="apply_cc")
+    p_at.add_argument("--corners", action="store_true", dest="corners", help="Run Nominal/SS/FF/SF/FS foundry process corners + wafer Monte-Carlo")
+    p_at.add_argument("--pdk", type=str, default=None, dest="pdk", help="Foundry PDK profile key")
     p_at.add_argument("--bias-gds", action="store_true", dest="export_bias_gds")
     p_at.add_argument("--json", type=str, default=None, dest="raw_json")
 
@@ -250,9 +255,44 @@ def main() -> None:
     p_eom.add_argument("--na", type=float, default=None, dest="na_core_cm3")
     p_eom.add_argument("--nd", type=float, default=None, dest="nd_core_cm3")
     p_eom.add_argument("--pn-offset", type=float, default=None, dest="pn_offset_nm")
+    p_eom.add_argument("--pn-sink", action="store_true", dest="pn_sink", help="Include W-VIAC/M1 PN contact heat-sinking in 2D Thermal FEM")
     p_eom.add_argument("--gds", action="store_true", dest="export_gds")
     p_eom.add_argument("--bundle", action="store_true", dest="export_bundle")
     p_eom.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_pdk = ag_sub.add_parser("pdk-drc", help="Foundry PDK Polygon DRC (.lyrdb), 3D Union-Find LVS, PN+Heater Ring GDS, or Native Cutline 2D-FEM (<140 tokens)")
+    p_pdk.add_argument("--mode", type=str, default="build_pn_heater_ring", help="build_pn_heater_ring | verify_gds | cutline_solve | export_csv")
+    p_pdk.add_argument("--pdk", type=str, default="gsip_soi220", help="gsip_soi220 | cornerstone_soi220 | siepic_ebeam_soi220 | tfln_xcut_600 | scaln_soi_bilayer | microring_generic")
+    p_pdk.add_argument("--gds-path", type=str, default=None, dest="gds_path")
+    p_pdk.add_argument("--pdk-csv-dir", type=str, default=None, dest="pdk_csv_dir")
+    p_pdk.add_argument("--r", type=float, default=12.0, dest="r_um")
+    p_pdk.add_argument("--w-ring", type=float, default=0.45, dest="w_ring_um")
+    p_pdk.add_argument("--gap", type=float, default=0.20, dest="gap_um")
+    p_pdk.add_argument("--pn-offset", type=float, default=20.0, dest="pn_offset_nm")
+    p_pdk.add_argument("--wl", type=float, default=1550.0, dest="wl_nm")
+    p_pdk.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_pr = ag_sub.add_parser("prism-optimize", help="PRISM Physics Closure Gate or Prediction-Gated Closed-Loop Real-2D-FEM Optimizer (<140 tokens)")
+    p_pr.add_argument("--mode", type=str, default="optimize", help="optimize | closure_audit")
+    p_pr.add_argument("--problem", type=str, default="pn_ring_modulator", help="pn_ring_modulator | high_er_pulley_mrr | low_vpil_eom")
+    p_pr.add_argument("--iters", type=int, default=8, dest="max_iterations")
+    p_pr.add_argument("--seed", type=int, default=42)
+    p_pr.add_argument("--mat", type=str, default=None)
+    p_pr.add_argument("--r", type=float, default=None, dest="r_um")
+    p_pr.add_argument("--gap", type=float, default=None, dest="gap_um")
+    p_pr.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_wdm = ag_sub.add_parser("wdm-link", help="Multi-Channel Microring WDM Link, NRZ/PAM4 Eye Diagram & Thermal Locking (<140 tokens)")
+    p_wdm.add_argument("--scenario", type=str, default="nominal", help="nominal | thermal_drift | heater_relocked | dense_crosstalk | low_laser_power")
+    p_wdm.add_argument("--n-ch", type=int, default=4, dest="n_ch")
+    p_wdm.add_argument("--rate", type=float, default=25.0, dest="rate_gbps")
+    p_wdm.add_argument("--format", type=str, default="nrz", dest="format", help="nrz | pam4")
+    p_wdm.add_argument("--spacing", type=float, default=100.0, dest="spacing_ghz")
+    p_wdm.add_argument("--dt", type=float, default=3.0, dest="dt_k")
+    p_wdm.add_argument("--r", type=float, default=10.0, dest="r_um")
+    p_wdm.add_argument("--gap", type=float, default=0.20, dest="gap_um")
+    p_wdm.add_argument("--vpp", type=float, default=2.0, dest="vpp")
+    p_wdm.add_argument("--json", type=str, default=None, dest="raw_json")
 
     args = parser.parse_args()
 
@@ -320,6 +360,12 @@ def main() -> None:
             _print_compact(agent_design_mzi(d))
         elif args.agent_cmd == "eom":
             _print_compact(agent_eom_multiphysics(d))
+        elif args.agent_cmd == "pdk-drc":
+            _print_compact(agent_pdk_drc(d))
+        elif args.agent_cmd == "prism-optimize":
+            _print_compact(agent_prism_optimize(d))
+        elif args.agent_cmd == "wdm-link":
+            _print_compact(agent_wdm_link(d))
 
 
 if __name__ == "__main__":

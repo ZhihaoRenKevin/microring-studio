@@ -31,6 +31,7 @@ resonators across **E-Beam Lithography (EBL)** and **DUV Photolithography (`248 
 from __future__ import annotations
 
 from dataclasses import replace
+import math
 from pathlib import Path
 
 import gdstk
@@ -38,7 +39,7 @@ import numpy as np
 
 from .gds_bridge import write_klayout_layer_props
 from .materials import T_REF_K, get_material_fn
-from .mrr_topologies import MRRDesignConfig, export_mrr_gds, simulate_mrr_topology
+from .mrr_topologies import MATERIAL_CATALOG, MRRDesignConfig, export_mrr_gds, simulate_mrr_topology
 
 RESIST_TONE_CATALOG: dict[str, dict] = {
     "positive_pr": {
@@ -516,3 +517,234 @@ def export_fab_bias_array_gds(
         "num_cells": len(cells_meta),
         "cells": cells_meta,
     }
+
+
+def run_foundry_process_corners(
+    base_cfg: MRRDesignConfig,
+    *,
+    pdk_key: str = "gsip_soi220",
+    delta_w_3sigma_nm: float | None = None,
+    delta_h_core_3sigma_nm: float | None = None,
+    delta_h_slab_3sigma_nm: float | None = None,
+    delta_sidewall_3sigma_deg: float | None = None,
+    delta_doping_3sigma_pct: float | None = None,
+    proximity_gap_factor: float | None = None,
+    include_active_pn: bool = False,
+    mc_trials: int = 128,
+    seed: int = 2026,
+) -> dict:
+    """Evaluate Multi-Parameter Foundry Process Corners (`Nominal/SS/FF/SF/FS`) + Monte-Carlo Yield.
+
+    Simultaneously perturbs correlated `pattern_variations` (`dW` + anti-correlated coupler gap `-eta*dW`)
+    and `stack_variations` (`dH_core`, `dH_slab`, `d_sidewall`, `d_doping`) using MicroRing Studio's
+    native 2D Vector Maxwell FEM + Spatial CMT (+ optional 2D Poisson-Boltzmann PN TCAD) solvers.
+    """
+    from .foundry_pdk import get_foundry_pdk
+
+    pdk = get_foundry_pdk(pdk_key)
+    vc = pdk["variation_corners"]
+
+    dw_3s = float(delta_w_3sigma_nm) if delta_w_3sigma_nm is not None else float(vc["delta_w_3sigma_nm"])
+    dh_c_3s = float(delta_h_core_3sigma_nm) if delta_h_core_3sigma_nm is not None else float(vc["delta_h_core_3sigma_nm"])
+    dh_s_3s = (
+        (float(delta_h_slab_3sigma_nm) if delta_h_slab_3sigma_nm is not None else float(vc["delta_h_slab_3sigma_nm"]))
+        if base_cfg.slab_height_um > 1e-4
+        else 0.0
+    )
+    dsw_3s = float(delta_sidewall_3sigma_deg) if delta_sidewall_3sigma_deg is not None else float(vc.get("delta_sidewall_3sigma_deg", 1.5))
+    ddop_3s = float(delta_doping_3sigma_pct) if delta_doping_3sigma_pct is not None else float(vc.get("delta_doping_3sigma_pct", 12.0))
+    eta_gap = float(proximity_gap_factor) if proximity_gap_factor is not None else float(vc.get("proximity_gap_factor", 1.08))
+
+    def _eval_corner(name: str, dw_nm: float, dhc_nm: float, dhs_nm: float, dsw_deg: float, ddop_pct: float) -> tuple[dict, dict]:
+        dw_u = dw_nm * 1e-3
+        dhc_u = dhc_nm * 1e-3
+        dhs_u = dhs_nm * 1e-3
+        h_new = max(0.08, base_cfg.film_height_um + dhc_u)
+        s_new = float(np.clip(base_cfg.slab_height_um + dhs_u, 0.0, h_new - 0.04)) if base_cfg.slab_height_um > 1e-4 else 0.0
+        wr_new = max(0.14, base_cfg.ring_width_um + dw_u)
+        wb_new = max(0.14, base_cfg.bus_width_um + dw_u)
+        gt_new = max(0.06, base_cfg.gap_thru_um - eta_gap * dw_u)
+        gd_new = max(0.06, base_cfg.gap_drop_um - eta_gap * dw_u)
+        sw_new = float(np.clip(base_cfg.sidewall_deg + dsw_deg, 60.0, 90.0))
+
+        base_loss_db_cm = (
+            float(base_cfg.alpha_loss_db_per_cm)
+            if base_cfg.alpha_loss_db_per_cm is not None
+            else float(MATERIAL_CATALOG.get(base_cfg.core_material, {}).get("typical_loss_db_cm", 2.0))
+        )
+        loss_use = base_loss_db_cm
+        vpil_vcm = None
+        if include_active_pn and base_cfg.core_material == "Si":
+            from .multiphysics_tcad import PNDopingTCADConfig, simulate_pn_doping_tcad
+
+            dop_scale = max(0.25, 1.0 + 0.01 * ddop_pct)
+            pn_r = simulate_pn_doping_tcad(PNDopingTCADConfig(
+                wavelength_nm=base_cfg.wavelength_nm,
+                film_height_um=h_new,
+                slab_height_um=max(s_new, 0.06),
+                sidewall_deg=sw_new,
+                waveguide_width_um=wr_new,
+                na_core_cm3=5.0e17 * dop_scale,
+                nd_core_cm3=5.0e17 * dop_scale,
+                bias_voltages_v=[0.0, -2.0],
+                map_bias_v=-2.0,
+            ))
+            vpil_vcm = pn_r["metrics"]["V_pi_L_Vcm"]
+            loss_use = loss_use + 0.68 * float(pn_r["metrics"]["alpha_FCA_bias_dB_per_cm"])
+
+        cfg_c = replace(
+            base_cfg,
+            film_height_um=h_new,
+            slab_height_um=s_new,
+            ring_width_um=wr_new,
+            bus_width_um=wb_new,
+            gap_thru_um=gt_new,
+            gap_drop_um=gd_new,
+            sidewall_deg=sw_new,
+            alpha_loss_db_per_cm=loss_use,
+        )
+        sim = simulate_mrr_topology(cfg_c)
+        mm = sim["metrics"]
+        sp = sim["spectrum"]
+        wl_arr = np.asarray(sp["wavelength_nm"], dtype=float)
+        th_arr = np.asarray(sp["thru_dB"], dtype=float)
+        idx_dip = int(np.argmin(th_arr))
+        lam_dip = float(wl_arr[idx_dip])
+
+        # Unwrapped resonance wavelength shift from effective index change relative to Nominal
+        rec = {
+            "corner": name,
+            "delta_w_nm": round(dw_nm, 2),
+            "delta_h_core_nm": round(dhc_nm, 2),
+            "delta_h_slab_nm": round(dhs_nm, 2),
+            "gap_fab_nm": round(gt_new * 1e3, 2),
+            "neff_ring": mm["neff_ring"],
+            "ng_ring": mm["ng_ring"],
+            "FSR_GHz": mm["FSR_GHz"],
+            "FSR_nm": mm["FSR_nm"],
+            "Q_loaded": mm["Q_loaded"],
+            "ER_thru_dB": mm["ER_thru_dB"],
+            "kappa_power_thru": mm["kappa_power_thru"],
+            "coupling_regime": mm["coupling_regime"],
+            "dip_wavelength_nm": round(lam_dip, 5),
+        }
+        if vpil_vcm is not None:
+            rec["V_pi_L_Vcm"] = vpil_vcm
+        spec_small = {
+            "wavelength_nm": sp["wavelength_nm"][::4],
+            "thru_dB": sp["thru_dB"][::4],
+        }
+        return rec, spec_small
+
+    # 1. Deterministic 5 Foundry Corners + 2 Pure-Axial Jacobian Probes (`+dW_only`, `+dH_core_only`)
+    corner_specs = [
+        ("Nominal", "Nominal Target", 0.0, 0.0, 0.0, 0.0, 0.0),
+        ("SS", "Narrow & Thin (-3σ W, -3σ H)", -dw_3s, -dh_c_3s, -dh_s_3s, -dsw_3s, -ddop_3s),
+        ("FF", "Wide & Thick (+3σ W, +3σ H)", +dw_3s, +dh_c_3s, +dh_s_3s, +dsw_3s, +ddop_3s),
+        ("SF", "Wide & Thin (+3σ W, -3σ H)", +dw_3s, -dh_c_3s, -dh_s_3s, 0.0, 0.0),
+        ("FS", "Narrow & Thick (-3σ W, +3σ H)", -dw_3s, +dh_c_3s, +dh_s_3s, 0.0, 0.0),
+    ]
+
+    corners_out: list[dict] = []
+    corner_spectra: dict[str, dict] = {}
+    for cname, cdesc, dw_i, dhc_i, dhs_i, dsw_i, ddop_i in corner_specs:
+        r_i, sp_i = _eval_corner(cname, dw_i, dhc_i, dhs_i, dsw_i, ddop_i)
+        r_i["corner_description"] = cdesc
+        corners_out.append(r_i)
+        corner_spectra[cname] = sp_i
+
+    nom = corners_out[0]
+    neff0 = float(nom["neff_ring"])
+    ng0 = float(nom["ng_ring"])
+    wl0_nm = float(base_cfg.wavelength_nm)
+
+    for r_i in corners_out:
+        dneff = float(r_i["neff_ring"]) - neff0
+        dlam_nm = round((dneff / max(ng0, 1.0)) * wl0_nm, 4)
+        r_i["delta_lambda_nm"] = dlam_nm
+        r_i["unwrapped_dlambda_nm"] = dlam_nm
+
+    # Pure axial FEM probes to separate dW vs dH_core vs dH_slab sensitivities cleanly
+    r_w_pos, _ = _eval_corner("_probe_w", max(dw_3s, 5.0), 0.0, 0.0, 0.0, 0.0)
+    r_hc_pos, _ = _eval_corner("_probe_hc", 0.0, max(dh_c_3s, 3.0), 0.0, 0.0, 0.0)
+    dl_dw_pm_nm = ((float(r_w_pos["neff_ring"]) - neff0) / max(ng0, 1.0) * wl0_nm * 1e3) / max(dw_3s, 5.0)
+    dl_dhc_pm_nm = ((float(r_hc_pos["neff_ring"]) - neff0) / max(ng0, 1.0) * wl0_nm * 1e3) / max(dh_c_3s, 3.0)
+    if dh_s_3s > 0.1:
+        r_hs_pos, _ = _eval_corner("_probe_hs", 0.0, 0.0, max(dh_s_3s, 3.0), 0.0, 0.0)
+        dl_dhs_pm_nm = ((float(r_hs_pos["neff_ring"]) - neff0) / max(ng0, 1.0) * wl0_nm * 1e3) / max(dh_s_3s, 3.0)
+    else:
+        dl_dhs_pm_nm = 0.0
+
+    # Coupling log-sensitivity `d(ln kappa^2)/dW` & `d(ln kappa^2)/dH_core` for fast calibrated Monte-Carlo
+    kp0 = max(float(nom["kappa_power_thru"]), 1e-6)
+    dlnkp_dw = math.log(max(float(r_w_pos["kappa_power_thru"]), 1e-6) / kp0) / max(dw_3s, 5.0)
+    dlnkp_dhc = math.log(max(float(r_hc_pos["kappa_power_thru"]), 1e-6) / kp0) / max(dh_c_3s, 3.0)
+
+    # 2. Correlated Gaussian Wafer Monte-Carlo (`n_mc` trials calibrated to the exact 2D-FEM sensitivities)
+    n_mc = int(np.clip(mc_trials, 16, 2000))
+    rng = np.random.default_rng(seed)
+    dw_mc = rng.normal(0.0, dw_3s / 3.0, size=n_mc)
+    dhc_mc = rng.normal(0.0, dh_c_3s / 3.0, size=n_mc)
+    dhs_mc = rng.normal(0.0, dh_s_3s / 3.0, size=n_mc)
+
+    dlam_mc_pm = dl_dw_pm_nm * dw_mc + dl_dhc_pm_nm * dhc_mc + dl_dhs_pm_nm * dhs_mc
+    kp_mc = np.clip(kp0 * np.exp(dlnkp_dw * dw_mc + dlnkp_dhc * dhc_mc), 1e-5, 0.995)
+
+    # Exact CMT extinction ratio & loaded Q across Monte-Carlo ensemble
+    l_rt_m = (2.0 * math.pi * base_cfg.ring_radius_um + 2.0 * base_cfg.straight_length_um) * 1e-6
+    nom_alpha_db_cm = (
+        float(base_cfg.alpha_loss_db_per_cm)
+        if base_cfg.alpha_loss_db_per_cm is not None
+        else float(MATERIAL_CATALOG.get(base_cfg.core_material, {}).get("typical_loss_db_cm", 2.0))
+    )
+    alpha_m = nom_alpha_db_cm * 100.0 * math.log(10.0) / 10.0
+    a_rt = math.exp(-0.5 * alpha_m * l_rt_m)
+    tau_mc = np.sqrt(1.0 - kp_mc)
+    is_4p = base_cfg.topology.endswith("_ad")
+    tau2 = math.sqrt(max(1.0 - (float(nom["kappa_power_thru"]) if is_4p else 0.0), 0.0))
+    t_min_amp = np.abs(tau_mc - a_rt * tau2) / np.maximum(1.0 - tau_mc * a_rt * tau2, 1e-6)
+    er_mc_db = -20.0 * np.log10(np.maximum(t_min_amp, 1e-4))
+    q_mc = (2.0 * math.pi * ng0 * l_rt_m / (wl0_nm * 1e-9)) / np.maximum(
+        alpha_m * l_rt_m - np.log1p(-kp_mc) - (math.log(max(tau2 ** 2, 1e-6)) if is_4p else 0.0),
+        1e-9,
+    )
+
+    sigma_lam_pm = float(np.std(dlam_mc_pm))
+    fsr_pm = float(nom["FSR_nm"]) * 1e3
+    fsr_frac_3s_pct = min(100.0, (3.0 * sigma_lam_pm) / max(fsr_pm, 1.0) * 100.0)
+    # Estimate thermo-optic trim power needed to cover 3-sigma random resonant spread
+    mat_c = get_material_fn(base_cfg.core_material)(wl0_nm * 1e-9, T_REF_K)
+    dlam_dt_pm_k = abs(float(mat_c.dn_dt_per_k)) / max(ng0, 1.0) * wl0_nm * 1e3
+    dt_trim_3s_k = (3.0 * sigma_lam_pm) / max(dlam_dt_pm_k, 0.5)
+
+    return {
+        "pdk_key": pdk_key,
+        "pdk_name": pdk["name_en"],
+        "solver_engine": "100% MicroRing Native 2D Vector Maxwell FEM + Spatial CMT + Calibrated Wafer MC",
+        "variation_inputs_3sigma": {
+            "delta_w_3sigma_nm": round(dw_3s, 2),
+            "delta_h_core_3sigma_nm": round(dh_c_3s, 2),
+            "delta_h_slab_3sigma_nm": round(dh_s_3s, 2),
+            "delta_sidewall_3sigma_deg": round(dsw_3s, 2),
+            "proximity_gap_factor": round(eta_gap, 3),
+        },
+        "sensitivities": {
+            "dlambda_dW_pm_per_nm": round(dl_dw_pm_nm, 2),
+            "dlambda_dH_core_pm_per_nm": round(dl_dhc_pm_nm, 2),
+            "dlambda_dH_slab_pm_per_nm": round(dl_dhs_pm_nm, 2),
+        },
+        "monte_carlo_summary": {
+            "trials": n_mc,
+            "lambda_res_1sigma_pm": round(sigma_lam_pm, 2),
+            "lambda_res_3sigma_nm": round(3.0 * sigma_lam_pm * 1e-3, 4),
+            "fsr_3sigma_spread_pct": round(fsr_frac_3s_pct, 2),
+            "heater_trim_3sigma_K": round(dt_trim_3s_k, 2),
+            "yield_ER_gt_10dB_pct": round(float(np.mean(er_mc_db >= 10.0) * 100.0), 2),
+            "yield_ER_gt_15dB_pct": round(float(np.mean(er_mc_db >= 15.0) * 100.0), 2),
+            "ER_dB_p05_p50_p95": [round(float(v), 2) for v in np.percentile(er_mc_db, [5, 50, 95])],
+            "Q_loaded_p05_p50_p95": [round(float(v), 0) for v in np.percentile(q_mc, [5, 50, 95])],
+        },
+        "corners": corners_out,
+        "corner_spectra": corner_spectra,
+    }
+

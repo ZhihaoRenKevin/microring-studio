@@ -19,7 +19,20 @@ import time
 import numpy as np
 
 from .active_tuning import export_lumerical_interconnect_bundle, run_active_tuning_analysis
-from .fab_tolerance import export_fab_bias_array_gds, run_fabrication_error_analysis
+from .fab_tolerance import (
+    export_fab_bias_array_gds,
+    run_fabrication_error_analysis,
+    run_foundry_process_corners,
+)
+from .foundry_pdk import (
+    FOUNDRY_PDK_CATALOG,
+    build_pn_heater_ring_modulator_gds,
+    export_pdk_csv_tables,
+    extract_3d_electrical_lvs,
+    load_pdk_from_csv_dir,
+    run_gds_polygon_drc,
+    solve_gds_cutline_multiphysics,
+)
 from .gds_bridge import (
     analyze_uploaded_gds,
     export_sweep_array_gds,
@@ -62,10 +75,17 @@ from .multiphysics_tcad import (
     export_pn_doping_gds,
     export_tcad_data_bundle,
     export_thermal_shifter_gds,
+    simulate_cointegrated_pn_heater_ring,
     simulate_pn_doping_tcad,
     simulate_thermal_phase_shifter,
 )
+from .prism_optimizer import (
+    PRISM_PROBLEM_CATALOG,
+    audit_mrr_and_pn_physics_closure,
+    run_prism_closed_loop_optimizer,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
+from .wdm_link import WDMLinkConfig, simulate_wdm_microring_link
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
 
@@ -128,6 +148,7 @@ def agent_status() -> dict:
         "tmm_mpts_s": bench["throughput_mpts_per_s"],
         "materials": list(MATERIAL_CATALOG.keys()),
         "topologies": list(TOPOLOGY_CATALOG.keys()),
+        "pdks": list(FOUNDRY_PDK_CATALOG.keys()),
     }
 
 
@@ -381,6 +402,29 @@ def agent_fab_tolerance(params: dict) -> dict:
         cc_info = scout["critical_coupling"]
         cfg = replace(cfg, **{cc_info["parameter"]: float(cc_info["recommended_value"])})
 
+    if params.get("corner_mode") or params.get("corners") or str(params.get("mode") or "").lower() in ("foundry_corners", "corners"):
+        pdk_k = str(params.get("pdk") or params.get("pdk_key") or "gsip_soi220")
+        pc = run_foundry_process_corners(
+            cfg,
+            pdk_key=pdk_k,
+            delta_w_3sigma_nm=float(params["cd_nm"]) if params.get("cd_nm") is not None else None,
+            delta_h_core_3sigma_nm=float(params["dh_nm"]) if params.get("dh_nm") is not None else None,
+            mc_trials=int(params.get("mc_trials") or 128),
+        )
+        mc = pc["monte_carlo_summary"]
+        return {
+            "mode": "foundry_corners",
+            "pdk": pdk_k,
+            "lam_3sig_nm": mc["lambda_res_3sigma_nm"],
+            "fsr_3sig_pct": mc["fsr_3sigma_spread_pct"],
+            "trim_3sig_K": mc["heater_trim_3sigma_K"],
+            "yield_ER15_pct": mc["yield_ER_gt_15dB_pct"],
+            "ER_p05_p50_p95": mc["ER_dB_p05_p50_p95"],
+            "dl_dW_pm_nm": pc["sensitivities"]["dlambda_dW_pm_per_nm"],
+            "dl_dHc_pm_nm": pc["sensitivities"]["dlambda_dH_core_pm_per_nm"],
+            "ms": round((time.perf_counter() - t0) * 1e3, 1),
+        }
+
     resist = str(params.get("resist_tone") or params.get("resist") or "positive_pr")
     dose_pct = float(params.get("max_dose_error_pct") or params.get("dose_pct") or 15.0)
     slope = params.get("dose_slope_nm_per_pct") or params.get("slope_nm_pct")
@@ -625,6 +669,7 @@ def agent_high_q_fdtd(params: dict) -> dict:
         scout = simulate_mrr_topology(cfg)
         cc_info = scout["critical_coupling"]
         cfg = replace(cfg, **{cc_info["parameter"]: float(cc_info["recommended_value"])})
+
     hq = analyze_high_q_fdtd_convergence(cfg)
     out = {
         "Q_L": int(hq["Q_loaded"]),
@@ -821,9 +866,39 @@ def agent_eom_multiphysics(params: dict) -> dict:
             out["bundle_zip"] = export_tcad_data_bundle(res, AGENT_OUT_DIR / "tcad_pn")["zip_path"]
         return out
 
+    if mode in ("cointegrated_pn_heater", "pn_heater_ring", "dual_drive_ring"):
+        gds_out = (AGENT_OUT_DIR / "mrr_pn_heater_cointegrated.gds") if params.get("export_gds") else None
+        res = simulate_cointegrated_pn_heater_ring(
+            ring_radius_um=float(params.get("ring_radius_um") or params.get("r_um") or 12.0),
+            ring_width_um=float(params.get("w_um") or 0.45),
+            gap_um=float(params.get("gap_um") or 0.20),
+            pn_offset_nm=float(params.get("pn_offset_nm") or 20.0),
+            pdk_key=str(params.get("pdk") or "gsip_soi220"),
+            output_gds_path=gds_out,
+        )
+        m = res["metrics"]
+        out = {
+            "mode": "cointegrated_pn_heater_ring",
+            "FSR_GHz": m["FSR_GHz"],
+            "Q_L": m["Q_loaded"],
+            "OMA": m["OMA_normalized"],
+            "ER_dyn_dB": m["ER_dynamic_dB"],
+            "f_3dB_EO_GHz": m["f_3dB_EO_GHz"],
+            "P_pi_mW": m["P_pi_heater_mW"],
+            "pn_heat_steal_pct": m["pn_contact_heat_stealing_pct"],
+            "flux_ratio": m["thermal_flux_balance_ratio"],
+            "ms": res["elapsed_ms"],
+        }
+        if "layout_verification" in res:
+            lv = res["layout_verification"]
+            out["gds"] = lv["gds_path"]
+            out["drc_clean"] = lv["drc"]["drc_clean"]
+            out["lvs_clean"] = lv["lvs"]["lvs_clean"]
+        return out
+
     if mode in ("thermal", "thermal_fem", "heater"):
         th_fields = {f.name for f in fields(ThermalSimConfig)}
-        aliases = {"mat": "core_material", "wl_nm": "wavelength_nm", "pol": "polarization", "h_um": "film_height_um", "slab_um": "slab_height_um", "w_um": "waveguide_width_um", "l_um": "active_length_um", "structure": "thermal_structure"}
+        aliases = {"mat": "core_material", "wl_nm": "wavelength_nm", "pol": "polarization", "h_um": "film_height_um", "slab_um": "slab_height_um", "w_um": "waveguide_width_um", "l_um": "active_length_um", "structure": "thermal_structure", "pn_sink": "include_pn_contact_sinking"}
         kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in th_fields}
         res = simulate_thermal_phase_shifter(ThermalSimConfig(**kw))
         m = res["metrics"]
@@ -839,6 +914,8 @@ def agent_eom_multiphysics(params: dict) -> dict:
             "t_fall_us": m["t_fall_90_10_us"],
             "Ppi_tau_mW_us": m["FOM_Ppi_tau_mW_us"],
             "xtalk_pct": m["crosstalk_at_neighbor_pct"],
+            "pn_steal_pct": m["pn_contact_heat_stealing_pct"],
+            "flux_ratio": m["flux_balance_ratio"],
             "ms": res["elapsed_ms"],
         }
         if params.get("export_gds"):
@@ -905,6 +982,191 @@ def agent_eom_multiphysics(params: dict) -> dict:
     if params.get("export_bundle"):
         out["bundle_zip"] = export_eom_rf_interconnect_bundle(res, AGENT_OUT_DIR / f"eom_rf_{res['resolved_topology']}")["zip_path"]
     return out
+
+
+def agent_pdk_drc(params: dict) -> dict:
+    """Foundry PDK Polygon DRC (`.lyrdb`), 3D Union-Find LVS, Co-Integrated PN+Heater Ring GDS, or Native GDS Cutline 2D-FEM (<140 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    mode = str(params.get("mode") or "build_pn_heater_ring").lower().strip()
+    pdk_key = str(params.get("pdk") or params.get("pdk_key") or "gsip_soi220")
+    pdk_obj: dict | str = load_pdk_from_csv_dir(params["pdk_csv_dir"]) if params.get("pdk_csv_dir") else pdk_key
+
+    if mode in ("export_csv", "pdk_csv"):
+        out_dir = Path(params.get("out_dir") or (AGENT_OUT_DIR / f"pdk_{pdk_key}_csv"))
+        exp = export_pdk_csv_tables(pdk_obj, out_dir)
+        return {
+            "mode": "export_csv",
+            "pdk": pdk_key,
+            "dir": exp["output_dir"],
+            "files": len(exp["files"]),
+        }
+
+    if mode in ("verify_gds", "drc_lvs", "drc", "lvs"):
+        gds_in = str(params["gds_path"])
+        cell_n = params.get("cell_name")
+        drc = run_gds_polygon_drc(gds_in, pdk_obj, cell_name=cell_n)
+        lvs = extract_3d_electrical_lvs(gds_in, pdk_obj, cell_name=cell_n)
+        return {
+            "mode": "verify_gds",
+            "pdk": pdk_key,
+            "cell": drc["cell_name"],
+            "drc_clean": drc["drc_clean"],
+            "drc_errs": drc["total_violations"],
+            "lvs_clean": lvs["lvs_clean"],
+            "nets": lvs["total_nets"],
+            "floating_vias": lvs["floating_via_count"],
+            "shorts": len(lvs["short_violations"]),
+            "opens": len(lvs["open_violations"]),
+            "lyrdb": drc["lyrdb_path"],
+        }
+
+    if mode in ("cutline_solve", "cutline", "layer_builder"):
+        gds_in = str(params["gds_path"])
+        cs = solve_gds_cutline_multiphysics(
+            gds_in,
+            pdk=pdk_obj,
+            wavelength_nm=float(params.get("wl_nm") or params.get("wavelength_nm") or 1550.0),
+            polarization=str(params.get("pol") or params.get("polarization") or "TE0"),
+            run_pn_tcad=bool(params.get("run_pn_tcad", True)),
+            run_thermal_fem=bool(params.get("run_thermal_fem", True)),
+        )
+        xc = cs["extracted_cross_section"]
+        out = {
+            "mode": "cutline_solve",
+            "pdk": pdk_key,
+            "w_core_um": xc["w_core_um"],
+            "h_film_um": xc["h_film_um"],
+            "h_slab_um": xc["h_slab_um"],
+            "neff_2dfem": cs["eigenmode_2d_fem"]["n_eff"],
+            "te_frac": cs["eigenmode_2d_fem"]["te_fraction"],
+            "probe_pts": len(cs["index_probe_10pt"]),
+            "ms": cs["elapsed_ms"],
+        }
+        if "pn_tcad_2d_fem" in cs:
+            out["V_pi_L_Vcm"] = cs["pn_tcad_2d_fem"]["V_pi_L_Vcm"]
+            out["f_RC_GHz"] = cs["pn_tcad_2d_fem"]["f_RC_GHz"]
+        if "thermal_2d_fem" in cs:
+            out["P_pi_mW"] = cs["thermal_2d_fem"]["P_pi_mW"]
+            out["pn_steal_pct"] = cs["thermal_2d_fem"]["pn_contact_heat_stealing_pct"]
+        return out
+
+    r_um = float(params.get("r_um") or params.get("ring_radius_um") or 12.0)
+    gds_target = Path(params["gds_path"]) if params.get("gds_path") else (AGENT_OUT_DIR / f"mrr_pn_heater_{pdk_key}_R{int(round(r_um))}.gds")
+    bld = build_pn_heater_ring_modulator_gds(
+        gds_target,
+        pdk=pdk_obj,
+        ring_radius_um=r_um,
+        ring_width_um=float(params.get("w_ring_um") or params.get("ring_width_um") or 0.45),
+        bus_width_um=float(params.get("w_bus_um") or params.get("bus_width_um") or 0.45),
+        gap_um=float(params.get("gap_um") or 0.20),
+        pn_offset_nm=float(params.get("pn_offset_nm") or 20.0),
+        apply_slab_fillets=bool(params.get("slab_fillets", True)),
+        verify_drc_lvs=True,
+    )
+    drc = bld["drc"]
+    lvs = bld["lvs"]
+    return {
+        "mode": "build_pn_heater_ring",
+        "pdk": pdk_key,
+        "R_um": bld["ring_radius_um"],
+        "drc_clean": drc["drc_clean"],
+        "drc_errs": drc["total_violations"],
+        "lvs_clean": lvs["lvs_clean"],
+        "nets": lvs["total_nets"],
+        "vias": lvs["total_vias_checked"],
+        "gds": bld["gds_path"],
+        "lyrdb": drc["lyrdb_path"],
+    }
+
+
+def agent_prism_optimize(params: dict) -> dict:
+    """Run PRISM-style Physics Closure Gate (`closure_audit`) or Prediction-Gated Real-2D-FEM Optimizer (`optimize`) (<140 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    mode = str(params.get("mode") or "optimize").lower().strip()
+    if mode in ("closure_audit", "closure", "audit"):
+        has_mrr = any(k in params for k in ("mat", "core_material", "r_um", "ring_radius_um", "top", "topology", "gap_um"))
+        cfg = _cfg_from_dict(params) if has_mrr else None
+        inc_pn = bool(params.get("include_pn", cfg is None or cfg.core_material == "Si"))
+        pn_cfg = PNDopingTCADConfig() if inc_pn else None
+        aud = audit_mrr_and_pn_physics_closure(cfg=cfg, pn_cfg=pn_cfg)
+        qb = aud["q_budget"]
+        out = {
+            "mode": "closure_audit",
+            "closure_pass": aud["closure_pass"],
+            "Q_budget": qb["Q_loaded_from_budget"],
+            "Q_fwhm": qb["Q_loaded_from_tmm_fwhm"],
+            "q_err_pct": qb["q_closure_error_pct"],
+            "passivity": aud["unitary_passivity"]["passivity_pass"],
+            "ms": aud["elapsed_ms"],
+        }
+        if aud.get("perturbation_closure"):
+            out["pert_err_pct"] = aud["perturbation_closure"]["perturbation_closure_error_pct"]
+            out["core_share_pct"] = aud["perturbation_closure"]["core_confinement_share_pct"]
+        return out
+
+    prob = str(params.get("problem") or params.get("problem_type") or "pn_ring_modulator")
+    res = run_prism_closed_loop_optimizer(
+        problem_type=prob,
+        max_iterations=int(params.get("max_iterations") or params.get("n_iter") or 8),
+        seed=int(params.get("seed") or 42),
+        output_dir=AGENT_OUT_DIR,
+    )
+    return {
+        "mode": "prism_optimize",
+        "problem": res["problem_type"],
+        "iters": res["iterations_run"],
+        "recal_gates": res["understanding_gate_recalibrations"],
+        "init_fom": res["initial_design"]["display_fom"],
+        "best_fom": res["best_design"]["display_fom"],
+        "feasible": res["best_design"]["feasible"],
+        "best_params": res["best_design"]["params"],
+        "journal": res["journal_jsonl_path"],
+        "ms": res["elapsed_ms"],
+    }
+
+
+def agent_wdm_link(params: dict) -> dict:
+    """Simulate Multi-Channel Microring WDM Optical Link, NRZ/PAM4 Eye Diagram & Closed-Loop PI Thermal Locking (<140 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    wdm_fields = {f.name for f in fields(WDMLinkConfig)}
+    aliases = {
+        "n_ch": "num_channels",
+        "channels": "num_channels",
+        "rate_gbps": "data_rate_per_ch_gbps",
+        "format": "modulation_format",
+        "mod": "modulation_format",
+        "spacing_ghz": "channel_spacing_ghz",
+        "dt_k": "ambient_drift_k",
+        "p_laser_dbm": "laser_power_per_ch_dbm",
+        "r_um": "ring_radius_um",
+        "w_ring_um": "ring_width_um",
+        "w_bus_um": "bus_width_um",
+        "wl_nm": "wavelength_nm",
+        "vpp": "drive_vpp",
+        "bias_v": "dc_bias_v",
+    }
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in wdm_fields}
+    cfg = WDMLinkConfig(**kw)
+    res = simulate_wdm_microring_link(cfg, export_csv_dir=AGENT_OUT_DIR)
+    m = res["metrics"]
+    return {
+        "scen": cfg.scenario,
+        "fmt": m["modulation_format"],
+        "agg_Gbps": m["aggregate_bandwidth_Gbps"],
+        "OMA_dBm": m["OMA_dBm"],
+        "eye_h_uW": m["eye_height_uW"],
+        "eye_w_UI": m["eye_width_UI"],
+        "Q": m["Q_factor"],
+        "BER": m["BER_estimate"],
+        "xtalk_dB": m["crosstalk_penalty_dB"],
+        "P_lock_mW": m["total_heater_lock_power_mW"],
+        "pn_steal_pct": m["pn_contact_heat_stealing_pct"],
+        "E_pJ_bit": m["E_total_pJ_per_bit"],
+        "pass": m["link_open_pass"],
+        "csv": res.get("eye_csv_path"),
+        "ms": res["elapsed_ms"],
+    }
+
 
 
 

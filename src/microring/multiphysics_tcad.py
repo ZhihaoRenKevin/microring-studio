@@ -174,6 +174,13 @@ class ThermalSimConfig:
     undercut_width_um: float = 16.0         # unit: um (width of XeF2 air cavity beneath BOX)
     undercut_depth_um: float = 8.0          # unit: um (height of XeF2 air cavity beneath BOX)
     neighbor_pitch_um: float = 20.0         # unit: um (distance to adjacent MZI arm / neighbor ring for crosstalk)
+    # Optional adjacent PN-junction contact / M1 electrode parasitic heat-sinking (Upgrade v3.9)
+    include_pn_contact_sinking: bool = False     # True -> include SOI slab + W VIAC + AlCu M1 PN electrode heat-sinking fins
+    pn_contact_clearance_um: float = 0.85        # unit: um (edge clearance from core to VIAC/P++/N++ contact)
+    pn_via_width_um: float = 0.45                # unit: um (width of W contact via plug)
+    pn_metal_width_um: float = 9.00              # unit: um (lateral width of M1 electrode rail acting as heat spreader)
+    pn_metal_thickness_um: float = 0.45          # unit: um (M1 thickness)
+    pn_via_longitudinal_fill: float = 0.40       # 3D longitudinal fill factor of VIAC array along active arc (0..1)
     # Optional user-supplied custom thermal / thermo-optic / heater resistivity overrides (None -> literature catalog)
     custom_dn_dt_per_k: float | None = None      # unit: 1/K (user's core thermo-optic coefficient dn/dT)
     custom_core_kappa_w_mk: float | None = None  # unit: W/(m*K) (user's core thermal conductivity)
@@ -746,7 +753,8 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
     t0 = time.perf_counter()
     tstruct = cfg.thermal_structure.lower().strip()
     h_film = max(float(cfg.film_height_um), 0.12)
-    h_slab = max(float(cfg.slab_height_um), 0.08 if tstruct == "doped_si_rib" else 0.0)
+    use_pn_sink = bool(cfg.include_pn_contact_sinking) and (tstruct != "doped_si_rib")
+    h_slab = max(float(cfg.slab_height_um), 0.08 if tstruct == "doped_si_rib" else (0.09 if use_pn_sink else 0.0))
     w_wg = max(float(cfg.waveguide_width_um), 0.22)
     h_box = max(float(cfg.box_thickness_um), 0.50)
     l_heat = max(float(cfg.active_length_um), 10.0)
@@ -779,6 +787,15 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
     x_via_in = 0.5 * w_wg + clr_rib + w_wing_rib
     x_via_out = x_via_in + 0.45
     x_m1_sink = max(x_via_out + 9.5, 11.5)
+
+    # PN contact via + M1 spreader coordinates when co-integrated PN electrode sinking is enabled
+    clr_pn = max(float(cfg.pn_contact_clearance_um), 0.45)
+    x_pn_via_in = max(0.5 * w_wg + clr_pn, 0.5 * w_heat + 0.35)
+    x_pn_via_out = x_pn_via_in + max(float(cfg.pn_via_width_um), 0.30)
+    x_pn_m1_out = min(x_pn_via_in + max(float(cfg.pn_metal_width_um), 3.0), x_dom - 1.5)
+    y_pn_m1_bot = 0.85
+    y_pn_m1_top = min(y_pn_m1_bot + max(float(cfg.pn_metal_thickness_um), 0.25), y_ox_top - 0.08)
+
     x_knots = [
         -x_dom, -float(cfg.neighbor_pitch_um), -uc_half_w, -tr_x1, -tr_x0,
         -0.5 * w_heat + cfg.heater_offset_um, -0.5 * w_wg, -0.5 * w_top, 0.0,
@@ -790,9 +807,16 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
             -x_m1_sink, -x_via_out, -x_via_in, -0.5 * w_wg - clr_rib,
             +0.5 * w_wg + clr_rib, +x_via_in, +x_via_out, +x_m1_sink,
         ])
+    elif use_pn_sink:
+        x_knots.extend([
+            -x_pn_m1_out, -x_pn_via_out, -x_pn_via_in,
+            +x_pn_via_in, +x_pn_via_out, +x_pn_m1_out,
+        ])
     y_knots = [y_sub_bot, uc_y_bot, tr_y_bot, -h_box, 0.0, h_film, y_heat0, y_heat1, y_ox_top, y_air_top]
     if tstruct == "doped_si_rib":
         y_knots.extend([0.90, 1.45])
+    elif use_pn_sink:
+        y_knots.extend([y_pn_m1_bot, y_pn_m1_top])
     if h_slab > 1e-5:
         y_knots.append(h_slab)
 
@@ -824,12 +848,16 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
     k_el[in_air], cv_el[in_air] = k_air, cv_air
 
     if h_slab > 1e-5:
-        slab_half_span = (x_via_in + 0.15) if tstruct == "doped_si_rib" else tr_x0
+        slab_half_span = (
+            (x_via_in + 0.15)
+            if tstruct == "doped_si_rib"
+            else (max(tr_x0, x_pn_via_out + 0.35) if use_pn_sink else tr_x0)
+        )
         in_slab = (yc_um >= 0.0) & (yc_um <= h_slab) & (np.abs(xc_um) <= slab_half_span)
         # Sub-100 nm heavily doped SOI slab phonon boundary + impurity scattering (Asheghi et al., J. Heat Transfer 120, 30, 1998)
         k_slab_eff = (
             min(k_core, 62.0)
-            if (tstruct == "doped_si_rib" and cfg.core_material == "Si" and cfg.custom_core_kappa_w_mk is None)
+            if ((tstruct == "doped_si_rib" or use_pn_sink) and cfg.core_material == "Si" and cfg.custom_core_kappa_w_mk is None)
             else k_core
         )
         k_el[in_slab], cv_el[in_slab] = k_slab_eff, cv_core
@@ -897,35 +925,73 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
 
     basis = Basis(mesh, ElementTriP1())
     basis0 = basis.with_element(ElementTriP0())
-    k_dofs = basis0.zeros(dtype=float); k_dofs[:] = k_el
-    cv_dofs = basis0.zeros(dtype=float); cv_dofs[:] = cv_el
-    q_dofs = basis0.zeros(dtype=float); q_dofs[:] = q_el
-
-    K_th = _thermal_stiff_form.assemble(basis, k_th=basis0.interpolate(k_dofs))
-    M_th = _thermal_mass_form.assemble(basis, rho_cp=basis0.interpolate(cv_dofs))
-    b_1mw = _thermal_src_form.assemble(basis, q_vol=basis0.interpolate(q_vol_dofs if False else q_dofs))
-
     px_um = mesh.p[0] * 1e6
     py_um = mesh.p[1] * 1e6
-    sink_mask = (py_um <= y_sub_bot + 1e-4) | (np.abs(px_um) >= x_dom - 1e-4)
+    core_nodes = np.flatnonzero(shapely.contains_xy(poly_core.buffer(0.03), px_um, py_um))
+    if len(core_nodes) == 0:
+        core_nodes = np.array([int(np.argmin(px_um ** 2 + (py_um - 0.5 * h_film) ** 2))])
+
+    base_sink_mask = (py_um <= y_sub_bot + 1e-4) | (np.abs(px_um) >= x_dom - 1e-4)
     if tstruct == "doped_si_rib":
-        sink_mask = sink_mask | ((np.abs(px_um) >= x_m1_sink - 1e-4) & (py_um >= 0.90 - 1e-4) & (py_um <= y_m1_top + 1e-4))
+        base_sink_mask = base_sink_mask | ((np.abs(px_um) >= x_m1_sink - 1e-4) & (py_um >= 0.90 - 1e-4) & (py_um <= y_m1_top + 1e-4))
+
+    q_dofs = basis0.zeros(dtype=float); q_dofs[:] = q_el
+    b_1mw = _thermal_src_form.assemble(basis, q_vol=basis0.interpolate(q_dofs))
+
+    # Optional reference solve BEFORE adding PN contact VIAC + M1 heat-sinking fins
+    r_th_bare_k_mw: float | None = None
+    if use_pn_sink:
+        k_bare_dofs = basis0.zeros(dtype=float); k_bare_dofs[:] = k_el
+        K_bare = _thermal_stiff_form.assemble(basis, k_th=basis0.interpolate(k_bare_dofs))
+        sink_bare = np.flatnonzero(base_sink_mask)
+        dt_bare = solve(*condense(K_bare, b_1mw, D=sink_bare, x=np.zeros(basis.N)))
+        r_th_bare_k_mw = float(np.mean(dt_bare[core_nodes]))
+
+        # Overlay bilateral W VIAC plugs + AlCu M1 electrode spreaders + narrow M2 pad leads (~12% azimuthal duty)
+        fz_pn = float(np.clip(cfg.pn_via_longitudinal_fill, 0.08, 0.95))
+        k_via_pn = (1.0 - fz_pn) * k_top + fz_pn * 165.0
+        k_m1_pn = (1.0 - 0.55 * fz_pn) * k_top + (0.55 * fz_pn) * 205.0
+        k_m2_lead = (1.0 - 0.10 * fz_pn) * k_top + (0.10 * fz_pn) * 205.0
+        for sgn in (-1.0, +1.0):
+            vx0, vx1 = sorted([sgn * x_pn_via_in, sgn * x_pn_via_out])
+            mx0, mx1 = sorted([sgn * x_pn_via_in, sgn * x_pn_m1_out])
+            lx0, lx1 = sorted([sgn * x_pn_m1_out, sgn * x_dom])
+            m_via_pn = shapely.contains_xy(box(vx0, h_slab, vx1, y_pn_m1_bot), xc_um, yc_um)
+            m_m1_pn = shapely.contains_xy(box(mx0, y_pn_m1_bot, mx1, y_pn_m1_top), xc_um, yc_um)
+            m_m2_lead = shapely.contains_xy(box(lx0, y_pn_m1_bot, lx1, y_pn_m1_top), xc_um, yc_um)
+            k_el[m_via_pn], cv_el[m_via_pn] = k_via_pn, 1.72e6
+            k_el[m_m1_pn], cv_el[m_m1_pn] = k_m1_pn, 2.42e6
+            k_el[m_m2_lead], cv_el[m_m2_lead] = k_m2_lead, 1.85e6
+
+    k_dofs = basis0.zeros(dtype=float); k_dofs[:] = k_el
+    cv_dofs = basis0.zeros(dtype=float); cv_dofs[:] = cv_el
+    K_th = _thermal_stiff_form.assemble(basis, k_th=basis0.interpolate(k_dofs))
+    M_th = _thermal_mass_form.assemble(basis, rho_cp=basis0.interpolate(cv_dofs))
+
+    sink_mask = base_sink_mask.copy()
     sink_nodes = np.flatnonzero(sink_mask)
     free_mask = np.ones(basis.N, dtype=bool)
     free_mask[sink_nodes] = False
     free_idx = np.flatnonzero(free_mask)
 
-    # 1. Steady-State 2D FEM Solution per 1 mW
+    # 1. Steady-State 2D FEM Solution per 1 mW + Exact Galerkin Boundary Flux Balance
     dt_1mw = solve(*condense(K_th, b_1mw, D=sink_nodes, x=np.zeros(basis.N)))
     dt_2d = dt_1mw.reshape(len(y_axis_um), len(x_axis_um))
     interp_dt = RegularGridInterpolator((y_axis_um, x_axis_um), dt_2d, bounds_error=False, fill_value=0.0)
 
-    core_nodes = np.flatnonzero(shapely.contains_xy(poly_core.buffer(0.03), px_um, py_um))
-    if len(core_nodes) == 0:
-        core_nodes = np.array([int(np.argmin(px_um ** 2 + (py_um - 0.5 * h_film) ** 2))])
+    p_in_per_m = float(np.sum(b_1mw))
+    p_in_unit_mw = p_in_per_m * (l_heat * 1e-6) * 1e3
+    p_sink_out_per_m = float(-np.sum((K_th @ dt_1mw)[sink_nodes]))
+    flux_balance_ratio = p_sink_out_per_m / max(p_in_per_m, 1e-18)
+    power_conservation_err_pct = abs(1.0 - flux_balance_ratio) * 100.0
 
     r_th_core_k_mw = float(np.mean(dt_1mw[core_nodes]))
     r_th_peak_k_mw = float(np.max(dt_1mw))
+    pn_heat_steal_pct = (
+        max(0.0, (1.0 - r_th_core_k_mw / max(r_th_bare_k_mw, 1e-9)) * 100.0)
+        if r_th_bare_k_mw is not None
+        else 0.0
+    )
 
     # 2. Coupled 2D Vector Maxwell Optical Eigenmode Solve -> Exact P_pi, V_pi, I_pi!
     wl_m = cfg.wavelength_nm * 1e-9
@@ -1051,6 +1117,11 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
             "I_pi_mA": round(i_pi_ma, 3),
             "R_heater_ohm": round(r_heater_ohm, 2),
             "R_th_core_K_per_mW": round(r_th_core_k_mw, 4),
+            "R_th_bare_heater_K_per_mW": round(r_th_bare_k_mw, 4) if r_th_bare_k_mw is not None else round(r_th_core_k_mw, 4),
+            "pn_contact_heat_stealing_pct": round(pn_heat_steal_pct, 2),
+            "P_in_unit_mW": round(p_in_unit_mw, 5),
+            "flux_balance_ratio": round(flux_balance_ratio, 6),
+            "power_conservation_error_pct": round(power_conservation_err_pct, 5),
             "Delta_T_core_at_Ppi_K": round(dt_core_at_ppi, 2),
             "Delta_T_heater_at_Ppi_K": round(dt_heater_at_ppi, 1),
             "f_3dB_thermal_kHz": round(f_3db_khz, 2),
@@ -1228,3 +1299,182 @@ def export_tcad_data_bundle(tcad_result: dict, out_dir: str | Path) -> dict:
         zf.write(csv_tr, arcname=csv_tr.name)
         zf.write(csv_xt, arcname=csv_xt.name)
     return {"csv_path": str(csv_tr), "zip_path": str(zip_path), "zip_name": zip_path.name}
+
+
+def simulate_cointegrated_pn_heater_ring(
+    *,
+    ring_radius_um: float = 12.0,
+    ring_width_um: float = 0.45,
+    bus_width_um: float = 0.45,
+    gap_um: float = 0.18,
+    film_height_um: float = 0.22,
+    slab_height_um: float = 0.09,
+    wavelength_nm: float = 1550.0,
+    pn_offset_nm: float = 20.0,
+    na_core_cm3: float = 5.0e17,
+    nd_core_cm3: float = 5.0e17,
+    contact_clearance_um: float = 0.65,
+    drive_vpp: float = 2.4,
+    dc_bias_v: float = -1.2,
+    pdk_key: str = "gsip_soi220",
+    output_gds_path: str | Path | None = None,
+) -> dict:
+    """Co-simulate a Dual-Drive `Silicon PN + TiN Heater` Ring Modulator using 100% Native Solvers.
+
+    Couples 4 native MicroRing Studio physics & verification engines with zero commercial tools:
+      1. 2D Nonlinear Poisson-Boltzmann PN TCAD (`simulate_pn_doping_tcad`) -> `Cj(V)`, `Rs`, `V_pi*L`, `FCA`.
+      2. 2D Parasitic-Sinked Steady/Transient Thermal FEM (`simulate_thermal_phase_shifter` with
+         `include_pn_contact_sinking=True`) -> `P_pi`, `P_2pi_FSR`, `M1/VIAC` heat-stealing %, flux balance.
+      3. 2D Bent Vector Maxwell FEM + Spatial CMT (`simulate_mrr_topology`) -> `FSR`, `Q_loaded`,
+         optical photon-lifetime `f_opt_GHz`, and coupled EO `f_3dB_EO_GHz`, dynamic `OMA` & `E_bit`.
+      4. Optional Cleanroom GDS synthesis + Polygon DRC (`.lyrdb`) + 3D Union-Find LVS (`foundry_pdk`).
+    """
+    from .mrr_topologies import MRRDesignConfig, simulate_mrr_topology
+    from .materials import C0_M_PER_S
+
+    t0 = time.perf_counter()
+    circum_um = 2.0 * math.pi * float(ring_radius_um)
+    f_pn_arc = 244.0 / 360.0
+    f_heat_arc = 72.0 / 360.0
+    l_pn_um = circum_um * f_pn_arc
+    l_heat_um = max(circum_um * f_heat_arc, 15.0)
+
+    v0 = float(dc_bias_v) + 0.5 * float(drive_vpp)
+    v1 = float(dc_bias_v) - 0.5 * float(drive_vpp)
+    v_high = min(v0, 0.0)
+    v_low = min(v1, v_high - max(float(drive_vpp), 0.5))
+
+    pn_res = simulate_pn_doping_tcad(PNDopingTCADConfig(
+        junction_type="lateral_pn",
+        wavelength_nm=wavelength_nm,
+        film_height_um=film_height_um,
+        slab_height_um=slab_height_um,
+        waveguide_width_um=ring_width_um,
+        active_length_um=l_pn_um,
+        na_core_cm3=na_core_cm3,
+        nd_core_cm3=nd_core_cm3,
+        pn_offset_nm=pn_offset_nm,
+        heavy_contact_offset_um=contact_clearance_um,
+        bias_voltages_v=sorted({0.0, round(v_high, 3), round(float(dc_bias_v), 3), round(v_low, 3)}, reverse=True),
+        map_bias_v=float(dc_bias_v),
+    ))
+
+    th_res = simulate_thermal_phase_shifter(ThermalSimConfig(
+        thermal_structure="top_heater",
+        core_material="Si",
+        wavelength_nm=wavelength_nm,
+        film_height_um=film_height_um,
+        slab_height_um=slab_height_um,
+        waveguide_width_um=ring_width_um,
+        active_length_um=l_heat_um,
+        include_pn_contact_sinking=True,
+        pn_contact_clearance_um=contact_clearance_um,
+    ))
+
+    alpha_fca_bias = float(pn_res["metrics"]["alpha_FCA_bias_dB_per_cm"])
+    clr_edge_um = max(float(contact_clearance_um) - 0.5 * float(ring_width_um), 0.20)
+    alpha_contact_tail = float(18.0 * math.exp(-clr_edge_um / 0.22))
+    alpha_ring_tot = 2.80 + f_pn_arc * (alpha_fca_bias + alpha_contact_tail)
+
+    # North directional coupler uses an etched strip trench (slab_height_um=0.0 in coupler gap & bus)
+    # matching build_pn_heater_ring_modulator_gds so critical coupling occurs cleanly around gap ~ 0.18-0.24 um
+    mrr_res = simulate_mrr_topology(MRRDesignConfig(
+        topology="point_circular_ap",
+        core_material="Si",
+        film_height_um=film_height_um,
+        slab_height_um=0.0,
+        ring_width_um=ring_width_um,
+        bus_width_um=bus_width_um,
+        ring_radius_um=ring_radius_um,
+        gap_thru_um=gap_um,
+        wavelength_nm=wavelength_nm,
+        alpha_loss_db_per_cm=alpha_ring_tot,
+    ))
+    mm_opt = mrr_res["metrics"]
+
+    # Extract dynamic wavelength shift Δλ_EO across V_pp and coupled RC + Cavity EO bandwidth
+    st_by_v = {round(float(s["voltage_v"]), 3): s for s in pn_res["states"]}
+    s_hi = st_by_v[round(v_high, 3)]
+    s_lo = st_by_v[round(v_low, 3)]
+    dneff_swing = abs(float(s_lo["delta_neff_real"]) - float(s_hi["delta_neff_real"])) * f_pn_arc
+    ng_ring = float(mm_opt["ng_ring"])
+    dlambda_eo_pm = (dneff_swing / max(ng_ring, 1.0)) * float(wavelength_nm) * 1e3
+
+    cj_total_ff = float(pn_res["metrics"]["Cj_bias_fF_per_um"]) * l_pn_um + 4.5  # +4.5 fF pad/routing parasitics
+    rs_lumped_ohm = float(pn_res["metrics"]["R_series_ohm_cm"]) / max(l_pn_um * 1e-4, 1e-5)
+    r_tot_ohm = 50.0 + rs_lumped_ohm
+    f_rc_ghz = 1.0 / (2.0 * math.pi * r_tot_ohm * (cj_total_ff * 1e-15)) * 1e-9
+
+    q_loaded = float(mm_opt["Q_loaded"])
+    f_opt_hz = C0_M_PER_S / (wavelength_nm * 1e-9)
+    # Optical cavity 3-dB cutoff at optimal Lorentzian quadrature detuning (~sqrt(3)/2 * f_0 / Q_L)
+    f_cav_ghz = (math.sqrt(3.0) * 0.5 * f_opt_hz / max(q_loaded, 50.0)) * 1e-9
+    f_eo_3db_ghz = 1.0 / math.sqrt(1.0 / max(f_rc_ghz ** 2, 1e-6) + 1.0 / max(f_cav_ghz ** 2, 1e-6))
+
+    # Dynamic transmission swing across Lorentzian slope near -3 dB quadrature point
+    fwhm_pm = float(mm_opt["FWHM_pm"])
+    t_min_lin = 10.0 ** (-float(mm_opt["ER_thru_dB"]) / 10.0)
+    # Lorentzian power profile T(x) = t_min + (1 - t_min)*x^2/(1 + x^2), x = 2*detuning/FWHM
+    # Maximum Lorentzian slope dT/dx = 3*sqrt(3)/8 occurs at inflection bias x_bias = 1/sqrt(3)
+    x_bias = 1.0 / math.sqrt(3.0)
+    dx = dlambda_eo_pm / max(fwhm_pm, 1.0)
+    t_0 = t_min_lin + (1.0 - t_min_lin) * ((x_bias - dx) ** 2) / (1.0 + (x_bias - dx) ** 2)
+    t_1 = t_min_lin + (1.0 - t_min_lin) * ((x_bias + dx) ** 2) / (1.0 + (x_bias + dx) ** 2)
+    oma_norm = abs(t_1 - t_0)
+    er_dyn_db = 10.0 * math.log10(max(t_1, t_0, 1e-5) / max(min(t_1, t_0), 1e-5))
+    il_dyn_db = -10.0 * math.log10(max(t_1, t_0, 1e-5))
+    e_bit_fj = 0.25 * cj_total_ff * (abs(v_high - v_low) ** 2)
+
+    # Full FSR (2*pi) thermal locking power accounting for PN metal heat-stealing
+    p_fsr_2pi_mw = 2.0 * float(th_res["metrics"]["P_pi_mW"])
+    tuning_eff_pm_per_mw = float(mm_opt["FSR_nm"]) * 1e3 / max(p_fsr_2pi_mw, 1e-6)
+
+    out = {
+        "mode": "cointegrated_pn_heater_ring",
+        "solver_stack": "100% MicroRing Native (2D PB TCAD + 2D Sinked Thermal FEM + 2D Bent Maxwell FEM + CMT)",
+        "metrics": {
+            "ring_radius_um": round(ring_radius_um, 2),
+            "FSR_nm": mm_opt["FSR_nm"],
+            "FSR_GHz": mm_opt["FSR_GHz"],
+            "Q_loaded": mm_opt["Q_loaded"],
+            "Q_int": mm_opt["Q_int"],
+            "FWHM_pm": mm_opt["FWHM_pm"],
+            "static_ER_dB": mm_opt["ER_thru_dB"],
+            "dlambda_EO_swing_pm": round(dlambda_eo_pm, 2),
+            "OMA_normalized": round(oma_norm, 4),
+            "ER_dynamic_dB": round(er_dyn_db, 2),
+            "IL_dynamic_dB": round(il_dyn_db, 2),
+            "Cj_total_fF": round(cj_total_ff, 2),
+            "Rs_lumped_ohm": round(rs_lumped_ohm, 2),
+            "f_RC_GHz": round(f_rc_ghz, 2),
+            "f_cavity_GHz": round(f_cav_ghz, 2),
+            "f_3dB_EO_GHz": round(f_eo_3db_ghz, 2),
+            "E_mod_fJ_per_bit": round(e_bit_fj, 2),
+            "P_pi_heater_mW": th_res["metrics"]["P_pi_mW"],
+            "P_2pi_FSR_lock_mW": round(p_fsr_2pi_mw, 3),
+            "heater_tuning_pm_per_mW": round(tuning_eff_pm_per_mw, 2),
+            "R_th_with_pn_contacts_K_per_mW": th_res["metrics"]["R_th_core_K_per_mW"],
+            "R_th_bare_heater_K_per_mW": th_res["metrics"]["R_th_bare_heater_K_per_mW"],
+            "pn_contact_heat_stealing_pct": th_res["metrics"]["pn_contact_heat_stealing_pct"],
+            "thermal_flux_balance_ratio": th_res["metrics"]["flux_balance_ratio"],
+        },
+        "elapsed_ms": round((time.perf_counter() - t0) * 1e3, 1),
+    }
+
+    if output_gds_path is not None:
+        from .foundry_pdk import build_pn_heater_ring_modulator_gds
+
+        layout_res = build_pn_heater_ring_modulator_gds(
+            output_gds_path,
+            pdk=pdk_key,
+            ring_radius_um=ring_radius_um,
+            ring_width_um=ring_width_um,
+            bus_width_um=bus_width_um,
+            gap_um=gap_um,
+            pn_offset_nm=pn_offset_nm,
+            contact_clearance_um=contact_clearance_um,
+            verify_drc_lvs=True,
+        )
+        out["layout_verification"] = layout_res
+    return out
+

@@ -1,4 +1,4 @@
-"""Comprehensive Automated Test Suite for MicroRing Studio v3.8.0.
+"""Comprehensive Automated Test Suite for MicroRing Studio v3.9.0.
 
 Can be executed either with `pytest` (`uv run pytest`) or directly as a standalone
 verification script (`python tests/test_microring_all.py`).
@@ -24,17 +24,21 @@ from microring import (
     EOM_ELECTRODE_CATALOG,
     EOMElectrodeConfig,
     FIBER_LASER_CATALOG,
+    FOUNDRY_PDK_CATALOG,
     MATERIAL_CATALOG,
     MRRDesignConfig,
     MZI_SPLITTER_CATALOG,
     MZIDesignConfig,
     PN_JUNCTION_CATALOG,
     PNDopingTCADConfig,
+    PRISM_PROBLEM_CATALOG,
     RESIST_TONE_CATALOG,
     THERMAL_STRUCTURE_CATALOG,
     TUNING_MECHANISM_CATALOG,
     T_REF_K,
     ThermalSimConfig,
+    WDM_SCENARIO_CATALOG,
+    WDMLinkConfig,
     WaveguideCrossSectionSpec,
     agent_active_tuning,
     agent_design_mrr,
@@ -45,11 +49,16 @@ from microring import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_pdk_drc,
+    agent_prism_optimize,
     agent_status,
     agent_sweep_mrr,
+    agent_wdm_link,
     analyze_eo_wafer_orientation,
     analyze_high_q_fdtd_convergence,
     analyze_uploaded_gds,
+    audit_mrr_and_pn_physics_closure,
+    build_pn_heater_ring_modulator_gds,
     create_initial_session,
     design_butt_edge_coupler,
     design_eom_electrode,
@@ -63,26 +72,37 @@ from microring import (
     export_io_coupler_interconnect,
     export_lumerical_interconnect_bundle,
     export_mrr_gds,
+    export_mrr_gds_with_pdk,
     export_mzi_gds,
     export_mzi_interconnect_bundle,
+    export_pdk_csv_tables,
     export_pn_doping_gds,
     export_sweep_array_gds,
     export_tcad_data_bundle,
     export_thermal_shifter_gds,
+    extract_3d_electrical_lvs,
     fit_single_resonance_cmt,
+    get_foundry_pdk,
     get_material_fn,
+    load_pdk_from_csv_dir,
     loss_db_per_cm_to_q_int,
     process_chat_turn,
     q_int_to_loss_db_per_cm,
     run_active_tuning_analysis,
     run_compute_benchmark,
     run_fabrication_error_analysis,
+    run_foundry_process_corners,
+    run_gds_polygon_drc,
     run_mrr_parameter_sweep,
+    run_prism_closed_loop_optimizer,
     run_waveguide_width_sweep,
+    simulate_cointegrated_pn_heater_ring,
     simulate_mrr_topology,
     simulate_mzi,
     simulate_pn_doping_tcad,
     simulate_thermal_phase_shifter,
+    simulate_wdm_microring_link,
+    solve_gds_cutline_multiphysics,
     solve_modes_fem,
 )
 import microring.app_server as srv
@@ -376,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 12
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 15
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -1644,6 +1664,201 @@ def test_eom_electrode_pn_tcad_and_thermal() -> None:
     assert len(eom_txt) < 620, f"MCP eom_multiphysics too verbose ({len(eom_txt)} chars): {eom_txt}"
 
 
+def test_foundry_pdk_drc_lvs_and_cutline_solver() -> None:
+    assert len(FOUNDRY_PDK_CATALOG) == 6
+    st = agent_status()
+    assert "pdks" in st and len(st["pdks"]) == 6
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        # 1. NDA-safe CSV PDK export & reload round-trip
+        csv_dir = tmp_path / "pdk_csv"
+        exp_csv = export_pdk_csv_tables("gsip_soi220", csv_dir)
+        assert Path(exp_csv["files"]["process_layers"]).is_file() and Path(exp_csv["files"]["drc_rules"]).is_file()
+        pdk_reloaded = load_pdk_from_csv_dir(csv_dir, base_pdk_key="gsip_soi220")
+        assert "Custom CSV PDK" in pdk_reloaded["name_en"]
+        assert pdk_reloaded["layers"]["core"][:2] == get_foundry_pdk("gsip_soi220")["layers"]["core"][:2]
+
+        # 2. Build Co-Integrated Dual-Drive PN + TiN Heater Ring Modulator (`GSG` North + `H1/H2` South)
+        ring_gds = tmp_path / "pn_heater_gsip.gds"
+        bld = build_pn_heater_ring_modulator_gds(
+            ring_gds,
+            pdk="gsip_soi220",
+            ring_radius_um=12.0,
+            gap_um=0.20,
+            apply_slab_fillets=True,
+            verify_drc_lvs=True,
+        )
+        assert ring_gds.is_file() and Path(bld["lyp_path"]).is_file()
+        drc = bld["drc"]
+        lvs = bld["lvs"]
+        assert drc["drc_clean"] is True, f"Unexpected DRC violations: {drc['violations']}"
+        assert Path(drc["lyrdb_path"]).is_file() and "<report-database>" in Path(drc["lyrdb_path"]).read_text()
+        assert lvs["lvs_clean"] is True, f"Unexpected LVS violations: {lvs}"
+        assert lvs["floating_via_count"] == 0
+        assert len(lvs["short_violations"]) == 0
+        assert lvs["total_nets"] >= 3
+
+        # 3. Deliberate DRC & 3D LVS Failure Injection (must detect narrow core AND S-to-G1 metal short!)
+        import gdstk
+
+        bad_lib = gdstk.read_gds(str(ring_gds))
+        bad_top = bad_lib.top_level()[0]
+        core_ld = get_foundry_pdk("gsip_soi220")["layers"]["core"]
+        m2_ld = get_foundry_pdk("gsip_soi220")["layers"]["metal2"]
+        # Inject illegal 70 nm narrow core sliver (< 140 nm min width)
+        bad_top.add(gdstk.rectangle((-25.0, -5.0), (-24.93, 5.0), layer=core_ld[0], datatype=core_ld[1]))
+        # Inject Metal-2 bridge shorting G1 (-100, 74) to S (0, 74)
+        bad_top.add(gdstk.rectangle((-105.0, 68.0), (5.0, 80.0), layer=m2_ld[0], datatype=m2_ld[1]))
+        bad_gds = tmp_path / "pn_heater_broken.gds"
+        bad_lib.write_gds(str(bad_gds))
+
+        bad_drc = run_gds_polygon_drc(bad_gds, pdk="gsip_soi220")
+        bad_lvs = extract_3d_electrical_lvs(bad_gds, pdk="gsip_soi220")
+        assert bad_drc["drc_clean"] is False and bad_drc["total_violations"] >= 1
+        assert bad_lvs["lvs_clean"] is False and len(bad_lvs["short_violations"]) >= 1
+
+        # 4. Native Own-Solver GDS Cutline Layer Builder (10-pt index probe + Maxwell + PB PN + Thermal FEM)
+        cut = solve_gds_cutline_multiphysics(ring_gds, pdk="gsip_soi220", wavelength_nm=1550.0)
+        assert len(cut["index_probe_10pt"]) == 10
+        assert 2.10 <= cut["eigenmode_2d_fem"]["n_eff"] <= 2.85
+        assert "pn_tcad_2d_fem" in cut and 0.4 <= cut["pn_tcad_2d_fem"]["V_pi_L_Vcm"] <= 4.5
+        assert "thermal_2d_fem" in cut and cut["thermal_2d_fem"]["pn_contact_heat_stealing_pct"] > 5.0
+
+        # 5. Export MRR with PDK + Acute Rib-Slab Wedge Fillets + Thermal Galerkin Flux Conservation
+        pdk_mrr = export_mrr_gds_with_pdk(
+            MRRDesignConfig(topology="racetrack_ad", core_material="Si", film_height_um=0.22, slab_height_um=0.09, ring_radius_um=14.0, gap_thru_um=0.20, gap_drop_um=0.20),
+            tmp_path / "mrr_cornerstone.gds",
+            pdk="cornerstone_soi220",
+            conformal_rib_slab=True,
+            run_drc=True,
+        )
+        assert pdk_mrr["drc"]["drc_clean"] is True
+
+        th_nosink = simulate_thermal_phase_shifter(ThermalSimConfig(core_material="Si", slab_height_um=0.09, include_pn_contact_sinking=False))
+        th_sink = simulate_thermal_phase_shifter(ThermalSimConfig(core_material="Si", slab_height_um=0.09, include_pn_contact_sinking=True))
+        assert th_sink["metrics"]["P_pi_mW"] > 1.06 * th_nosink["metrics"]["P_pi_mW"]
+        assert th_sink["metrics"]["pn_contact_heat_stealing_pct"] > 6.0
+        assert abs(th_sink["metrics"]["flux_balance_ratio"] - 1.0) < 0.03
+
+        coint = simulate_cointegrated_pn_heater_ring(ring_radius_um=12.0, gap_um=0.18, drive_vpp=2.4)
+        assert coint["metrics"]["f_3dB_EO_GHz"] > 14.0 and coint["metrics"]["OMA_normalized"] > 0.08, f"Got {coint['metrics']}"
+
+
+def test_prism_closure_audit_and_real_fem_optimizer() -> None:
+    assert set(PRISM_PROBLEM_CATALOG.keys()) == {"pn_ring_modulator", "high_er_pulley_mrr", "low_vpil_eom"}
+
+    # 1. Physics Closure Audit (Q-budget + Unitary Passivity + Core/Slab Perturbation Split)
+    aud = audit_mrr_and_pn_physics_closure(
+        MRRDesignConfig(topology="point_circular_ad", core_material="Si", film_height_um=0.22, slab_height_um=0.09, ring_radius_um=12.0, gap_thru_um=0.22, gap_drop_um=0.24),
+        pn_cfg=PNDopingTCADConfig(bias_voltages_v=[0.0, -2.0]),
+    )
+    assert aud["closure_pass"] is True, f"Physics closure audit failed: {aud}"
+    assert aud["q_budget"]["q_closure_error_pct"] < 6.0
+    assert aud["unitary_passivity"]["max_thru_plus_drop_power"] <= 1.0005
+    assert aud["perturbation_closure"] is not None
+    assert aud["perturbation_closure"]["perturbation_closure_error_pct"] < 6.0
+
+    # 2. Closed-Loop Prediction-Gated Real-2D-FEM Optimizer + Auditable journal.jsonl
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        opt_pn = run_prism_closed_loop_optimizer(
+            problem_type="pn_ring_modulator",
+            max_iterations=6,
+            seed=42,
+            output_dir=tmp_path,
+        )
+        assert opt_pn["iterations_run"] == 6
+        assert opt_pn["best_design"]["display_fom"] >= opt_pn["initial_design"]["display_fom"]
+        j_path = Path(opt_pn["journal_jsonl_path"])
+        assert j_path.is_file()
+        lines = [json.loads(ln) for ln in j_path.read_text(encoding="utf-8").strip().splitlines()]
+        assert len(lines) == 6 and "predicted_sigma" in lines[1]
+
+        opt_pulley = run_prism_closed_loop_optimizer(
+            problem_type="high_er_pulley_mrr",
+            max_iterations=6,
+            seed=7,
+            output_dir=tmp_path,
+        )
+        assert opt_pulley["best_design"]["display_fom"] > opt_pulley["initial_design"]["display_fom"]
+
+
+def test_wdm_link_eye_thermal_locking_and_foundry_corners() -> None:
+    assert len(WDM_SCENARIO_CATALOG) == 5
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        # 1. WDM Link: Nominal open eye vs +8 K Thermal Drift collapse vs PI TiN Heater Relocked recovery
+        w_nom = simulate_wdm_microring_link(WDMLinkConfig(scenario="nominal", num_channels=4, data_rate_per_ch_gbps=25.0), export_csv_dir=tmp_path)
+        w_drift = simulate_wdm_microring_link(WDMLinkConfig(scenario="thermal_drift", num_channels=4, data_rate_per_ch_gbps=25.0))
+        w_relock = simulate_wdm_microring_link(WDMLinkConfig(scenario="heater_relocked", num_channels=4, data_rate_per_ch_gbps=25.0))
+        w_pam4 = simulate_wdm_microring_link(WDMLinkConfig(scenario="nominal", modulation_format="pam4", num_channels=4, data_rate_per_ch_gbps=50.0))
+
+        assert Path(w_nom["eye_csv_path"]).is_file()
+        assert w_nom["metrics"]["Q_factor"] > 5.0 and w_nom["metrics"]["link_open_pass"] is True
+        assert w_drift["metrics"]["Q_factor"] < 0.65 * w_nom["metrics"]["Q_factor"]
+        assert w_relock["metrics"]["Q_factor"] > 1.35 * w_drift["metrics"]["Q_factor"]
+        assert w_relock["metrics"]["heater_lock_power_per_ch_mW"] > 0.5
+        assert abs(w_relock["metrics"]["residual_detuning_error_pm"]) < abs(w_drift["metrics"]["residual_detuning_error_pm"]) * 0.15
+        assert w_pam4["metrics"]["aggregate_bandwidth_Gbps"] == 200.0 and w_pam4["metrics"]["baud_rate_GBaud"] == 25.0
+
+        # 2. Foundry Process Corners (Nominal / SS / FF / SF / FS) + Wafer Monte-Carlo Yield
+        crn = run_foundry_process_corners(
+            MRRDesignConfig(topology="point_circular_ap", core_material="Si", film_height_um=0.22, slab_height_um=0.09, ring_radius_um=12.0, gap_thru_um=0.21),
+            pdk_key="gsip_soi220",
+            mc_trials=120,
+        )
+        assert [c["corner"] for c in crn["corners"]] == ["Nominal", "SS", "FF", "SF", "FS"]
+        assert crn["monte_carlo_summary"]["lambda_res_1sigma_pm"] > 10.0
+        assert 0.0 <= crn["monte_carlo_summary"]["yield_ER_gt_10dB_pct"] <= 100.0
+
+        # 3. Copilot NL Triggers + ASGI HTTP Endpoints + Token-Minimal MCP Tools (< 620 chars)
+        c_pdk = process_chat_turn(create_initial_session(lang="en"), "Build PN + TiN heater ring with DRC and 3D LVS in GSIP", gds_export_dir=tmp_path)
+        assert c_pdk["ui_view"] == "foundry" and c_pdk["foundry_pdk_result"]["drc"]["drc_clean"] is True
+
+        c_wdm = process_chat_turn(create_initial_session(lang="zh"), "仿真 4通道 25Gbps 微环 WDM 眼图 热重锁定", gds_export_dir=tmp_path, lang="zh")
+        assert c_wdm["ui_view"] == "foundry" and c_wdm["wdm_result"]["config"]["scenario"] == "heater_relocked"
+
+        async def _check_foundry_http() -> None:
+            old_exp = srv.GDS_EXPORT_DIR
+            srv.GDS_EXPORT_DIR = tmp_path / "srv_fnd"
+            try:
+                st0, b0 = await _asgi_request("GET", "/")
+                assert st0 == 200 and b"pill-foundry" in b0 and b"view-foundry" in b0
+
+                st1, b1 = await _asgi_request("POST", "/api/pdk_drc_lvs", json_body={"pdk_key": "gsip_soi220", "ring_radius_um": 12.0, "run_cutline_fem": False})
+                d1 = json.loads(b1)
+                assert st1 == 200 and d1["drc"]["drc_clean"] is True and "lyrdb_download_url" in d1
+
+                st2, b2 = await _asgi_request("POST", "/api/prism_optimize", json_body={"mode": "closure_audit"})
+                assert st2 == 200 and json.loads(b2)["closure_pass"] is True
+
+                st3, b3 = await _asgi_request("POST", "/api/wdm_link", json_body={"scenario": "nominal", "num_channels": 4})
+                d3 = json.loads(b3)
+                assert st3 == 200 and d3["metrics"]["Q_factor"] > 5.0 and "eye_csv_download_url" in d3
+
+                st4, b4 = await _asgi_request("POST", "/api/process_corners", json_body={"pdk_key": "cornerstone_soi220", "mc_trials": 64})
+                assert st4 == 200 and len(json.loads(b4)["corners"]) == 5
+            finally:
+                srv.GDS_EXPORT_DIR = old_exp
+
+        asyncio.run(_check_foundry_http())
+
+        for tool_name, args in [
+            ("microring_pdk_drc", {"mode": "build_pn_heater_ring", "pdk": "gsip_soi220", "run_cutline": True}),
+            ("microring_prism_optimize", {"mode": "closure_audit"}),
+            ("microring_wdm_link", {"scenario": "heater_relocked", "n_ch": 4, "rate_gbps": 25.0}),
+        ]:
+            mcp_r = handle_mcp_request({"jsonrpc": "2.0", "id": 201, "method": "tools/call", "params": {"name": tool_name, "arguments": args}})
+            assert mcp_r is not None and not mcp_r["result"]["isError"]
+            txt = mcp_r["result"]["content"][0]["text"]
+            assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
+
+        f_crn = agent_fab_tolerance({"mode": "foundry_corners", "pdk": "gsip_soi220", "mc_trials": 64})
+        assert len(json.dumps(f_crn)) < 620 and "yield_ER15_pct" in f_crn
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -1660,9 +1875,15 @@ def main() -> None:
         ("Photonic IC Butt/2D-FDFD Grating Couplers & High-Q FDTD Convergence", test_io_couplers_and_high_q_fdtd_convergence),
         ("2D-FEM/EME Mach-Zehnder Interferometers (Y-Branch/DC/MMI), Modulators & INTERCONNECT", test_mzi_splitters_tuning_gds_and_interconnect),
         ("2D-FEM EOM RF Electrodes, Si PN Doping TCAD & Steady/Transient Thermal FEM", test_eom_electrode_pn_tcad_and_thermal),
+        ("Foundry PDK Profiles, Polygon DRC (.lyrdb), 3D LVS & Native Cutline 2D-FEM", test_foundry_pdk_drc_lvs_and_cutline_solver),
+        ("PRISM Physics-Closure Audit & Prediction-Gated Real-2D-FEM Optimizer", test_prism_closure_audit_and_real_fem_optimizer),
+        ("Multi-Channel WDM Ring Link, Eye Diagram, PI Heater Locking & Process Corners", test_wdm_link_eye_thermal_locking_and_foundry_corners),
     ]
+    if len(sys.argv) > 1:
+        toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]
+        tests = [(lbl, fn) for lbl, fn in tests if any(tk in lbl.lower() or tk in fn.__name__.lower() for tk in toks)]
     print("=" * 72)
-    print("Running MicroRing Studio v3.8.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.9.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

@@ -467,6 +467,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         <button class="stage-pill" id="pill-io" onclick="setStageView('io'); if(!lastIoResult && !lastHighQResult) runIoCouplerUI();" data-i18n="pill_io">🔌 I/O &amp; High-Q</button>
         <button class="stage-pill" id="pill-mzi" onclick="setStageView('mzi'); if(!lastMziResult) runMziUI();" data-i18n="pill_mzi">🔀 MZI</button>
         <button class="stage-pill" id="pill-eom" onclick="setStageView('eom'); if(!lastEomResult) runEomUI();" data-i18n="pill_eom">📡 EOM · PN · Thermal</button>
+        <button class="stage-pill" id="pill-foundry" onclick="setStageView('foundry'); if(!lastFoundryResult) runFoundrySuiteUI();" data-i18n="pill_foundry">🏭 PDK · PRISM · WDM</button>
       </div>
       <span class="stage-status" id="spec-status" data-i18n="status_ready">Ready · 400 nm – 14 µm</span>
     </div>
@@ -1701,6 +1702,118 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         </div>
       </div>
 
+      <!-- ==================== STAGE 11: FOUNDRY PDK DRC/LVS · PRISM OPTIMIZER · WDM EYE LINK · CORNERS ==================== -->
+      <div class="stage-view" id="view-foundry">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="fnd_card_title">Own-Solver Foundry PDK DRC/3D-LVS · PRISM Closed-Loop 2D-FEM · WDM Eye &amp; PI Locking · Process Corners (Zero Lumerical)</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;" id="fnd-top-actions">
+              <button class="btn sm primary" id="btn-run-foundry" onclick="runFoundrySuiteUI()" data-i18n="fnd_btn_run">▶ Run Own-Solver Suite</button>
+              <a class="btn sm" id="fnd-dl-gds" href="#" download style="display:none;text-decoration:none;">💾 .GDS</a>
+              <a class="btn sm" id="fnd-dl-lyp" href="#" download style="display:none;text-decoration:none;">🎨 .LYP</a>
+              <a class="btn sm" id="fnd-dl-lyrdb" href="#" download style="display:none;text-decoration:none;">🛡️ KLayout .LYRDB</a>
+              <a class="btn sm" id="fnd-dl-journal" href="#" download style="display:none;text-decoration:none;">📓 PRISM .JSONL</a>
+              <a class="btn sm" id="fnd-dl-eyecsv" href="#" download style="display:none;text-decoration:none;">📈 Eye .CSV</a>
+              <button class="btn sm subtle" id="fnd-open-gds-btn" style="display:none;" onclick="if(lastFoundryGdsView){currentGdsView=lastFoundryGdsView;setStageView('gds');drawGdsCanvas();}">📐 Inspect in 2D Caliper</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:2.1fr 1.2fr 1fr 1fr 1fr;gap:10px;align-items:end;">
+            <div class="form-row" style="margin:0;">
+              <label data-i18n="fnd_lbl_mode">Foundry / Verification / System Mode</label>
+              <select id="fnd-mode" onchange="onFoundryModeChange()">
+                <option value="pdk_drc_lvs" data-i18n="fnd_opt_pdk">🛡️ Co-Integrated PN + TiN Heater Ring · Polygon DRC (.lyrdb) · 3D LVS · Cutline 2D-FEM</option>
+                <option value="prism_optimize" data-i18n="fnd_opt_prism">🧠 PRISM Prediction-Gated Closed-Loop Real-2D-FEM Optimizer + Q-Budget Closure</option>
+                <option value="wdm_link" data-i18n="fnd_opt_wdm">👁️ Multi-Channel WDM Ring Link · NRZ/PAM4 Eye Diagram · PI Heater Relocking</option>
+                <option value="process_corners" data-i18n="fnd_opt_corners">🎲 Foundry Process Corners (Nominal/SS/FF/SF/FS) + Wafer Monte-Carlo Yield</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin:0;" id="fnd-box-pdk">
+              <label id="fnd-lbl-sub1">Foundry PDK / Problem / Scenario</label>
+              <select id="fnd-sub1">
+                <option value="gsip_soi220">Generic 220nm SOI Active (GSIP)</option>
+                <option value="cornerstone_soi220">CORNERSTONE 220nm SOI</option>
+                <option value="siepic_ebeam_soi220">SiEPIC EBeam 220nm SOI</option>
+                <option value="tfln_xcut_600">600nm X-Cut TFLN</option>
+                <option value="scaln_soi_bilayer">ScAlN/SOI Bilayer</option>
+                <option value="microring_generic">MicroRing Generic</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin:0;">
+              <label id="fnd-lbl-p1">Ring Radius R [µm]</label>
+              <input id="fnd-p1" type="number" step="0.5" value="12.0"/>
+            </div>
+            <div class="form-row" style="margin:0;">
+              <label id="fnd-lbl-p2">Coupler Gap [µm]</label>
+              <input id="fnd-p2" type="number" step="0.01" value="0.20"/>
+            </div>
+            <div class="form-row" style="margin:0;">
+              <label id="fnd-lbl-p3">Slab Fillet + Cutline FEM</label>
+              <select id="fnd-p3">
+                <option value="both">Fillet + Cutline 2D-FEM</option>
+                <option value="drc_only">Fillet + DRC/LVS Only</option>
+                <option value="cutline_only">Cutline 2D-FEM Only</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi-box">
+            <div class="kpi-lbl" id="fnd-kpi1-lbl">Polygon DRC &amp; .LYRDB</div>
+            <div class="kpi-val" id="fnd-kpi1-val">—</div>
+            <div class="kpi-sub" id="fnd-kpi1-sub">Shapely Morphological DRC</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-lbl" id="fnd-kpi2-lbl">3D Multi-Metal LVS</div>
+            <div class="kpi-val" id="fnd-kpi2-val">—</div>
+            <div class="kpi-sub" id="fnd-kpi2-sub">Union-Find Netlist Extraction</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-lbl" id="fnd-kpi3-lbl">Own-Solver Cutline 2D-FEM</div>
+            <div class="kpi-val" id="fnd-kpi3-val">—</div>
+            <div class="kpi-sub" id="fnd-kpi3-sub">Maxwell + PB PN + Thermal FEM</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-lbl" id="fnd-kpi4-lbl">Flux Balance &amp; Heat Sinking</div>
+            <div class="kpi-val" id="fnd-kpi4-val">—</div>
+            <div class="kpi-sub" id="fnd-kpi4-sub">PN Contact Parasitic Stealing</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="fnd-plot1-title">10-Point Cutline Refractive-Index Stack Probe / Eye / FOM</span>
+              <span class="card-sub" id="fnd-plot1-sub">100% Native Python Solvers</span>
+            </div>
+            <canvas class="plot-cv" id="cv-foundry-main"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="fnd-plot2-title">Co-Integrated PN Depletion / PI Heater Relocking / Surrogate σ</span>
+              <span class="card-sub" id="fnd-plot2-sub">Zero Lumerical Dependency</span>
+            </div>
+            <canvas class="plot-cv" id="cv-foundry-aux"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" id="fnd-tbl-title">Foundry Verification / Optimization / WDM Channel Summary</span>
+            <span class="card-sub" id="fnd-tbl-sub">Provenance-Tagged Rules &amp; Physics Conservation</span>
+          </div>
+          <table class="clean-tbl" id="fnd-table">
+            <thead>
+              <tr id="fnd-thead-row">
+                <th>Item / Check</th><th>Status / Value</th><th>Metric 1</th><th>Metric 2</th><th>Notes / Provenance</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -1813,6 +1926,10 @@ let mziAuxMode = 'auto';
 let lastEomResult = null;
 let eomBusy = false;
 let eomAuxMode = 'heatmap';
+let lastFoundryResult = null;
+let lastFoundryKind = null;
+let lastFoundryGdsView = null;
+let foundryBusy = false;
 let aiBackendStatus = { offline: true, ollama_available: false, claude_cli_available: false, claude_env_key: false, codex_cli_available: false, codex_env_key: false };
 
 const UI_I18N = {
@@ -1827,7 +1944,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 Online · Codex / OpenAI (CLI / API)',
     chat_placeholder: "Type an answer or spec (e.g. 'loss = 0.8 dB/cm, FSR 150 GHz, pulley')...",
     btn_send: 'Send →',
-    pill_overview: '📋 Blueprint', pill_mode: '🔬 2D Mode', pill_mrr: '📊 Ring Spectrum', pill_gds: '📐 GDS Mask', pill_fit: '📈 Loss & Q Fit', pill_fab: '🧪 Fab & Dose', pill_tuning: '⚡ Tuning & IC', pill_io: '🔌 Butt/GC & High-Q', pill_mzi: '🔀 MZI', pill_eom: '📡 EOM · PN · Thermal',
+    pill_overview: '📋 Blueprint', pill_mode: '🔬 2D Mode', pill_mrr: '📊 Ring Spectrum', pill_gds: '📐 GDS Mask', pill_fit: '📈 Loss & Q Fit', pill_fab: '🧪 Fab & Dose', pill_tuning: '⚡ Tuning & IC', pill_io: '🔌 Butt/GC & High-Q', pill_mzi: '🔀 MZI', pill_eom: '📡 EOM · PN · Thermal', pill_foundry: '🏭 PDK · PRISM · WDM',
     status_ready: 'Ready · 400 nm – 14 µm',
     wf1_title: '1. Design a New Ring Step-by-Step',
     wf1_desc: 'Answer one simple question at a time — waveband, material, wafer stack, propagation loss (<code>dB/cm</code>), and target FSR.',
@@ -1917,7 +2034,14 @@ const UI_I18N = {
     eom_opt_rf: '📡 EOM RF Traveling-Wave / Slow-Wave T-Rail / GSG Electrode + .S2P',
     eom_opt_wo: '🧭 EO Wafer Orientation & Crystal Azimuth Finder (0°–360° Polar Rosette + SEMI Flat)',
     eom_opt_pn: '🔋 Silicon PN / L-Shaped / U-Shaped / PIN Doping TCAD (2D Poisson-Boltzmann)',
-    eom_opt_th: '🔥 Steady + Crank-Nicolson Transient Thermal FEM (Top / Trench / Undercut / Doped-Si)'
+    eom_opt_th: '🔥 Steady + Crank-Nicolson Transient Thermal FEM (Top / Trench / Undercut / Doped-Si)',
+    fnd_card_title: 'Own-Solver Foundry PDK DRC/3D-LVS · PRISM Closed-Loop 2D-FEM · WDM Eye & PI Locking · Process Corners (Zero Lumerical)',
+    fnd_btn_run: '▶ Run Own-Solver Suite',
+    fnd_lbl_mode: 'Foundry / Verification / System Mode',
+    fnd_opt_pdk: '🛡️ Co-Integrated PN + TiN Heater Ring · Polygon DRC (.lyrdb) · 3D LVS · Cutline 2D-FEM',
+    fnd_opt_prism: '🧠 PRISM Prediction-Gated Closed-Loop Real-2D-FEM Optimizer + Q-Budget Closure',
+    fnd_opt_wdm: '👁️ Multi-Channel WDM Ring Link · NRZ/PAM4 Eye Diagram · PI Heater Relocking',
+    fnd_opt_corners: '🎲 Foundry Process Corners (Nominal/SS/FF/SF/FS) + Wafer Monte-Carlo Yield'
   },
   zh: {
     step1: '选择目标', step2: '工作波段', step3: '芯层材料', step4: '叠层与模式', step5: '损耗与微环', step6: '耦合优化与版图',
@@ -1930,7 +2054,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 在线模式 · Codex / OpenAI (CLI / API)',
     chat_placeholder: '输入您的需求或参数（例如：损耗 0.8 dB/cm, FSR 150 GHz, 滑轮耦合）...',
     btn_send: '发送 →',
-    pill_overview: '📋 设计蓝图', pill_mode: '🔬 二维模式', pill_mrr: '📊 微环光谱', pill_gds: '📐 GDS 版图', pill_fit: '📈 损耗与Q拟合', pill_fab: '🧪 工艺与剂量', pill_tuning: '⚡ 调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 调制', pill_eom: '📡 电极·掺杂·热场',
+    pill_overview: '📋 设计蓝图', pill_mode: '🔬 二维模式', pill_mrr: '📊 微环光谱', pill_gds: '📐 GDS 版图', pill_fit: '📈 损耗与Q拟合', pill_fab: '🧪 工艺与剂量', pill_tuning: '⚡ 调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 调制', pill_eom: '📡 电极·掺杂·热场', pill_foundry: '🏭 代工厂·闭环·WDM',
     status_ready: '就绪 · 400 nm – 14 µm',
     wf1_title: '1. 逐步引导设计新微环',
     wf1_desc: '每次只问一个清晰问题——工作波段、波导材料、晶圆叠层、传播损耗 (<code>dB/cm</code>) 与目标 FSR。',
@@ -2018,7 +2142,14 @@ const UI_I18N = {
     eom_opt_rf: '📡 电光调制器行波 GSG / 慢波 T 轨 / 分瓣环电极 + Touchstone .S2P',
     eom_opt_wo: '🧭 电光晶圆切向与面内方位角寻优 (0°–360° 极坐标花瓣图 + SEMI 主参考边)',
     eom_opt_pn: '🔋 硅光横向 / L 型 / U 型 / PIN 结掺杂 TCAD (二维非线性泊松-玻尔兹曼)',
-    eom_opt_th: '🔥 稳态 + Crank-Nicolson 瞬态热有限元 (顶层 / 深隔离槽 / XeF₂ 掏空悬臂 / 内嵌重掺硅)'
+    eom_opt_th: '🔥 稳态 + Crank-Nicolson 瞬态热有限元 (顶层 / 深隔离槽 / XeF₂ 掏空悬臂 / 内嵌重掺硅)',
+    fnd_card_title: '纯自研代工厂 PDK 多边形 DRC/3D-LVS · PRISM 闭环 2D-FEM 寻优 · WDM 眼图与热重锁 · 工艺角良率 (零 Lumerical)',
+    fnd_btn_run: '▶ 运行自研引擎套件',
+    fnd_lbl_mode: '代工验证 / 闭环优化 / 系统链路模式',
+    fnd_opt_pdk: '🛡️ 双驱 PN + TiN 热调微环 · 多边形 DRC (.lyrdb) · 三维并查集 LVS · 切线 2D-FEM',
+    fnd_opt_prism: '🧠 PRISM 预测门控闭环真实 2D-FEM 自主寻优 + Q 值预算闭合审计',
+    fnd_opt_wdm: '👁️ 多通道微环 WDM 光互连 · NRZ/PAM4 眼图 · PI 热光闭环重锁定',
+    fnd_opt_corners: '🎲 代工厂五工艺角 (Nominal/SS/FF/SF/FS) + 晶圆级关联蒙特卡洛良率'
   }
 };
 
@@ -2116,6 +2247,10 @@ function setStageView(viewName) {
     if (viewName === 'eom') {
       if (lastEomResult) renderEomResult(lastEomResult);
       else if (!eomBusy) runEomUI();
+    }
+    if (viewName === 'foundry') {
+      if (lastFoundryResult) renderFoundrySuiteDispatch(lastFoundryKind, lastFoundryResult);
+      else if (!foundryBusy) runFoundrySuiteUI();
     }
   }, 25);
 }
@@ -2500,6 +2635,34 @@ async function sendChatPrompt(promptText) {
       document.getElementById('eom-mode').value = (em === 'pn_doping_tcad') ? 'pn_doping' : em;
       onEomModeChange(true);
       renderEomResult(data.eom_result);
+    }
+    if (data.foundry_pdk_result) {
+      lastFoundryKind = 'pdk_drc_lvs';
+      lastFoundryResult = data.foundry_pdk_result;
+      document.getElementById('fnd-mode').value = 'pdk_drc_lvs';
+      onFoundryModeChange(true);
+      renderFoundryPdkResult(data.foundry_pdk_result);
+    }
+    if (data.prism_result) {
+      lastFoundryKind = 'prism_optimize';
+      lastFoundryResult = data.prism_result;
+      document.getElementById('fnd-mode').value = 'prism_optimize';
+      onFoundryModeChange(true);
+      renderPrismResult(data.prism_result);
+    }
+    if (data.wdm_result) {
+      lastFoundryKind = 'wdm_link';
+      lastFoundryResult = data.wdm_result;
+      document.getElementById('fnd-mode').value = 'wdm_link';
+      onFoundryModeChange(true);
+      renderWdmResult(data.wdm_result);
+    }
+    if (data.corners_result) {
+      lastFoundryKind = 'process_corners';
+      lastFoundryResult = data.corners_result;
+      document.getElementById('fnd-mode').value = 'process_corners';
+      onFoundryModeChange(true);
+      renderCornersResult(data.corners_result);
     }
     if (data.interconnect_export && data.interconnect_export.zip_download_url) {
       showInterconnectDownload(data.interconnect_export);
@@ -5517,6 +5680,490 @@ function drawEomHeatmap2D(res, kind) {
   [yMin, 0.5 * (yMin + yMax), yMax].forEach(yv => {
     ctx.fillText(yv.toFixed(2), pad.l - 5, ty(yv) + 3.5);
   });
+}
+
+// ==================== STAGE 11: FOUNDRY PDK DRC/LVS · PRISM · WDM EYE · CORNERS ====================
+function _resetFoundryDownloadButtons() {
+  ['fnd-dl-gds', 'fnd-dl-lyp', 'fnd-dl-lyrdb', 'fnd-dl-journal', 'fnd-dl-eyecsv', 'fnd-open-gds-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function onFoundryModeChange(skipRun) {
+  const mode = document.getElementById('fnd-mode').value;
+  const sub1 = document.getElementById('fnd-sub1');
+  const lblSub1 = document.getElementById('fnd-lbl-sub1');
+  const lblP1 = document.getElementById('fnd-lbl-p1');
+  const p1 = document.getElementById('fnd-p1');
+  const lblP2 = document.getElementById('fnd-lbl-p2');
+  const p2 = document.getElementById('fnd-p2');
+  const lblP3 = document.getElementById('fnd-lbl-p3');
+  const p3 = document.getElementById('fnd-p3');
+
+  if (mode === 'pdk_drc_lvs') {
+    lblSub1.textContent = 'Foundry PDK Profile';
+    sub1.innerHTML = `
+      <option value="gsip_soi220">Generic 220nm SOI Active (GSIP)</option>
+      <option value="cornerstone_soi220">CORNERSTONE 220nm SOI</option>
+      <option value="siepic_ebeam_soi220">SiEPIC EBeam 220nm SOI</option>
+      <option value="tfln_xcut_600">600nm X-Cut TFLN</option>
+      <option value="scaln_soi_bilayer">ScAlN/SOI Bilayer</option>
+      <option value="microring_generic">MicroRing Generic</option>`;
+    lblP1.textContent = 'Ring Radius R [µm]'; p1.value = '12.0'; p1.step = '0.5';
+    lblP2.textContent = 'Coupler Gap [µm]'; p2.value = '0.20'; p2.step = '0.01';
+    lblP3.textContent = 'Slab Fillet + Cutline FEM';
+    p3.innerHTML = `
+      <option value="both">Fillet + Cutline 2D-FEM</option>
+      <option value="drc_only">Fillet + DRC/LVS Only</option>
+      <option value="cutline_only">Cutline 2D-FEM Only</option>`;
+  } else if (mode === 'prism_optimize') {
+    lblSub1.textContent = 'PRISM Optimization / Audit Target';
+    sub1.innerHTML = `
+      <option value="pn_ring_modulator">Active Si PN + Heater Ring (Max OMA)</option>
+      <option value="high_er_pulley_mrr">Pulley High-Q MRR (Max ER s.t. DRC & Q)</option>
+      <option value="low_vpil_eom">X-Cut TFLN EOM Electrode (Min V_π·L·α)</option>
+      <option value="closure_audit">Physics Closure Audit (Q-Budget + Passivity)</option>`;
+    lblP1.textContent = 'Max Real-FEM Iters'; p1.value = '7'; p1.step = '1';
+    lblP2.textContent = 'Random Seed'; p2.value = '42'; p2.step = '1';
+    lblP3.textContent = 'Understanding Gate';
+    p3.innerHTML = `<option value="strict">Active (>2σ Recalibration)</option>`;
+  } else if (mode === 'wdm_link') {
+    lblSub1.textContent = 'WDM Link Scenario';
+    sub1.innerHTML = `
+      <option value="nominal">Nominal Locked 4×25G WDM Link</option>
+      <option value="thermal_drift">+8 K Thermal Drift (Unlocked Collapse)</option>
+      <option value="heater_relocked">+8 K Drift + PI TiN Heater Relocked</option>
+      <option value="dense_crosstalk">Dense 50 GHz Adjacent Crosstalk</option>
+      <option value="low_laser_power">Low Laser Power (-12 dBm Noise-Limited)</option>`;
+    lblP1.textContent = 'Channels N_ch'; p1.value = '4'; p1.step = '1';
+    lblP2.textContent = 'Per-Ch Rate [Gbps]'; p2.value = '25'; p2.step = '5';
+    lblP3.textContent = 'Modulation Format';
+    p3.innerHTML = `<option value="nrz">NRZ OOK</option><option value="pam4">PAM-4 (2 bits/sym)</option>`;
+  } else {
+    lblSub1.textContent = 'Foundry Corner PDK';
+    sub1.innerHTML = `
+      <option value="gsip_soi220">Generic 220nm SOI Active (GSIP)</option>
+      <option value="cornerstone_soi220">CORNERSTONE 220nm SOI</option>
+      <option value="siepic_ebeam_soi220">SiEPIC EBeam 220nm SOI</option>
+      <option value="tfln_xcut_600">600nm X-Cut TFLN</option>
+      <option value="scaln_soi_bilayer">ScAlN/SOI Bilayer</option>`;
+    lblP1.textContent = 'ΔW 3σ [nm] (0=PDK)'; p1.value = '0'; p1.step = '2';
+    lblP2.textContent = 'ΔH 3σ [nm] (0=PDK)'; p2.value = '0'; p2.step = '1';
+    lblP3.textContent = 'Wafer MC Trials';
+    p3.innerHTML = `<option value="160">160 Trials</option><option value="400">400 Trials</option>`;
+  }
+  if (!skipRun) runFoundrySuiteUI();
+}
+
+async function runFoundrySuiteUI() {
+  if (foundryBusy) return;
+  foundryBusy = true;
+  const btn = document.getElementById('btn-run-foundry');
+  if (btn) btn.disabled = true;
+  const mode = document.getElementById('fnd-mode').value;
+  const sub1 = document.getElementById('fnd-sub1').value;
+  const v1 = parseFloat(document.getElementById('fnd-p1').value || '12');
+  const v2 = parseFloat(document.getElementById('fnd-p2').value || '0.20');
+  const v3 = document.getElementById('fnd-p3').value;
+
+  try {
+    let url = '/api/pdk_drc_lvs';
+    let body = {};
+    if (mode === 'pdk_drc_lvs') {
+      url = '/api/pdk_drc_lvs';
+      body = {
+        mode: v3 === 'cutline_only' ? 'cutline_solve' : 'build_pn_heater_ring',
+        pdk_key: sub1,
+        ring_radius_um: v1,
+        gap_um: v2,
+        apply_slab_fillets: true,
+        run_cutline_fem: v3 !== 'drc_only'
+      };
+    } else if (mode === 'prism_optimize') {
+      url = '/api/prism_optimize';
+      body = sub1 === 'closure_audit'
+        ? { mode: 'closure_audit', config: (copilotSession && copilotSession.config) ? copilotSession.config : null }
+        : { mode: 'optimize', problem_type: sub1, max_iterations: Math.max(4, Math.round(v1)), seed: Math.round(v2 || 42) };
+    } else if (mode === 'wdm_link') {
+      url = '/api/wdm_link';
+      body = {
+        scenario: sub1,
+        num_channels: Math.max(1, Math.round(v1 || 4)),
+        data_rate_per_ch_gbps: Math.max(5, v2 || 25),
+        modulation_format: v3 || 'nrz'
+      };
+    } else {
+      url = '/api/process_corners';
+      const baseCfg = (copilotSession && copilotSession.config) ? copilotSession.config : readExpertConfig();
+      body = {
+        config: baseCfg,
+        pdk_key: sub1,
+        delta_w_3sigma_nm: v1 > 0 ? v1 : null,
+        delta_h_core_3sigma_nm: v2 > 0 ? v2 : null,
+        mc_trials: parseInt(v3 || '160', 10)
+      };
+    }
+
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    lastFoundryKind = mode;
+    lastFoundryResult = data;
+    renderFoundrySuiteDispatch(mode, data);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    foundryBusy = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderFoundrySuiteDispatch(kind, data) {
+  if (!data) return;
+  if (kind === 'pdk_drc_lvs') renderFoundryPdkResult(data);
+  else if (kind === 'prism_optimize') renderPrismResult(data);
+  else if (kind === 'wdm_link') renderWdmResult(data);
+  else if (kind === 'process_corners') renderCornersResult(data);
+}
+
+function drawEyeDiagramPlot(canvasId, timeUi, tracesUw, highRailUw, lowRailUw, titleHint) {
+  const { ctx, w, h } = setupCanvas(canvasId);
+  ctx.fillStyle = '#050a14';
+  ctx.fillRect(0, 0, w, h);
+  const pad = { l: 54, r: 18, t: 22, b: 36 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  if (!tracesUw || !tracesUw.length || !timeUi || !timeUi.length) return;
+
+  let ymin = Infinity, ymax = -Infinity;
+  tracesUw.forEach(tr => tr.forEach(v => { if (v < ymin) ymin = v; if (v > ymax) ymax = v; }));
+  if (!Number.isFinite(ymin)) return;
+  const span = Math.max(ymax - ymin, 1.0);
+  ymin = Math.max(0.0, ymin - 0.12 * span);
+  ymax = ymax + 0.14 * span;
+  const sx = x => pad.l + (x / 2.0) * pw;
+  const sy = y => pad.t + ph - ((y - ymin) / (ymax - ymin || 1)) * ph;
+
+  ctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  ctx.lineWidth = 1;
+  [0.0, 0.5, 1.0, 1.5, 2.0].forEach(xv => {
+    ctx.beginPath(); ctx.moveTo(sx(xv), pad.t); ctx.lineTo(sx(xv), pad.t + ph); ctx.stroke();
+  });
+
+  tracesUw.forEach((tr, idx) => {
+    ctx.strokeStyle = idx % 3 === 0 ? 'rgba(56,189,248,0.42)' : 'rgba(52,211,153,0.34)';
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    for (let i = 0; i < tr.length; i++) {
+      const px = sx(timeUi[i]), py = sy(tr[i]);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  });
+
+  if (Number.isFinite(highRailUw) && Number.isFinite(lowRailUw)) {
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.1;
+    [highRailUw, lowRailUw].forEach(rv => {
+      ctx.beginPath(); ctx.moveTo(pad.l, sy(rv)); ctx.lineTo(pad.l + pw, sy(rv)); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.1;
+  ctx.strokeRect(pad.l, pad.t, pw, ph);
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '11px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  [0.0, 0.5, 1.0, 1.5, 2.0].forEach(xv => ctx.fillText(xv.toFixed(1), sx(xv), h - 18));
+  ctx.fillText('Normalized Time [UI]', pad.l + pw / 2, h - 4);
+  ctx.textAlign = 'right';
+  [ymin, 0.5 * (ymin + ymax), ymax].forEach(yv => ctx.fillText(yv.toFixed(0), pad.l - 6, sy(yv) + 3.5));
+  if (titleHint) {
+    ctx.textAlign = 'left'; ctx.fillStyle = '#38bdf8';
+    ctx.fillText(titleHint, pad.l + 8, pad.t + 15);
+  }
+}
+
+function renderFoundryPdkResult(d) {
+  _resetFoundryDownloadButtons();
+  const drc = d.drc || {};
+  const lvs = d.lvs || {};
+  const cut = d.cutline || (d.eigenmode_2d_fem ? d : null);
+
+  if (d.gds_download_url) { const a = document.getElementById('fnd-dl-gds'); a.href = d.gds_download_url; a.style.display = 'inline-flex'; }
+  if (d.lyp_download_url) { const a = document.getElementById('fnd-dl-lyp'); a.href = d.lyp_download_url; a.style.display = 'inline-flex'; }
+  if (d.lyrdb_download_url) { const a = document.getElementById('fnd-dl-lyrdb'); a.href = d.lyrdb_download_url; a.style.display = 'inline-flex'; }
+  if (d.gds_view) {
+    lastFoundryGdsView = d.gds_view;
+    document.getElementById('fnd-open-gds-btn').style.display = 'inline-flex';
+  }
+
+  document.getElementById('fnd-kpi1-lbl').textContent = 'Polygon DRC & .LYRDB';
+  document.getElementById('fnd-kpi1-val').textContent = drc.drc_clean !== undefined
+    ? (drc.drc_clean ? 'CLEAN (0)' : `FAIL (${drc.total_violations ?? drc.violation_count})`)
+    : 'Cutline Mode';
+  document.getElementById('fnd-kpi1-sub').textContent = `${drc.rule_checks_executed || 0} Morphological Rules Checked`;
+
+  document.getElementById('fnd-kpi2-lbl').textContent = '3D Union-Find LVS';
+  document.getElementById('fnd-kpi2-val').textContent = lvs.lvs_clean !== undefined
+    ? (lvs.lvs_clean ? `CLEAN (${lvs.total_nets ?? lvs.num_3d_nets} Nets)` : 'SHORT / OPEN')
+    : '—';
+  document.getElementById('fnd-kpi2-sub').textContent = `Floating Vias: ${lvs.floating_via_count || 0}`;
+
+  const eig = cut && cut.eigenmode_2d_fem ? cut.eigenmode_2d_fem : {};
+  const pnt = cut && cut.pn_tcad_2d_fem ? cut.pn_tcad_2d_fem : {};
+  const tht = cut && cut.thermal_2d_fem ? cut.thermal_2d_fem : {};
+
+  document.getElementById('fnd-kpi3-lbl').textContent = 'Cutline 2D-FEM Mode & PN';
+  document.getElementById('fnd-kpi3-val').textContent = eig.n_eff
+    ? `n_eff = ${Number(eig.n_eff).toFixed(4)}`
+    : '—';
+  document.getElementById('fnd-kpi3-sub').textContent = pnt.V_pi_L_Vcm
+    ? `V_π·L = ${pnt.V_pi_L_Vcm} V·cm · f_RC = ${pnt.f_RC_GHz} GHz`
+    : '2D Vector Maxwell Eigenmode';
+
+  document.getElementById('fnd-kpi4-lbl').textContent = 'Thermal P_π & PN Stealing';
+  document.getElementById('fnd-kpi4-val').textContent = tht.P_pi_mW
+    ? `P_π = ${tht.P_pi_mW} mW`
+    : '—';
+  document.getElementById('fnd-kpi4-sub').textContent = tht.pn_contact_heat_stealing_pct !== undefined
+    ? `PN Contact Steals ${tht.pn_contact_heat_stealing_pct}% · Flux=${tht.flux_balance_ratio}`
+    : 'Galerkin Boundary Flux Checked';
+
+  document.getElementById('fnd-plot1-title').textContent = '10-Point Vertical Refractive-Index Stack Probe n(z) @ Waveguide Center';
+  document.getElementById('fnd-plot2-title').textContent = 'Extracted Lateral GDS Layer Intervals Along Cutline';
+  if (cut && cut.index_probe_10pt && cut.index_probe_10pt.length) {
+    const zs = cut.index_probe_10pt.map(p => p.z_um);
+    const ns = cut.index_probe_10pt.map(p => p.n_real);
+    drawLinePlot('cv-foundry-main', [{ x: zs, y: ns, color: '#38bdf8', label: 'n_real(z)' }], 'Vertical z [µm]', 'Refractive Index n');
+  }
+  if (cut && cut.extracted_cross_section && cut.extracted_cross_section.lateral_intervals_um) {
+    const ivs = cut.extracted_cross_section.lateral_intervals_um;
+    const roles = Object.keys(ivs);
+    const xs = [], ys = [];
+    roles.forEach((rk, idx) => {
+      (ivs[rk] || []).forEach(seg => { xs.push(seg[0], seg[1], null); ys.push(idx + 1, idx + 1, null); });
+    });
+    if (xs.length) {
+      drawLinePlot('cv-foundry-aux', [{ x: xs, y: ys, color: '#34d399', label: 'GDS Cutline Spans' }], 'Cutline Position s [µm]', 'Layer Role Index');
+    }
+  }
+
+  document.getElementById('fnd-thead-row').innerHTML = '<th>Check / Net</th><th>Status / Pads</th><th>Role / Layers</th><th> Silicon Reach</th><th>Rule / Provenance</th>';
+  const tb = document.querySelector('#fnd-table tbody');
+  const rows = [];
+  if (drc.violations && drc.violations.length) {
+    drc.violations.slice(0, 8).forEach(v => {
+      rows.push(`<tr><td>${v.category}</td><td style="color:#f43f5e;font-weight:700;">VIOLATION</td><td>${v.role}</td><td>${v.measured_um ?? '—'} µm</td><td>${v.description || v.rule_description || ''}</td></tr>`);
+    });
+  } else if (drc.drc_clean) {
+    rows.push(`<tr><td>Polygon DRC</td><td style="color:#34d399;font-weight:700;">PASS (0 violations)</td><td>All Active Roles</td><td>—</td><td>${drc.pdk_name || ''} (.lyrdb exported)</td></tr>`);
+  }
+  (lvs.nets || []).forEach(n => {
+    const rolesArr = n.roles_present || n.roles_touched || [];
+    const padsArr = n.pads || n.pad_labels || [];
+    const reachStr = (rolesArr.includes('p_contact') || rolesArr.includes('n_contact'))
+      ? 'Yes (VIAC→Si)'
+      : (rolesArr.includes('heater') ? 'TiN Heater' : 'Metal Only');
+    rows.push(`<tr><td>3D Net #${n.net_id}</td><td>${padsArr.join(', ') || '(internal)'}</td><td>${rolesArr.join(', ')}</td><td>${reachStr}</td><td>Union-Find 3D Graph (${n.total_area_um2 || 0} µm²)</td></tr>`);
+  });
+  tb.innerHTML = rows.join('');
+}
+
+function renderPrismResult(d) {
+  _resetFoundryDownloadButtons();
+  if (d.journal_download_url) {
+    const a = document.getElementById('fnd-dl-journal');
+    a.href = d.journal_download_url;
+    a.style.display = 'inline-flex';
+  }
+  if (d.mode === 'closure_audit') {
+    const qb = d.q_budget || {};
+    const up = d.unitary_passivity || {};
+    const pc = d.perturbation_closure || {};
+    document.getElementById('fnd-kpi1-lbl').textContent = 'Overall Physics Closure';
+    document.getElementById('fnd-kpi1-val').textContent = d.closure_pass ? 'PASS' : 'CHECK';
+    document.getElementById('fnd-kpi1-sub').textContent = `Elapsed ${d.elapsed_ms} ms`;
+
+    document.getElementById('fnd-kpi2-lbl').textContent = 'Q-Budget vs Spectral Q_L';
+    document.getElementById('fnd-kpi2-val').textContent = `${qb.q_closure_error_pct}% err`;
+    document.getElementById('fnd-kpi2-sub').textContent = `Budget ${qb.Q_loaded_from_budget} vs TMM ${qb.Q_loaded_from_tmm_fwhm}`;
+
+    document.getElementById('fnd-kpi3-lbl').textContent = 'Unitary TMM Passivity';
+    document.getElementById('fnd-kpi3-val').textContent = `ΣP ≤ ${up.max_thru_plus_drop_power}`;
+    document.getElementById('fnd-kpi3-sub').textContent = up.passivity_pass ? 'Strictly Passive (≤ 1)' : 'Gain Anomaly';
+
+    document.getElementById('fnd-kpi4-lbl').textContent = 'Core + Slab Perturbation';
+    const pErr = pc.perturbation_closure_error_pct !== undefined ? pc.perturbation_closure_error_pct : pc.closure_error_pct;
+    const cSh = pc.core_confinement_share_pct !== undefined ? pc.core_confinement_share_pct : pc.core_share_pct;
+    const sSh = pc.slab_confinement_share_pct !== undefined ? pc.slab_confinement_share_pct : pc.slab_share_pct;
+    document.getElementById('fnd-kpi4-val').textContent = pErr !== undefined ? `${pErr}% err` : 'Passive Ring';
+    document.getElementById('fnd-kpi4-sub').textContent = cSh !== undefined ? `Core ${cSh}% / Slab ${sSh}%` : 'No PN Carrier Split';
+
+    const sh = qb.decay_rate_shares_pct || {};
+    const keys = Object.keys(sh);
+    drawLinePlot('cv-foundry-main', [{ x: keys.map((_, i) => i + 1), y: keys.map(k => sh[k]), color: '#38bdf8', label: '1/Q Decay Share [%]' }], 'Channel Index', 'Decay Share [%]');
+    drawLinePlot('cv-foundry-aux', [{ x: [1, 2], y: [qb.Q_loaded_from_budget || 0, qb.Q_loaded_from_tmm_fwhm || 0], color: '#34d399', label: 'Q_loaded' }], '1=Budget, 2=TMM', 'Loaded Q');
+
+    document.getElementById('fnd-thead-row').innerHTML = '<th>Loss / Coupling Channel</th><th>Partial Q_i</th><th>Decay Rate Share [%]</th><th>Gate Status</th><th>Physics Formula</th>';
+    const chs = qb.channels || {};
+    document.querySelector('#fnd-table tbody').innerHTML = Object.keys(sh).map((k, idx) => {
+      const ck = Object.keys(chs)[idx] || k;
+      return `<tr><td>${k}</td><td>${chs[ck] ?? '∞'}</td><td>${sh[k]}%</td><td style="color:#34d399;">CLOSED</td><td>1/Q_L = Σ(1/Q_i)</td></tr>`;
+    }).join('');
+    return;
+  }
+
+  const initD = d.initial_design || {};
+  const bestD = d.best_design || {};
+  const jrn = d.journal || [];
+  document.getElementById('fnd-kpi1-lbl').textContent = 'Best Real 2D-FEM FOM';
+  document.getElementById('fnd-kpi1-val').textContent = `${bestD.display_fom}`;
+  document.getElementById('fnd-kpi1-sub').textContent = `Hit at Iter #${bestD.iteration} (${bestD.feasible ? 'Feasible' : 'Penalized'})`;
+
+  document.getElementById('fnd-kpi2-lbl').textContent = 'Initial → Best Improvement';
+  document.getElementById('fnd-kpi2-val').textContent = `${initD.display_fom} → ${bestD.display_fom}`;
+  document.getElementById('fnd-kpi2-sub').textContent = `${d.iterations_run} Real 2D-FEM Evaluations`;
+
+  document.getElementById('fnd-kpi3-lbl').textContent = 'Understanding-Gate Recals';
+  document.getElementById('fnd-kpi3-val').textContent = `${d.understanding_gate_recalibrations}`;
+  document.getElementById('fnd-kpi3-sub').textContent = 'Triggered when |Sim − Pred| > 2σ';
+
+  document.getElementById('fnd-kpi4-lbl').textContent = 'Top Scaling Law';
+  document.getElementById('fnd-kpi4-val').textContent = Object.keys(d.sensitivities_standardized || {})[0] || '—';
+  document.getElementById('fnd-kpi4-sub').textContent = (d.laws_discovered && d.laws_discovered[0]) ? d.laws_discovered[0].slice(0, 46) : '';
+
+  document.getElementById('fnd-plot1-title').textContent = 'Simulated 2D-FEM Objective vs Pre-Simulation Surrogate Prediction';
+  document.getElementById('fnd-plot2-title').textContent = 'Bayesian Surrogate Uncertainty σ & Surprise Z-Score';
+  const itX = jrn.map(r => r.iteration);
+  drawLinePlot('cv-foundry-main', [
+    { x: itX, y: jrn.map(r => r.simulated_fom), color: '#38bdf8', label: 'Simulated 2D-FEM' },
+    { x: itX.slice(1), y: jrn.slice(1).map(r => r.predicted_fom), color: '#fbbf24', label: 'Predicted Prior' }
+  ], 'Iteration', 'Objective FOM');
+  drawLinePlot('cv-foundry-aux', [
+    { x: itX, y: jrn.map(r => r.surprise_z_score), color: '#f472b6', label: 'Surprise Z = |Δ|/σ' },
+    { x: itX, y: itX.map(() => 2.0), color: '#94a3b8', label: '2σ Understanding Gate' }
+  ], 'Iteration', 'Surprise Z-Score');
+
+  document.getElementById('fnd-thead-row').innerHTML = '<th>Iter</th><th>Move</th><th>Pred ± σ</th><th>Real 2D-FEM</th><th>Gate</th><th>Parameters</th>';
+  document.querySelector('#fnd-table tbody').innerHTML = jrn.map(r => `
+    <tr>
+      <td>#${r.iteration}${r.is_best_so_far ? ' ★' : ''}</td>
+      <td>${r.change_type}</td>
+      <td>${r.predicted_fom.toFixed(3)} ± ${r.predicted_sigma.toFixed(3)}</td>
+      <td style="font-weight:700;color:${r.feasible ? '#34d399' : '#fbbf24'};">${r.display_fom}</td>
+      <td>${r.understanding_gate_triggered ? '⚠️ Recal' : '✓ OK'}</td>
+      <td style="font-family:monospace;font-size:11px;">${JSON.stringify(r.params)}</td>
+    </tr>`).join('');
+}
+
+function renderWdmResult(d) {
+  _resetFoundryDownloadButtons();
+  if (d.eye_csv_download_url) {
+    const a = document.getElementById('fnd-dl-eyecsv');
+    a.href = d.eye_csv_download_url;
+    a.style.display = 'inline-flex';
+  }
+  const m = d.metrics || {};
+  const eye = d.eye_diagram || {};
+  const lock = d.thermal_locking_trajectory || {};
+
+  document.getElementById('fnd-kpi1-lbl').textContent = `${m.aggregate_bandwidth_Gbps} Gbps (${m.modulation_format}) Eye`;
+  document.getElementById('fnd-kpi1-val').textContent = `OMA ${m.OMA_dBm} dBm`;
+  document.getElementById('fnd-kpi1-sub').textContent = `Height ${m.eye_height_uW} µW · Width ${m.eye_width_UI} UI`;
+
+  document.getElementById('fnd-kpi2-lbl').textContent = 'Q-Factor & PRBS BER';
+  document.getElementById('fnd-kpi2-val').textContent = `Q = ${m.Q_factor}`;
+  document.getElementById('fnd-kpi2-sub').textContent = `BER ≈ ${Number(m.BER_estimate).toExponential(2)} (${m.link_open_pass ? 'OPEN' : 'DEGRADED'})`;
+
+  document.getElementById('fnd-kpi3-lbl').textContent = 'PI TiN Heater Locking';
+  document.getElementById('fnd-kpi3-val').textContent = `${m.heater_lock_power_per_ch_mW} mW/ch`;
+  document.getElementById('fnd-kpi3-sub').textContent = `Residual Detuning ${m.residual_detuning_error_pm} pm (PN steals ${m.pn_contact_heat_stealing_pct}%)`;
+
+  document.getElementById('fnd-kpi4-lbl').textContent = 'Total WDM Link Energy';
+  document.getElementById('fnd-kpi4-val').textContent = `${m.E_total_pJ_per_bit} pJ/bit`;
+  document.getElementById('fnd-kpi4-sub').textContent = `Mod ${m.E_modulator_fJ_per_bit} fJ/b · Adj Iso ${m.adjacent_channel_isolation_dB} dB`;
+
+  document.getElementById('fnd-plot1-title').textContent = `2-UI Receiver Optical Eye Diagram (${d.scenario_name_en || ''})`;
+  document.getElementById('fnd-plot2-title').textContent = 'Closed-Loop PI TiN Microheater Wavelength Relocking Trajectory';
+  drawEyeDiagramPlot('cv-foundry-main', eye.time_ui || [], eye.traces_uW || [], eye.high_rail_uW, eye.low_rail_uW, `${m.modulation_format} · Q=${m.Q_factor}`);
+  if (lock.time_us && lock.time_us.length) {
+    drawLinePlot('cv-foundry-aux', [
+      { x: lock.time_us, y: lock.detuning_pm, color: '#38bdf8', label: 'Detuning [pm]' },
+      { x: lock.time_us, y: lock.heater_power_mW.map(v => v * 25.0), color: '#f59e0b', label: '25×P_heater [mW]' }
+    ], 'Time [µs]', 'Detuning [pm] / Scaled Power');
+  }
+
+  document.getElementById('fnd-thead-row').innerHTML = '<th>Metric</th><th>Value</th><th>Unit</th><th>System / Device</th><th>Physical Provenance</th>';
+  document.querySelector('#fnd-table tbody').innerHTML = [
+    ['Aggregate Throughput', m.aggregate_bandwidth_Gbps, 'Gbps', 'WDM Bus', `${m.per_channel_rate_Gbps} Gbps/ch`],
+    ['Ring FSR / Channel Spacing', `${m.ring_FSR_GHz} / ${m.channel_spacing_GHz}`, 'GHz', '2D-FEM Mode', d.fsr_aliasing_warning || 'Aliasing-Free Comb'],
+    ['3-dB EO Modulator BW', m.f_3dB_EO_GHz, 'GHz', '2D PB PN TCAD', 'RC + Photon Lifetime'],
+    ['Adjacent Crosstalk Penalty', m.crosstalk_penalty_dB, 'dB', 'Complex CMT', `Isolation ${m.adjacent_channel_isolation_dB} dB`],
+    ['Ambient Thermal Drift', m.ambient_drift_K, 'K', '2D Thermal FEM', `Uncompensated ${m.uncompensated_shift_pm} pm`],
+    ['Total Energy per Bit', m.E_total_pJ_per_bit, 'pJ/bit', 'Mod+Heater+Laser+TIA', 'Includes PN Contact Heat Stealing']
+  ].map(r => `<tr><td>${r[0]}</td><td style="font-weight:700;">${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td></tr>`).join('');
+}
+
+function renderCornersResult(d) {
+  _resetFoundryDownloadButtons();
+  const mc = d.monte_carlo_summary || {};
+  const sens = d.sensitivities || {};
+  const corners = d.corners || [];
+
+  document.getElementById('fnd-kpi1-lbl').textContent = 'Wafer Yield (ER ≥ 15 dB)';
+  document.getElementById('fnd-kpi1-val').textContent = `${mc.yield_ER_gt_15dB_pct}%`;
+  document.getElementById('fnd-kpi1-sub').textContent = `${mc.trials} Correlated Wafer MC Trials`;
+
+  document.getElementById('fnd-kpi2-lbl').textContent = 'Wafer Yield (ER ≥ 10 dB)';
+  document.getElementById('fnd-kpi2-val').textContent = `${mc.yield_ER_gt_10dB_pct}%`;
+  document.getElementById('fnd-kpi2-sub').textContent = `ER p05/p50/p95: ${(mc.ER_dB_p05_p50_p95 || []).join(' / ')} dB`;
+
+  document.getElementById('fnd-kpi3-lbl').textContent = 'Random Resonance Spread';
+  document.getElementById('fnd-kpi3-val').textContent = `1σ = ${mc.lambda_res_1sigma_pm} pm`;
+  document.getElementById('fnd-kpi3-sub').textContent = `3σ = ${mc.lambda_res_3sigma_nm} nm (${mc.fsr_3sigma_spread_pct}% FSR)`;
+
+  document.getElementById('fnd-kpi4-lbl').textContent = '2D-FEM Sensitivity ∂λ/∂W';
+  document.getElementById('fnd-kpi4-val').textContent = `${sens.dlambda_dW_pm_per_nm} pm/nm`;
+  document.getElementById('fnd-kpi4-sub').textContent = `∂λ/∂H = ${sens.dlambda_dH_core_pm_per_nm} pm/nm · Trim ${mc.heater_trim_3sigma_K} K`;
+
+  document.getElementById('fnd-plot1-title').textContent = '5-Corner Overlaid Resonance Spectra (Nominal / SS / FF / SF / FS)';
+  document.getElementById('fnd-plot2-title').textContent = 'Corner Extinction Ratio [dB] vs Resonance Shift Δλ [nm]';
+  const spMap = d.corner_spectra || {};
+  const colors = { Nominal: '#38bdf8', SS: '#f43f5e', FF: '#34d399', SF: '#fbbf24', FS: '#a78bfa' };
+  const sList = Object.keys(spMap).map(k => ({
+    x: spMap[k].wavelength_nm,
+    y: spMap[k].thru_dB,
+    color: colors[k] || '#cbd5e1',
+    label: k
+  }));
+  if (sList.length) drawLinePlot('cv-foundry-main', sList, 'Wavelength [nm]', 'Thru [dB]');
+  if (corners.length) {
+    drawLinePlot('cv-foundry-aux', [{
+      x: corners.map((_, i) => i + 1),
+      y: corners.map(c => c.ER_thru_dB),
+      color: '#34d399',
+      label: 'Corner ER [dB]'
+    }], '1=Nom, 2=SS, 3=FF, 4=SF, 5=FS', 'Extinction Ratio [dB]');
+  }
+
+  document.getElementById('fnd-thead-row').innerHTML = '<th>Corner</th><th>ΔW [nm]</th><th>ΔH_core [nm]</th><th>Gap_fab [nm]</th><th>n_eff / n_g</th><th>Q_loaded</th><th>ER [dB]</th><th>Δλ_res [nm]</th>';
+  document.querySelector('#fnd-table tbody').innerHTML = corners.map(c => `
+    <tr>
+      <td style="font-weight:700;">${c.corner}</td>
+      <td>${c.delta_w_nm}</td>
+      <td>${c.delta_h_core_nm}</td>
+      <td>${c.gap_fab_nm}</td>
+      <td>${Number(c.neff_ring).toFixed(4)} / ${Number(c.ng_ring).toFixed(3)}</td>
+      <td>${Math.round(c.Q_loaded).toLocaleString()}</td>
+      <td>${Number(c.ER_thru_dB).toFixed(2)}</td>
+      <td>${c.delta_lambda_nm !== undefined ? Number(c.delta_lambda_nm).toFixed(3) : '0.000'}</td>
+    </tr>`).join('');
 }
 
 // ==================== BOOTSTRAP ====================

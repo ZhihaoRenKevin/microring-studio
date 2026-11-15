@@ -6,7 +6,7 @@
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.8.0](https://img.shields.io/badge/release-v3.8.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.8.0)
+[![Release: v3.9.0](https://img.shields.io/badge/release-v3.9.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.9.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./docs/VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./docs/tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -24,7 +24,11 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
 2. **High-Q microring non-convergence in time-domain FDTD**: For a low-loss `Si3N4`, `TFLN`, or `SiC` ring (`Q_loaded = 3 x 10^6`, `tau_ph = 2.49 ns`), reaching `auto shutoff min = 1e-5` in 3D FDTD requires **`28.6 ns` (`> 8,200` cavity round-trips)**; stopping FDTD early produces severe FFT sinc-ringing and collapses the apparent extinction ratio from `64 dB` down to `< 2 dB`.
 3. **Layout-to-circuit disconnect**: A `.gds` mask drawn in KLayout or `gdsfactory` has to be manually re-measured for simulation, while device sweeps rarely export directly into `127 um` fiber-array test loops or `Ansys Lumerical INTERCONNECT` circuit compact models.
 
-**MicroRing Studio (`v3.8.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app, **validated head-to-head against [369 unique 1-to-1 DOI peer-reviewed experimental publications (`369/369 PASS`)](./docs/PUBLICATION_VALIDATION_LEDGER.md)** across 8 physical domains from `450 nm` Visible to `4200 nm` Mid-IR (see also [Verification & Benchmarks](./docs/VERIFICATION_AND_BENCHMARKS.md)):
+**MicroRing Studio (`v3.9.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app, **validated head-to-head against [369 unique 1-to-1 DOI peer-reviewed experimental publications (`369/369 PASS`)](./docs/PUBLICATION_VALIDATION_LEDGER.md)** across 8 physical domains from `450 nm` Visible to `4200 nm` Mid-IR (see also [Verification & Benchmarks](./docs/VERIFICATION_AND_BENCHMARKS.md)):
+- **Foundry PDK Profiles, Polygon DRC (`.lyrdb`), 3D Multi-Metal LVS, `PRISM` Closed-Loop 2D-FEM Optimizer & WDM Optical Link (`🏭 PDK · PRISM · WDM`, 100% Native Solvers, Zero Lumerical)**:
+  - **Switchable Provenance-Tagged Foundry PDKs, Polygon DRC & 3D Union-Find LVS (`foundry_pdk.py`)**: Ships 6 PDK profiles (`gsip_soi220`, `cornerstone_soi220`, `siepic_ebeam_soi220`, `tfln_xcut_600`, `scaln_soi_bilayer`, `microring_generic` + NDA-safe CSV import/export), morphological polygon DRC (`MIN_WIDTH`, `MIN_SPACE`, acute concave notches, `MIN_ENCLOSURE`, `COPLANAR_CLEARANCE`, `FORBIDDEN_OVERLAP`, `OPTICAL_KEEPOUT`) exporting KLayout `.lyrdb` markers, acute rib-slab wedge fillets, 3D Union-Find netlist extraction (`G1/S/G2` North + `H1/H2` South pads, floating-via & short checks), Co-Integrated `PN + TiN Heater` Ring Modulators (with `M1/VIAC` PN contact parasitic heat-stealing & Galerkin thermal flux conservation), and a Native GDS Cutline Layer Builder (`solve_gds_cutline_multiphysics`: 10-point refractive-index stack probe + 2D Maxwell + 2D PB PN + 2D Thermal FEM directly from `.gds`).
+  - **`PRISM`-Style Physics Closure Gates & Prediction-Gated Real-2D-FEM Optimizer (`prism_optimizer.py`)**: Verifies cavity $Q$-budget closure ($1/Q_L = \sum_i 1/Q_i$), broadband unitary passivity, and core-vs-slab carrier perturbation additivity, and executes closed-loop Bayesian quadratic surrogate optimization with pre-simulation prediction locking, `>2*sigma` understanding-gate recalibrations, and auditable `journal.jsonl` logs on real 2D-FEM solvers.
+  - **Multi-Channel Microring WDM Link, `NRZ`/`PAM4` Eye Diagram, PRBS BER & PI Heater Relocking (`wdm_link.py`) + Process Corners (`fab_tolerance.py`)**: Simulates 4/8-channel `NRZ`/`PAM4` PRBS WDM links driven by 2D-FEM modulator metrics across `nominal`, `thermal_drift`, `heater_relocked`, `dense_crosstalk`, and `low_laser_power` scenarios (extracting 2-UI eye diagrams, OMA, Q-factor, BER, PI `TiN` heater wavelength-locking trajectories, and `pJ/bit` energy budgets) alongside `Nominal / SS / FF / SF / FS` foundry process corners and correlated wafer Monte-Carlo yields.
 - **EOM RF Electrode Layout, 3D EO Wafer Orientation, 2D Si PN Doping TCAD & Steady/Transient Thermal FEM (`📡 EOM · PN · Thermal`, Zero HFSS / CHARGE / HEAT / COMSOL)**:
   - **Sub-THz (`100–300+ GHz`) Traveling-Wave & Slow-Wave `T-Rail` RF EOM Electrodes (`design_eom_electrode`)**: Synthesizes `50 Ohm` `GSG CPW`, velocity-matched periodic slow-wave `T-Rail CPW` ($n_{\mathrm{RF}} \approx n_g$, `f_3dBe > 300 GHz` on Quartz/Undercut-Si with ABCD Bloch-Floquet Bragg cutoff & Frankel-Rutledge Cherenkov radiation diagnostics), `GS`, `Vertical Microstrip`, and two-sideband CMT optical-peaking `Ring GSG` electrodes across `TFLN`, `TFLT`, `BTO`, `PZT`, `ScAlN`, `SiC`, and `Si PN`, exporting DRC/LVS-clean `.GDS` masks (`100/125/150/200 um` GSG probe pads with `METAL_2`/`VIA` crossover bridges, Step-2 slab corridors, Layer `66/0` Wafer Flat + Crystal Compass), IEEE Touchstone `.s2p`, and Lumerical INTERCONNECT `TWMOD` bundles.
   - **3D Crystal-Tensor EO Wafer Orientation & Azimuth Finder (`analyze_eo_wafer_orientation`)**: Sweeps `0°–360°` propagation azimuth across `3m` (`X/Y/Z-cut TFLN & TFLT`), `4mm` (`a-cut/c-cut BTO` & radially self-poled `PZT`), `6mm` (`C/A-plane AlN/ScAlN/4H-SiC`), and `-43m` (`(001)/(110) 3C-SiC`), reporting optimal waveguide angle vs SEMI wafer flat, leaky shear-walk-off warnings, and circular microring unsplit vs split push-pull efficiency.
@@ -92,8 +96,8 @@ Download the pre-built desktop installer from [**GitHub Releases**](https://gith
 
 | Operating System | Download Package | How to Install & Open |
 | :--- | :--- | :--- |
-| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.8.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
-| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.8.0-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
+| **macOS (Apple Silicon)** | [**`MicroRing-Studio-v3.9.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | Open the `.dmg` and drag **`MicroRing Studio.app`** into **`Applications`**. *(On first launch of an unsigned open-source app, right-click **`MicroRing Studio.app`** $\rightarrow$ **Open**, or allow under **System Settings $\rightarrow$ Privacy & Security**.)* |
+| **Windows 10 / 11 (64-bit)** | **`MicroRing-Studio-v3.9.0-Windows-Setup-x64.exe`** *(or Portable `.zip`)* | Double-click **`Setup.exe`** (no Admin password needed; creates Desktop & Start Menu shortcuts), or unzip the Portable `.zip` and run **`MicroRing Studio.exe`**. *(If building from source on Windows, see Option 3 below: 1 double-click on `launchers\MicroRing_Windows.bat`.)* |
 
 *(Exported `.gds` masks, `.lyp` color maps, and `.csv` spectra from the standalone desktop app are saved locally in `~/Documents/MicroRing_Studio/`.)*
 
@@ -312,6 +316,15 @@ uv run microring agent mzi --mat Si --h 0.22 --slab 0.09 --splitter mmi_2x2 --l1
 
 # Slow-Wave T-Rail RF EOM Electrode / Si PN TCAD / Steady+Transient Thermal FEM (<145 tokens):
 uv run microring agent eom --mode rf_electrode --topology t_rail_cpw --mat LN_Xcut --substrate quartz --gds --bundle
+
+# Co-Integrated PN + TiN Heater Ring + Polygon DRC (.lyrdb) + 3D Union-Find LVS + Cutline 2D-FEM (<140 tokens):
+uv run microring agent pdk-drc --mode build_pn_heater_ring --pdk gsip_soi220 --r 12 --gap 0.20 --cutline
+
+# PRISM Physics-Closure Audit & Prediction-Gated Closed-Loop Real-2D-FEM Optimizer (<140 tokens):
+uv run microring agent prism-optimize --mode optimize --problem pn_ring_modulator --iters 8
+
+# Multi-Channel WDM Ring Link, NRZ/PAM4 Eye Diagram & Closed-Loop PI Heater Relocking (<140 tokens):
+uv run microring agent wdm-link --scenario heater_relocked --n-ch 4 --rate 25 --format nrz
 ```
 
 ---
@@ -332,12 +345,15 @@ microring-studio/
 │   ├── mrr_topologies.py                  7 MRR topologies, High-Q convergence, coupler cutout & GDS
 │   ├── mzi_interferometer.py              2D-FEM/EME MZI splitters (DC/MMI/Y-Branch), modulators & GDS/IC
 │   ├── eom_electrode.py                   Sub-THz 300+ GHz T-Rail / CPW EOM electrode, Wafer Cut, .S2P & GDS
-│   ├── multiphysics_tcad.py               2D Poisson-Boltzmann Si PN TCAD & Crank-Nicolson Thermal FEM
+│   ├── multiphysics_tcad.py               2D Poisson-Boltzmann Si PN TCAD, PN Heat-Sinking & Thermal FEM
+│   ├── foundry_pdk.py                     6 Foundry PDKs, Polygon DRC (.lyrdb), 3D LVS & Cutline 2D-FEM
+│   ├── prism_optimizer.py                 Q-Budget Closure Audit & Prediction-Gated Real-2D-FEM Optimizer
+│   ├── wdm_link.py                        Multi-Channel WDM Eye/BER & PI TiN Heater Relocking Simulator
 │   ├── io_couplers.py                     2D-FEM Butt/Edge couplers & 2D Full-Wave FDFD Grating Couplers
 │   ├── active_tuning.py                   2D-FEM TO/EO/Si-PN active tuning & Lumerical INTERCONNECT export
-│   ├── fab_tolerance.py                   Positive/Negative PR over/under-dose & CD-bias error analyzer
+│   ├── fab_tolerance.py                   PR dose tolerance, SS/FF/SF/FS corners & wafer Monte-Carlo yield
 │   ├── sweeps.py                          Single-mode width cutoff sweep & MRR parameter sweep engine
-│   ├── gds_bridge.py                      Bidirectional GDS/OAS polygon analyzer, sweep arrays & .lyp
+│   ├── gds_bridge.py                      Bidirectional GDS/OAS polygon analyzer, PDK export & .lyp
 │   ├── mrr_cmt_fit_predict.py             BIC lab spectrum fitter (Lorentzian, Doublet, Fano, Multi-FSR)
 │   ├── hardware_accel.py                  Auto-probed CUDA FP64 / Apple AMX & MLX / CPU TMM accelerator
 │   ├── copilot.py                         Conversational Photonics Copilot (Offline + Ollama/Claude/Codex)
@@ -346,9 +362,9 @@ microring-studio/
 │   ├── desktop_app.py  cli.py             Native pywebview launcher & `microring` CLI
 │   └── build_standalone.py                PyInstaller packager for macOS .dmg & Windows Setup .exe
 ├── examples/                              13 self-contained cookbook scripts (Visible -> 1310/1550 -> Mid-IR)
-├── benchmarks/                            FEM vs Yee-FDE audit, Lumerical runner & hero figure generator
+├── benchmarks/                            FEM vs Yee-FDE audit, 369-paper corpus & hero figure generator
 ├── docs/                                  Chinese README, tutorials, benchmarks, contributing & llms.txt
-└── tests/                                 14-suite automated verification tests
+└── tests/                                 17-suite automated verification tests
 ```
 
 ---

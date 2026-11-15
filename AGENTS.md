@@ -17,12 +17,15 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **Multi-point parameter sweep (+ MPW GDS)** | `uv run microring agent sweep --top pulley_ap --mat 4H-SiC --param pulley_angle_thru_deg --min 6 --max 24 --n 7 --array-gds` |
 | **Extract geometry from `.gds` / `.oas`** | `uv run microring agent inspect-gds path/to/layout.gds` |
 | **Fit lab spectrum CSV (`Q_int`, doublet)** | `uv run microring agent fit path/to/trace.csv --model auto --regime under` |
-| **Positive/Negative PR dose & CD error** | `uv run microring agent fab-tolerance --mat Si3N4 --top pulley_ap --resist positive_pr --dose-pct 15 --bias-gds` |
+| **Positive/Negative PR dose, SS/FF/SF/FS corners & OPC GDS** | `uv run microring agent fab-tolerance --mat Si --pdk gsip_soi220 --corners` |
 | **2D-FEM TO/EO/Si-PN tuning & INTERCONNECT** | `uv run microring agent active-tuning --mat Si --h 0.22 --slab 0.09 --w-ring 0.48 --w-bus 0.44 --r 20 --mech si_pn_depletion --biases "0,-2,-5" --interconnect` |
 | **Butt/Edge or 2D-FDFD Grating Coupler** | `uv run microring agent io-coupler --type grating_coupler --mat Si --h 0.22 --etch 0.07 --angle 10 --loopback --interconnect` |
 | **High-Q convergence & 0.8 ps FDTD cutout** | `uv run microring agent high-q --mat Si3N4 --top pulley_ap --r 100 --loss 0.08 --gap 0.42 --cutout` |
 | **2D-FEM/EME MZI (`DC`/`MMI`/`Y`) & Modulator** | `uv run microring agent mzi --mat Si --h 0.22 --slab 0.09 --splitter mmi_2x2 --l1 1500 --dl 60 --mech si_pn_depletion --gds --interconnect` |
 | **EOM RF Electrode / Si PN TCAD / Thermal FEM** | `uv run microring agent eom --mode rf_electrode --topology t_rail_cpw --mat LN_Xcut --substrate quartz --t-metal 1.5 --t-period 25 --l 4500 --fmax 360 --gds --bundle` |
+| **Foundry PDK DRC (`.lyrdb`) + 3D LVS + Cutline 2D-FEM** | `uv run microring agent pdk-drc --mode build_pn_heater_ring --pdk gsip_soi220 --r 12 --gap 0.20 --cutline` |
+| **PRISM Physics-Closure Audit & Closed-Loop 2D-FEM Optimizer** | `uv run microring agent prism-optimize --mode optimize --problem pn_ring_modulator --iters 8` |
+| **Multi-Ch WDM Ring Link, NRZ/PAM4 Eye & PI Heater Relocking** | `uv run microring agent wdm-link --scenario heater_relocked --n-ch 4 --rate 25 --format nrz` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

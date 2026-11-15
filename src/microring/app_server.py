@@ -49,9 +49,19 @@ from .fab_tolerance import (
     RESIST_TONE_CATALOG,
     export_fab_bias_array_gds,
     run_fabrication_error_analysis,
+    run_foundry_process_corners,
+)
+from .foundry_pdk import (
+    FOUNDRY_PDK_CATALOG,
+    build_pn_heater_ring_modulator_gds,
+    export_pdk_csv_tables,
+    extract_3d_electrical_lvs,
+    run_gds_polygon_drc,
+    solve_gds_cutline_multiphysics,
 )
 from .gds_bridge import (
     analyze_uploaded_gds,
+    export_mrr_gds_with_pdk,
     export_sweep_array_gds,
     write_klayout_layer_props,
 )
@@ -113,11 +123,22 @@ from .multiphysics_tcad import (
     export_pn_doping_gds,
     export_tcad_data_bundle,
     export_thermal_shifter_gds,
+    simulate_cointegrated_pn_heater_ring,
     simulate_pn_doping_tcad,
     simulate_thermal_phase_shifter,
 )
+from .prism_optimizer import (
+    PRISM_PROBLEM_CATALOG,
+    audit_mrr_and_pn_physics_closure,
+    run_prism_closed_loop_optimizer,
+)
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
 from .ui_frontend import HTML_APP_PAGE
+from .wdm_link import (
+    WDM_SCENARIO_CATALOG,
+    WDMLinkConfig,
+    simulate_wdm_microring_link,
+)
 
 DEFAULT_OUT_ROOT = get_default_output_root()
 GDS_EXPORT_DIR = DEFAULT_OUT_ROOT / "gds_exports"
@@ -212,6 +233,26 @@ def _chat_turn_sync(payload: dict) -> dict:
         lp = Path(res["gds_export"]["lyp_path"])
         res["gds_export"]["gds_download_url"] = f"/api/download_file?name={gp.name}"
         res["gds_export"]["lyp_download_url"] = f"/api/download_file?name={lp.name}"
+    if "foundry_pdk_result" in res and isinstance(res["foundry_pdk_result"], dict):
+        fp = res["foundry_pdk_result"]
+        if fp.get("gds_path") and Path(fp["gds_path"]).is_file():
+            gp2 = Path(fp["gds_path"])
+            fp["gds_download_url"] = f"/api/download_file?name={gp2.name}"
+            if "gds_view" not in fp:
+                fp["gds_view"] = analyze_uploaded_gds(gp2)
+        if fp.get("lyp_path"):
+            fp["lyp_download_url"] = f"/api/download_file?name={Path(fp['lyp_path']).name}"
+        drc_d = fp.get("drc") if isinstance(fp.get("drc"), dict) else {}
+        if drc_d.get("lyrdb_path"):
+            fp["lyrdb_download_url"] = f"/api/download_file?name={Path(drc_d['lyrdb_path']).name}"
+    if "prism_result" in res and isinstance(res["prism_result"], dict):
+        pr = res["prism_result"]
+        if pr.get("journal_jsonl_path"):
+            pr["journal_download_url"] = f"/api/download_file?name={Path(pr['journal_jsonl_path']).name}"
+    if "wdm_result" in res and isinstance(res["wdm_result"], dict):
+        wr = res["wdm_result"]
+        if wr.get("eye_csv_path"):
+            wr["eye_csv_download_url"] = f"/api/download_file?name={Path(wr['eye_csv_path']).name}"
     if "interconnect_export" in res and res["interconnect_export"].get("zip_path"):
         zp = Path(res["interconnect_export"]["zip_path"])
         res["interconnect_export"]["zip_download_url"] = f"/api/download_file?name={zp.name}"
@@ -933,6 +974,21 @@ def _eom_multiphysics_sync(payload: dict) -> dict:
         res["catalog"] = PN_JUNCTION_CATALOG
         return res
 
+    if mode in ("cointegrated_pn_heater", "pn_heater_ring", "dual_drive_ring"):
+        GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        pdk_k = str(payload.get("pdk_key") or payload.get("pdk") or "gsip_soi220")
+        r_um = float(payload.get("ring_radius_um") or 12.0)
+        gds_out = GDS_EXPORT_DIR / f"MicroRing_PN_Heater_{pdk_k}_R{int(round(r_um))}um.gds"
+        res = simulate_cointegrated_pn_heater_ring(
+            ring_radius_um=r_um,
+            ring_width_um=float(payload.get("waveguide_width_um") or payload.get("ring_width_um") or 0.45),
+            gap_um=float(payload.get("gap_um") or 0.20),
+            pn_offset_nm=float(payload.get("pn_offset_nm") or 20.0),
+            pdk_key=pdk_k,
+            output_gds_path=gds_out,
+        )
+        return res
+
     if mode in ("thermal_fem", "thermal"):
         kw = _filter_dataclass_kwargs(ThermalSimConfig, payload)
         res = simulate_thermal_phase_shifter(ThermalSimConfig(**kw))
@@ -1173,6 +1229,205 @@ async def api_fit_spectrum(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
 
+def _pdk_drc_lvs_sync(payload: dict) -> dict:
+    import zipfile
+
+    GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    mode = str(payload.get("mode") or "build_pn_heater_ring").lower().strip()
+    pdk_key = str(payload.get("pdk_key") or payload.get("pdk") or "gsip_soi220")
+
+    if mode in ("export_pdk_csv", "export_csv"):
+        sub_dir = GDS_EXPORT_DIR / f"pdk_{pdk_key}_csv"
+        exp = export_pdk_csv_tables(pdk_key, sub_dir)
+        zip_path = GDS_EXPORT_DIR / f"Foundry_PDK_{pdk_key}_NDA_Safe_Tables.zip"
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for fp in exp["files"].values():
+                p_f = Path(fp)
+                zf.write(p_f, arcname=p_f.name)
+        exp["zip_download_url"] = f"/api/download_file?name={zip_path.name}"
+        exp["pdk_catalog"] = {k: {"name_en": v["name_en"], "name_zh": v["name_zh"]} for k, v in FOUNDRY_PDK_CATALOG.items()}
+        return exp
+
+    if mode in ("verify_gds", "drc_lvs"):
+        raw_p = payload.get("gds_path")
+        target_gds = Path(str(raw_p)) if raw_p else None
+        if target_gds is None or not target_gds.is_file():
+            # Fall back to latest uploaded or exported GDS if present
+            cands = sorted(
+                list(GDS_UPLOAD_DIR.glob("*.gds")) + list(GDS_EXPORT_DIR.glob("*.gds")),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if not cands:
+                raise ValueError("No .GDS file specified or uploaded yet; build a PN+Heater Ring GDS first or upload a .GDS.")
+            target_gds = cands[0]
+        lyrdb_out = GDS_EXPORT_DIR / f"{target_gds.stem}_{pdk_key}_drc.lyrdb"
+        drc = run_gds_polygon_drc(target_gds, pdk_key, cell_name=payload.get("cell_name"), output_lyrdb_path=lyrdb_out)
+        lvs = extract_3d_electrical_lvs(target_gds, pdk_key, cell_name=payload.get("cell_name"))
+        out = {
+            "mode": "verify_gds",
+            "pdk_key": pdk_key,
+            "gds_path": str(target_gds.resolve()),
+            "drc": drc,
+            "lvs": lvs,
+            "lyrdb_download_url": f"/api/download_file?name={lyrdb_out.name}",
+            "gds_view": analyze_uploaded_gds(target_gds),
+        }
+        if payload.get("run_cutline", True):
+            try:
+                out["cutline"] = solve_gds_cutline_multiphysics(target_gds, pdk=pdk_key)
+            except Exception as exc_cut:
+                out["cutline_notice"] = str(exc_cut)
+        return out
+
+    if mode in ("cutline_solve", "cutline"):
+        raw_p = payload.get("gds_path")
+        if not raw_p or not Path(str(raw_p)).is_file():
+            gds_tmp = GDS_EXPORT_DIR / f"MicroRing_PN_Heater_{pdk_key}_Cutline.gds"
+            build_pn_heater_ring_modulator_gds(gds_tmp, pdk=pdk_key, verify_drc_lvs=False)
+            raw_p = str(gds_tmp)
+        cs = solve_gds_cutline_multiphysics(
+            raw_p,
+            pdk=pdk_key,
+            wavelength_nm=float(payload.get("wavelength_nm") or 1550.0),
+            polarization=str(payload.get("polarization") or "TE0"),
+        )
+        cs["mode"] = "cutline_solve"
+        return cs
+
+    if mode == "export_mrr_pdk":
+        cfg = _dict_to_mrr_config(payload.get("config", payload))
+        out_gds = GDS_EXPORT_DIR / f"MicroRing_{cfg.topology}_{pdk_key}_R{int(round(cfg.ring_radius_um))}um.gds"
+        info = export_mrr_gds_with_pdk(cfg, out_gds, pdk=pdk_key, conformal_rib_slab=True, run_drc=True)
+        lyrdb_p = Path(info["drc"]["lyrdb_path"])
+        info["mode"] = "export_mrr_pdk"
+        info["gds_download_url"] = f"/api/download_file?name={out_gds.name}"
+        info["lyp_download_url"] = f"/api/download_file?name={Path(info['lyp_path']).name}"
+        info["lyrdb_download_url"] = f"/api/download_file?name={lyrdb_p.name}"
+        info["gds_view"] = analyze_uploaded_gds(out_gds)
+        return info
+
+    # Default: Build Co-Integrated Dual-Drive PN + TiN Heater Ring Modulator + DRC + 3D LVS + Cutline 2D-FEM
+    r_um = float(payload.get("ring_radius_um") or 12.0)
+    out_gds = GDS_EXPORT_DIR / f"MicroRing_PN_Heater_{pdk_key}_R{int(round(r_um))}um.gds"
+    bld = build_pn_heater_ring_modulator_gds(
+        out_gds,
+        pdk=pdk_key,
+        ring_radius_um=r_um,
+        ring_width_um=float(payload.get("ring_width_um") or 0.45),
+        bus_width_um=float(payload.get("bus_width_um") or 0.45),
+        gap_um=float(payload.get("gap_um") or 0.20),
+        pn_offset_nm=float(payload.get("pn_offset_nm") or 20.0),
+        apply_slab_fillets=bool(payload.get("apply_slab_fillets", True)),
+        verify_drc_lvs=True,
+    )
+    lyrdb_p = Path(bld["drc"]["lyrdb_path"])
+    bld["mode"] = "build_pn_heater_ring"
+    bld["pdk_key"] = pdk_key
+    bld["gds_download_url"] = f"/api/download_file?name={out_gds.name}"
+    bld["lyp_download_url"] = f"/api/download_file?name={Path(bld['lyp_path']).name}"
+    bld["lyrdb_download_url"] = f"/api/download_file?name={lyrdb_p.name}"
+    bld["gds_view"] = analyze_uploaded_gds(out_gds)
+    if bool(payload.get("run_cutline_fem", True)):
+        try:
+            bld["cutline"] = solve_gds_cutline_multiphysics(
+                out_gds,
+                pdk=pdk_key,
+                wavelength_nm=float(payload.get("wavelength_nm") or 1550.0),
+            )
+        except Exception as exc_c:
+            bld["cutline_notice"] = str(exc_c)
+    return bld
+
+
+async def api_pdk_drc_lvs(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_pdk_drc_lvs_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _prism_optimize_sync(payload: dict) -> dict:
+    GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    mode = str(payload.get("mode") or "optimize").lower().strip()
+    if mode in ("closure_audit", "closure", "audit"):
+        cfg = _dict_to_mrr_config(payload["config"]) if isinstance(payload.get("config"), dict) else None
+        inc_pn = bool(payload.get("include_pn", cfg is None or cfg.core_material == "Si"))
+        pn_cfg = PNDopingTCADConfig() if inc_pn else None
+        aud = audit_mrr_and_pn_physics_closure(cfg=cfg, pn_cfg=pn_cfg)
+        aud["mode"] = "closure_audit"
+        return aud
+
+    prob = str(payload.get("problem_type") or payload.get("problem") or "pn_ring_modulator")
+    res = run_prism_closed_loop_optimizer(
+        problem_type=prob,
+        max_iterations=int(payload.get("max_iterations") or 8),
+        seed=int(payload.get("seed") or 42),
+        output_dir=GDS_EXPORT_DIR,
+    )
+    res["mode"] = "optimize"
+    res["catalog"] = PRISM_PROBLEM_CATALOG
+    jp = Path(res["journal_jsonl_path"])
+    res["journal_download_url"] = f"/api/download_file?name={jp.name}"
+    return res
+
+
+async def api_prism_optimize(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_prism_optimize_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _wdm_link_sync(payload: dict) -> dict:
+    GDS_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    kw = _filter_dataclass_kwargs(WDMLinkConfig, payload)
+    res = simulate_wdm_microring_link(WDMLinkConfig(**kw), export_csv_dir=GDS_EXPORT_DIR)
+    res["scenarios"] = WDM_SCENARIO_CATALOG
+    if res.get("eye_csv_path"):
+        ep = Path(res["eye_csv_path"])
+        res["eye_csv_download_url"] = f"/api/download_file?name={ep.name}"
+    return res
+
+
+async def api_wdm_link(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_wdm_link_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _process_corners_sync(payload: dict) -> dict:
+    cfg = _dict_to_mrr_config(payload.get("config", payload))
+    pdk_key = str(payload.get("pdk_key") or payload.get("pdk") or "gsip_soi220")
+    dw_raw = payload.get("delta_w_3sigma_nm")
+    dh_raw = payload.get("delta_h_core_3sigma_nm")
+    ds_raw = payload.get("delta_h_slab_3sigma_nm")
+    return run_foundry_process_corners(
+        cfg,
+        pdk_key=pdk_key,
+        delta_w_3sigma_nm=float(dw_raw) if dw_raw not in (None, "") else None,
+        delta_h_core_3sigma_nm=float(dh_raw) if dh_raw not in (None, "") else None,
+        delta_h_slab_3sigma_nm=float(ds_raw) if ds_raw not in (None, "") else None,
+        mc_trials=int(payload.get("mc_trials") or 160),
+    )
+
+
+async def api_process_corners(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_process_corners_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
 def create_app() -> Starlette:
     routes = [
         Route("/", homepage, methods=["GET"]),
@@ -1192,6 +1447,7 @@ def create_app() -> Starlette:
         Route("/api/export_sweep_gds", api_export_sweep_gds, methods=["POST"]),
         Route("/api/fab_tolerance", api_fab_tolerance, methods=["POST"]),
         Route("/api/export_fab_gds", api_export_fab_gds, methods=["POST"]),
+        Route("/api/process_corners", api_process_corners, methods=["POST"]),
         Route("/api/active_tuning", api_active_tuning, methods=["POST"]),
         Route("/api/export_interconnect", api_export_interconnect, methods=["POST"]),
         Route("/api/io_coupler", api_io_coupler, methods=["POST"]),
@@ -1204,6 +1460,9 @@ def create_app() -> Starlette:
         Route("/api/eom_multiphysics", api_eom_multiphysics, methods=["POST"]),
         Route("/api/export_eom_multiphysics_gds", api_export_eom_multiphysics_gds, methods=["POST"]),
         Route("/api/export_eom_multiphysics_bundle", api_export_eom_multiphysics_bundle, methods=["POST"]),
+        Route("/api/pdk_drc_lvs", api_pdk_drc_lvs, methods=["POST"]),
+        Route("/api/prism_optimize", api_prism_optimize, methods=["POST"]),
+        Route("/api/wdm_link", api_wdm_link, methods=["POST"]),
         Route("/api/download_file", api_download_file, methods=["GET"]),
         Route("/api/demo_spectrum", api_demo_spectrum, methods=["GET"]),
         Route("/api/fit_spectrum", api_fit_spectrum, methods=["POST"]),

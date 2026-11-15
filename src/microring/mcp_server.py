@@ -4,7 +4,7 @@ Connects `MicroRing Studio` directly to **Claude Code**, **Claude Desktop**, **O
 **Cursor**, and **Antigravity** over JSON-RPC 2.0 (`stdin`/`stdout`).
 
 Token-efficiency guarantees:
-  - Compact tool schemas across all 12 tools.
+  - Compact tool schemas across all 15 tools.
   - Heavy 2D FEM, spatial CMT, GPU/AMX TMM spectra, and GDS polygon parsing run 100% locally.
   - Tool responses return single-line scalar KPI JSON (<150 tokens) + local CSV/GDS paths.
 """
@@ -25,8 +25,11 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_pdk_drc,
+    agent_prism_optimize,
     agent_status,
     agent_sweep_mrr,
+    agent_wdm_link,
     agent_width_cutoff,
 )
 
@@ -144,6 +147,8 @@ MCP_TOOLS = [
                 "gap_um": {"type": "number"},
                 "apply_cc": {"type": "boolean"},
                 "export_bias_gds": {"type": "boolean"},
+                "corners": {"type": "boolean", "description": "Run multi-parameter foundry process corners (Nominal/SS/FF/SF/FS + wafer Monte-Carlo)"},
+                "pdk": {"type": "string", "description": "Foundry PDK profile key (gsip_soi220, cornerstone_soi220, siepic_ebeam_soi220, tfln_xcut_600, scaln_soi_bilayer)"},
             },
         },
     },
@@ -280,8 +285,61 @@ MCP_TOOLS = [
                 "na_core_cm3": {"type": "number"},
                 "nd_core_cm3": {"type": "number"},
                 "pn_offset_nm": {"type": "number"},
+                "pn_sink": {"type": "boolean", "description": "Include parasitic W-VIAC/M1 PN contact heat-sinking in 2D Thermal FEM"},
                 "export_gds": {"type": "boolean"},
                 "export_bundle": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_pdk_drc",
+        "description": "Foundry PDK layout verification & native cutline solver (zero Lumerical): build DRC/LVS-clean Co-Integrated PN+TiN Heater Ring Modulator .gds/.lyp/.lyrdb, run headless polygon DRC + 3D multi-metal Union-Find LVS on any .gds/.oas, slice .gds along a 2D cutline to drive native 2D Maxwell/PN/Thermal FEM, or export NDA-safe PDK CSV tables.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "description": "build_pn_heater_ring | verify_gds | cutline_solve | export_csv"},
+                "pdk": {"type": "string", "description": "gsip_soi220 | cornerstone_soi220 | siepic_ebeam_soi220 | tfln_xcut_600 | scaln_soi_bilayer | microring_generic"},
+                "gds_path": {"type": "string"},
+                "pdk_csv_dir": {"type": "string"},
+                "r_um": {"type": "number"},
+                "w_ring_um": {"type": "number"},
+                "gap_um": {"type": "number"},
+                "pn_offset_nm": {"type": "number"},
+                "wl_nm": {"type": "number"},
+            },
+        },
+    },
+    {
+        "name": "microring_prism_optimize",
+        "description": "PRISM-style Physics Closure Gate (cavity Q-budget decomposition vs FWHM Q_L, TMM passivity, core/slab perturbation split) & Prediction-Gated Closed-Loop Real-2D-FEM Optimizer with online Bayesian surrogate and auditable journal.jsonl.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "description": "optimize | closure_audit"},
+                "problem": {"type": "string", "description": "pn_ring_modulator | high_er_pulley_mrr | low_vpil_eom"},
+                "max_iterations": {"type": "integer"},
+                "seed": {"type": "integer"},
+                "mat": {"type": "string"},
+                "r_um": {"type": "number"},
+                "gap_um": {"type": "number"},
+            },
+        },
+    },
+    {
+        "name": "microring_wdm_link",
+        "description": "Multi-channel Microring WDM Optical Link, NRZ/PAM4 PRBS Eye-Diagram, BER & Closed-Loop PI TiN Heater Wavelength-Locking Simulator driven 100% by native 2D-FEM device physics.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "scenario": {"type": "string", "description": "nominal | thermal_drift | heater_relocked | dense_crosstalk | low_laser_power"},
+                "n_ch": {"type": "integer"},
+                "rate_gbps": {"type": "number"},
+                "format": {"type": "string", "description": "nrz | pam4"},
+                "spacing_ghz": {"type": "number"},
+                "dt_k": {"type": "number"},
+                "r_um": {"type": "number"},
+                "gap_um": {"type": "number"},
+                "vpp": {"type": "number"},
             },
         },
     },
@@ -300,6 +358,9 @@ _DISPATCH = {
     "microring_high_q_fdtd": agent_high_q_fdtd,
     "microring_design_mzi": agent_design_mzi,
     "microring_eom_multiphysics": agent_eom_multiphysics,
+    "microring_pdk_drc": agent_pdk_drc,
+    "microring_prism_optimize": agent_prism_optimize,
+    "microring_wdm_link": agent_wdm_link,
 }
 
 
