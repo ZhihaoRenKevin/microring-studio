@@ -42,6 +42,8 @@ import zipfile
 import gdstk
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from scipy.sparse import coo_matrix
+from scipy.sparse.linalg import spsolve as _spsolve
 from scipy.special import ellipk
 import shapely
 from shapely.geometry import Polygon, box
@@ -51,6 +53,7 @@ from skfem import (
     BilinearForm,
     ElementTriP0,
     ElementTriP1,
+    ElementTriP2,
     MeshTri,
     condense,
     solve,
@@ -1196,6 +1199,216 @@ def _cpw_holloway_kuester_dl_dn(
     return asym_factor * thick_wall_relief * MU0_H_PER_M * (term_sig + k * term_gnd) / max(denom, 1e-18)
 
 
+def _t_rail_3d_periodic_fringing_ratio(
+    *,
+    ws_um: float,
+    g_in_um: float,
+    l_rail_um: float,
+    w_cap_bar_um: float,
+    w_stem_um: float,
+    period_um: float,
+    duty: float,
+    w_gnd_um: float,
+    t_metal_um: float,
+    h_film_um: float,
+    h_slab_um: float,
+    h_box_um: float,
+    eps_core: tuple[float, float],
+    eps_box: tuple[float, float],
+    eps_sub: tuple[float, float],
+    eps_top: tuple[float, float],
+    y_ox_top_um: float,
+    has_top_oxide: bool,
+    substrate_type: str,
+    slab_corridor_half_um: float | None,
+    x_wg_pos_um: float,
+) -> float:
+    """Compute dimensionless 3D-to-2D periodic unit-cell capacitance ratio `C_3D / C_2D_slices`.
+
+    Solves the 3D anisotropic electrostatic Laplace equation on the 1/4 periodic T-rail unit cell
+    (`x >= 0`, `z in [0, Lambda/2]` with Neumann symmetry planes at `x = 0`, `z = 0`, and
+    `z = Lambda/2`) twice on the exact same rectilinear finite-volume grid: once with full 3D
+    longitudinal `z`-flux coupling (capturing T-cap end-face fringing and T-stem junctions) and
+    once with `z`-flux suppressed (exact 2D cross-section slice average). Taking the ratio cancels
+    transverse grid discretization error while preserving exact 3D longitudinal fringing physics.
+    """
+    ws = max(float(ws_um), 0.80)
+    g_in = max(float(g_in_um), 0.60)
+    lr = max(float(l_rail_um), 0.50)
+    wc = min(max(float(w_cap_bar_um), 0.60), 0.90 * lr)
+    lam = max(float(period_um), 6.0)
+    d_t = float(np.clip(duty, 0.20, 0.98))
+    w_st = min(max(float(w_stem_um), 0.80), d_t * lam)
+    wg = min(max(float(w_gnd_um), 12.0), 35.0)
+    tm = max(float(t_metal_um), 0.12)
+    hbox = max(float(h_box_um), 0.40)
+    g_tr = g_in + 2.0 * lr
+    x_dom = 0.5 * ws + g_tr + wg + 12.0
+
+    xk = sorted(set([
+        0.0, 0.5 * ws, 0.5 * ws + lr - wc, 0.5 * ws + lr, x_wg_pos_um,
+        0.5 * ws + g_tr - lr, 0.5 * ws + g_tr - lr + wc, 0.5 * ws + g_tr,
+        0.5 * ws + g_tr + wg, x_dom,
+    ]))
+    if slab_corridor_half_um is not None and slab_corridor_half_um > 0.0:
+        for xs_c in (x_wg_pos_um - slab_corridor_half_um, x_wg_pos_um + slab_corridor_half_um):
+            if 0.0 < xs_c < x_dom:
+                xk.append(xs_c)
+        xk = sorted(set(round(v, 5) for v in xk))
+    xs_list: list[float] = []
+    for a, b in zip(xk[:-1], xk[1:]):
+        if b - a < 1e-4:
+            continue
+        n_seg = 4 if (b - a) <= 6.0 else (5 if (b - a) <= 25.0 else 4)
+        xs_list.extend(np.linspace(a, b, n_seg, endpoint=False).tolist())
+    xs_list.append(xk[-1])
+    x = np.array(xs_list, dtype=float)
+
+    yk = sorted(set([
+        -hbox - 25.0, -hbox, 0.0, h_slab_um, h_film_um, h_slab_um + tm,
+        max(y_ox_top_um, h_slab_um + tm + 1.5), h_slab_um + tm + 25.0,
+    ]))
+    ys_list: list[float] = []
+    for a, b in zip(yk[:-1], yk[1:]):
+        if b - a < 1e-4:
+            continue
+        n_seg = 2 if (b - a) <= 0.5 else (3 if (b - a) <= 3.5 else 4)
+        ys_list.extend(np.linspace(a, b, n_seg, endpoint=False).tolist())
+    ys_list.append(yk[-1])
+    y = np.array(ys_list, dtype=float)
+
+    z_stem = 0.5 * w_st
+    z_cap = 0.5 * d_t * lam
+    z_half = 0.5 * lam
+    zk = sorted(set(round(v, 5) for v in (0.0, z_stem, z_cap, z_half)))
+    zs_list: list[float] = []
+    for a, b in zip(zk[:-1], zk[1:]):
+        if b - a < 1e-4:
+            continue
+        n_seg = 3 if (b - a) <= 3.0 else 4
+        zs_list.extend(np.linspace(a, b, n_seg, endpoint=False).tolist())
+    zs_list.append(zk[-1])
+    z = np.array(zs_list, dtype=float)
+
+    nx, ny, nz = len(x) - 1, len(y) - 1, len(z) - 1
+    if nx < 4 or ny < 4 or nz < 2:
+        return 1.0
+    dx, dy, dz = np.diff(x), np.diff(y), np.diff(z)
+    xc, yc, zc = 0.5 * (x[:-1] + x[1:]), 0.5 * (y[:-1] + y[1:]), 0.5 * (z[:-1] + z[1:])
+
+    ex2 = np.ones((nx, ny), dtype=float)
+    ey2 = np.ones((nx, ny), dtype=float)
+    ez2 = np.ones((nx, ny), dtype=float)
+    for j, yv in enumerate(yc):
+        if yv < -hbox:
+            ex2[:, j] = eps_sub[0]
+            ey2[:, j] = eps_sub[1]
+            ez2[:, j] = eps_sub[0]
+        elif yv < 0.0:
+            ex2[:, j] = eps_box[0]
+            ey2[:, j] = eps_box[1]
+            ez2[:, j] = eps_box[0]
+        elif has_top_oxide and yv <= y_ox_top_um:
+            ex2[:, j] = eps_top[0]
+            ey2[:, j] = eps_top[1]
+            ez2[:, j] = eps_top[0]
+    if substrate_type == "undercut_si":
+        r_uc = min(0.5 * g_tr + 16.0, 26.0)
+        x_cav = np.abs(xc - x_wg_pos_um) <= r_uc
+        y_cav = (yc >= -hbox - 26.0) & (yc < -hbox)
+        ex2[np.ix_(x_cav, y_cav)] = 1.0
+        ey2[np.ix_(x_cav, y_cav)] = 1.0
+        ez2[np.ix_(x_cav, y_cav)] = 1.0
+    if h_slab_um > 1e-5:
+        y_sl = (yc >= 0.0) & (yc <= h_slab_um)
+        if slab_corridor_half_um is not None and slab_corridor_half_um > 0.0:
+            x_sl = np.abs(xc - x_wg_pos_um) <= slab_corridor_half_um
+            ex2[np.ix_(~x_sl, y_sl)] = eps_box[0]
+            ey2[np.ix_(~x_sl, y_sl)] = eps_box[1]
+            ez2[np.ix_(~x_sl, y_sl)] = eps_box[0]
+            ex2[np.ix_(x_sl, y_sl)] = eps_core[0]
+            ey2[np.ix_(x_sl, y_sl)] = eps_core[1]
+            ez2[np.ix_(x_sl, y_sl)] = eps_core[0]
+        else:
+            ex2[:, y_sl] = eps_core[0]
+            ey2[:, y_sl] = eps_core[1]
+            ez2[:, y_sl] = eps_core[0]
+
+    y_m = (yc >= h_slab_um - 1e-6) & (yc <= h_slab_um + tm + 1e-6)
+    x_sig_tr = xc <= 0.5 * ws + 1e-6
+    x_gnd_tr = (xc >= 0.5 * ws + g_tr - 1e-6) & (xc <= 0.5 * ws + g_tr + wg + 1e-6)
+    x_sig_cap = (xc >= 0.5 * ws + lr - wc - 1e-6) & (xc <= 0.5 * ws + lr + 1e-6)
+    x_gnd_cap = (xc >= 0.5 * ws + g_tr - lr - 1e-6) & (xc <= 0.5 * ws + g_tr - lr + wc + 1e-6)
+    x_sig_st = (xc >= 0.5 * ws - 1e-6) & (xc <= 0.5 * ws + lr + 1e-6)
+    x_gnd_st = (xc >= 0.5 * ws + g_tr - lr - 1e-6) & (xc <= 0.5 * ws + g_tr + 1e-6)
+
+    metal = np.zeros((nx, ny, nz), dtype=np.int8)
+    for k, zv in enumerate(zc):
+        sig_x = x_sig_tr.copy()
+        gnd_x = x_gnd_tr.copy()
+        if zv <= z_stem + 1e-6:
+            sig_x |= x_sig_st
+            gnd_x |= x_gnd_st
+        elif zv <= z_cap + 1e-6:
+            sig_x |= x_sig_cap
+            gnd_x |= x_gnd_cap
+        metal[np.ix_(sig_x, y_m, [k])] = 1
+        metal[np.ix_(gnd_x, y_m, [k])] = 2
+
+    def _fvm_cap_energy(use_z: bool) -> float:
+        n_tot = nx * ny * nz
+        idx = np.arange(n_tot, dtype=np.int64).reshape(nx, ny, nz)
+        rows: list[np.ndarray] = []
+        cols: list[np.ndarray] = []
+        vals: list[np.ndarray] = []
+        diag = np.zeros(n_tot, dtype=float)
+
+        ehx = 2.0 * ex2[:-1, :] * ex2[1:, :] / (ex2[:-1, :] * dx[1:, None] + ex2[1:, :] * dx[:-1, None])
+        gx = ehx[:, :, None] * dy[None, :, None] * dz[None, None, :]
+        i0, i1, gv = idx[:-1, :, :].ravel(), idx[1:, :, :].ravel(), gx.ravel()
+        rows += [i0, i1]
+        cols += [i1, i0]
+        vals += [-gv, -gv]
+        np.add.at(diag, i0, gv)
+        np.add.at(diag, i1, gv)
+
+        ehy = 2.0 * ey2[:, :-1] * ey2[:, 1:] / (ey2[:, :-1] * dy[None, 1:] + ey2[:, 1:] * dy[None, :-1])
+        gy = ehy[:, :, None] * dx[:, None, None] * dz[None, None, :]
+        i0, i1, gv = idx[:, :-1, :].ravel(), idx[:, 1:, :].ravel(), gy.ravel()
+        rows += [i0, i1]
+        cols += [i1, i0]
+        vals += [-gv, -gv]
+        np.add.at(diag, i0, gv)
+        np.add.at(diag, i1, gv)
+
+        if use_z:
+            gz = (2.0 / (dz[None, None, 1:] + dz[None, None, :-1]) * ez2[:, :, None]) * dx[:, None, None] * dy[None, :, None]
+            i0, i1, gv = idx[:, :, :-1].ravel(), idx[:, :, 1:].ravel(), gz.ravel()
+            rows += [i0, i1]
+            cols += [i1, i0]
+            vals += [-gv, -gv]
+            np.add.at(diag, i0, gv)
+            np.add.at(diag, i1, gv)
+
+        a_mat = coo_matrix(
+            (np.concatenate(vals + [diag]), (np.concatenate(rows + [np.arange(n_tot)]), np.concatenate(cols + [np.arange(n_tot)]))),
+            shape=(n_tot, n_tot),
+        ).tocsc()
+        mf = metal.ravel()
+        fixed = mf != 0
+        free = ~fixed
+        pbc = np.where(mf == 1, 1.0, 0.0)
+        phi = pbc.copy()
+        phi[free] = _spsolve(a_mat[free][:, free], -(a_mat[free][:, fixed] @ pbc[fixed]))
+        return float(phi @ (a_mat @ phi))
+
+    e_3d = _fvm_cap_energy(True)
+    e_2d = _fvm_cap_energy(False)
+    if e_2d <= 1e-18:
+        return 1.0
+    return float(np.clip(e_3d / e_2d, 0.98, 1.35))
+
+
 def _solve_single_cpw_cross_section(
     *,
     elec_top: str,
@@ -1220,6 +1433,7 @@ def _solve_single_cpw_cross_section(
     eps_core_override: tuple[float, float] | None = None,
     compute_wheeler_loss: bool = True,
     export_field_map: bool = False,
+    element_order: int = 1,
 ) -> dict:
     """Solve 2D dielectric & vacuum Laplace PDEs on the exact RF cross-section (`scikit-fem`)."""
     sub_info = RF_SUBSTRATE_CATALOG.get(substrate_type, RF_SUBSTRATE_CATALOG["hr_si"])
@@ -1353,14 +1567,16 @@ def _solve_single_cpw_cross_section(
         y_knots.append(h_slab_um)
         focus_y.append(h_slab_um)
 
-    # Always include corner recess knots around conductor edges so bisection and full solve share identical mesh!
-    recess_um = min(0.04, 0.18 * tm, 0.08 * ws)
-    for fx in list(focus_x):
-        x_knots.extend([fx - recess_um, fx + recess_um])
-    y_knots.extend([y_el0 + recess_um, y_el1 - recess_um])
-
-    x_axis_um = _graded_1d_axis(x_knots, focus_x, h_fine=0.16, h_mid=0.80, h_far=6.5)
-    y_axis_um = _graded_1d_axis(y_knots, focus_y, h_fine=0.12, h_mid=0.65, h_far=6.5)
+    if element_order == 2:
+        x_axis_um = _graded_1d_axis(x_knots, focus_x, h_fine=0.22, h_mid=1.00, h_far=7.5)
+        y_axis_um = _graded_1d_axis(y_knots, focus_y, h_fine=0.16, h_mid=0.80, h_far=7.5)
+    else:
+        recess_um = min(0.04, 0.18 * tm, 0.08 * ws)
+        for fx in list(focus_x):
+            x_knots.extend([fx - recess_um, fx + recess_um])
+        y_knots.extend([y_el0 + recess_um, y_el1 - recess_um])
+        x_axis_um = _graded_1d_axis(x_knots, focus_x, h_fine=0.16, h_mid=0.80, h_far=6.5)
+        y_axis_um = _graded_1d_axis(y_knots, focus_y, h_fine=0.12, h_mid=0.65, h_far=6.5)
     mesh, xc_um, yc_um = _rectilinear_mesh_tri(x_axis_um, y_axis_um)
 
     # Build element-wise relative permittivity arrays + loss-tangent & polar-phonon slope arrays
@@ -1440,7 +1656,7 @@ def _solve_single_cpw_cross_section(
         if idx_arm == len(arm_centers) - 1:
             in_core_right = mask_c
 
-    basis = Basis(mesh, ElementTriP1())
+    basis = Basis(mesh, ElementTriP2() if element_order == 2 else ElementTriP1())
     basis0 = basis.with_element(ElementTriP0())
 
     exx_dofs = basis0.zeros(dtype=float)
@@ -1462,9 +1678,8 @@ def _solve_single_cpw_cross_section(
     )
     b_zero = np.zeros(basis.N, dtype=float)
 
-    px_um = mesh.p[0] * 1e6
-    py_um = mesh.p[1] * 1e6
-    pts_nodes = shapely.points(px_um, py_um)
+    dof_xy_um = basis.doflocs * 1e6
+    pts_nodes = shapely.points(dof_xy_um[0], dof_xy_um[1])
 
     def _solve_bc(A_mat, recess_val: float):
         sig_list, gnd_list = _polys(recess_val)
@@ -1493,18 +1708,51 @@ def _solve_single_cpw_cross_section(
 
     # Exact element-local Galerkin electric field E = -grad(phi) [V/um] per 1 V applied
     # (preserves exact dielectric interface discontinuities & Galerkin energy conservation)
-    phi_2d = phi_diel.reshape(len(y_axis_um), len(x_axis_um))
-    ex_el, ey_el, interp_ex, interp_ey = _rectilinear_p1_neg_grad_evaluators(
-        mesh, phi_diel, x_axis_um, y_axis_um
-    )
+    phi_2d = phi_diel[:mesh.nvertices].reshape(len(y_axis_um), len(x_axis_um))
+    if element_order == 2:
+        grad_q = basis.interpolate(phi_diel).grad  # shape (2, nelements, nq), unit V/m
+        dx_q = basis.dx
+        area_m2 = np.maximum(np.sum(dx_q, axis=1), 1e-30)
+        ex_el = -np.sum(grad_q[0] * dx_q, axis=1) / area_m2 * 1e-6
+        ey_el = -np.sum(grad_q[1] * dx_q, axis=1) / area_m2 * 1e-6
+        u_el = 0.5 * np.sum(
+            (exx_el[:, None] * (grad_q[0] ** 2) + eyy_el[:, None] * (grad_q[1] ** 2)) * dx_q,
+            axis=1,
+        )
+        nx_g, ny_g = len(x_axis_um), len(y_axis_um)
+        x_lo, x_hi = float(x_axis_um[0]), float(x_axis_um[-1])
+        y_lo, y_hi = float(y_axis_um[0]), float(y_axis_um[-1])
+        dx_c = np.maximum(np.diff(x_axis_um), 1e-12)
+        dy_c = np.maximum(np.diff(y_axis_um), 1e-12)
 
-    # Energy-weighted RF loss tangent & semiconducting substrate filling factor
-    # Element areas in um^2
-    p0 = mesh.p[:, mesh.t[0]] * 1e6
-    p1 = mesh.p[:, mesh.t[1]] * 1e6
-    p2 = mesh.p[:, mesh.t[2]] * 1e6
-    area_um2 = 0.5 * np.abs((p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1]))
-    u_el = 0.5 * (exx_el * (ex_el ** 2) + eyy_el * (ey_el ** 2)) * area_um2
+        def _mk_tri_eval(field_el: np.ndarray):
+            def _eval(pts: np.ndarray) -> np.ndarray:
+                arr = np.asarray(pts, dtype=float)
+                single = arr.ndim == 1
+                if single:
+                    arr = arr[None, :]
+                yq, xq = arr[:, 0], arr[:, 1]
+                in_b = (xq >= x_lo) & (xq <= x_hi) & (yq >= y_lo) & (yq <= y_hi)
+                ix = np.clip(np.searchsorted(x_axis_um, xq, side="right") - 1, 0, nx_g - 2)
+                iy = np.clip(np.searchsorted(y_axis_um, yq, side="right") - 1, 0, ny_g - 2)
+                fx = (xq - x_axis_um[ix]) / dx_c[ix]
+                fy = (yq - y_axis_um[iy]) / dy_c[iy]
+                tri_idx = 2 * (iy * (nx_g - 1) + ix) + (fy > fx).astype(np.int64)
+                vals = np.where(in_b, field_el[tri_idx], 0.0)
+                return vals[0] if single else vals
+            return _eval
+
+        interp_ex = _mk_tri_eval(ex_el)
+        interp_ey = _mk_tri_eval(ey_el)
+    else:
+        ex_el, ey_el, interp_ex, interp_ey = _rectilinear_p1_neg_grad_evaluators(
+            mesh, phi_diel, x_axis_um, y_axis_um
+        )
+        p0 = mesh.p[:, mesh.t[0]] * 1e6
+        p1 = mesh.p[:, mesh.t[1]] * 1e6
+        p2 = mesh.p[:, mesh.t[2]] * 1e6
+        area_um2 = 0.5 * np.abs((p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1]))
+        u_el = 0.5 * (exx_el * (ex_el ** 2) + eyy_el * (ey_el ** 2)) * area_um2
     # Exclude interior of metal polygons where grad(phi) = 0
     u_tot = max(float(np.sum(u_el)), 1e-18)
     eff_tan_delta = float(np.sum(u_el * tand_el) / u_tot)
@@ -1662,7 +1910,7 @@ def _solve_optical_mode_and_metal_loss(
         cands.sort(key=lambda m: -float(np.real(m.n_eff)))
         return cands[0]
 
-    m0 = _pick(solve_modes_fem(spec, wl_m, num_modes=3, core_mesh_res_um=mesh_res, clad_mesh_res_um=max(mesh_res * 5.0, 0.22), element_order=2, export_grid=True, eval_grid_step_um=max(0.045 * wl_scale, 0.025)))
+    m0 = _pick(solve_modes_fem(spec, wl_m, num_modes=3, core_mesh_res_um=mesh_res, clad_mesh_res_um=max(mesh_res * 5.0, 0.22), element_order=2, export_grid=False))
     neff0 = float(np.real(m0.n_eff))
     mm = _pick(solve_modes_fem(spec, (wl0_nm - dwl_nm) * 1e-9, num_modes=2, n_guess=neff0, core_mesh_res_um=mesh_res, clad_mesh_res_um=max(mesh_res * 5.0, 0.22), element_order=2, export_grid=False))
     mp = _pick(solve_modes_fem(spec, (wl0_nm + dwl_nm) * 1e-9, num_modes=2, n_guess=neff0, core_mesh_res_um=mesh_res, clad_mesh_res_um=max(mesh_res * 5.0, 0.22), element_order=2, export_grid=False))
@@ -1931,6 +2179,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
                 eps_core_override=eps_core_az,
                 compute_wheeler_loss=full,
                 export_field_map=False,
+                element_order=2 if full else 1,
             )
             cs_cap = _solve_single_cpw_cross_section(
                 elec_top="gsg_cpw",
@@ -1955,16 +2204,51 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
                 eps_core_override=eps_core_az,
                 compute_wheeler_loss=False,
                 export_field_map=full,
+                element_order=2 if full else 1,
             )
             # Longitudinal current flows in the main trunk -> L_ext = L_trunk; segmented T-caps add capacitive loading
-            c_tot = d_t * cs_cap["c_diel_f_per_m"] + (1.0 - d_t) * cs_trunk["c_diel_f_per_m"]
+            c_2d_slices = d_t * cs_cap["c_diel_f_per_m"] + (1.0 - d_t) * cs_trunk["c_diel_f_per_m"]
+            if full:
+                sub_info_tr = RF_SUBSTRATE_CATALOG.get(cfg.substrate_type, RF_SUBSTRATE_CATALOG["hr_si"])
+                eps_core_tr = eps_core_az if eps_core_az is not None else STATIC_PERMITTIVITY_DC.get(cfg.core_material, (10.0, 10.0))
+                eps_box_tr = STATIC_PERMITTIVITY_DC.get(cfg.clad_material, (3.9, 3.9))
+                has_top_tr = cfg.top_clad_material != "Air" and cfg.top_clad_thickness_um > 0.02
+                eps_top_tr = STATIC_PERMITTIVITY_DC.get(cfg.top_clad_material, (3.9, 3.9)) if has_top_tr else (1.0, 1.0)
+                y_ox_top_tr = max(cfg.film_height_um + 0.25, cfg.slab_height_um + cfg.top_clad_thickness_um) if has_top_tr else cfg.slab_height_um
+                ratio_3d = _t_rail_3d_periodic_fringing_ratio(
+                    ws_um=ws_try,
+                    g_in_um=g_in,
+                    l_rail_um=lr,
+                    w_cap_bar_um=w_cap_bar,
+                    w_stem_um=float(cfg.t_rail_stem_width_um),
+                    period_um=float(cfg.t_rail_period_um),
+                    duty=d_t,
+                    w_gnd_um=cfg.ground_width_um,
+                    t_metal_um=cfg.metal_thickness_um,
+                    h_film_um=cfg.film_height_um,
+                    h_slab_um=cfg.slab_height_um,
+                    h_box_um=cfg.box_thickness_um,
+                    eps_core=eps_core_tr,
+                    eps_box=eps_box_tr,
+                    eps_sub=(float(sub_info_tr["eps_rf"]), float(sub_info_tr["eps_rf"])),
+                    eps_top=eps_top_tr,
+                    y_ox_top_um=y_ox_top_tr,
+                    has_top_oxide=has_top_tr,
+                    substrate_type=cfg.substrate_type,
+                    slab_corridor_half_um=slab_corr_half,
+                    x_wg_pos_um=x_wg_fixed,
+                )
+            else:
+                ratio_3d = 1.0
+            c_tot = c_2d_slices * ratio_3d
+            c_cap_eff = max((c_tot - (1.0 - d_t) * cs_trunk["c_diel_f_per_m"]) / max(d_t, 0.1), cs_cap["c_diel_f_per_m"])
             l_ext = cs_trunk["l_ext_h_per_m"]
             # Include eddy magnetic-flux coupling from periodic T-stems & T-caps onto trunk conductor perimeter
             eddy_factor = 1.0 + 0.24 * d_t * (lr / max(ws_try + g_trunk, 5.0))
             merged = dict(cs_cap)
             merged.update({
                 "c_diel_f_per_m": c_tot,
-                "c_cap_f_per_m": cs_cap["c_diel_f_per_m"],
+                "c_cap_f_per_m": c_cap_eff,
                 "c_trunk_f_per_m": cs_trunk["c_diel_f_per_m"],
                 "c_vac_f_per_m": cs_trunk["c_vac_f_per_m"],
                 "l_ext_h_per_m": l_ext,
@@ -2009,6 +2293,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             eps_core_override=eps_core_az,
             compute_wheeler_loss=full,
             export_field_map=full,
+            element_order=2 if full else 1,
         )
         cs["g_inner_um"] = g_use
         cs["g_trunk_um"] = g_use
@@ -2033,6 +2318,9 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
     # Auto-synthesize signal_width_um (and t_rail_length_um for t_rail_cpw) for Z_0 -> target_impedance_ohm
     z_targ = max(float(cfg.target_impedance_ohm), 20.0)
     auto_synthesized = False
+    auto_synth_lrail = False
+    ng_est_target: float | None = None
+    dn_dlrail_est = 0.032
     l_rail_opt = float(cfg.t_rail_length_um) if (cfg.t_rail_length_um is not None and cfg.t_rail_length_um > 0) else 9.5
 
     if cfg.signal_width_um is not None and cfg.signal_width_um > 0:
@@ -2127,10 +2415,12 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
                 cs_l.sort(key=lambda m: -float(np.real(m.n_eff)))
                 return float(np.real(cs_l[0].n_eff))
 
-            n0_t = _pk_t(solve_modes_fem(sp_t, wl0_t * 1e-9, num_modes=2, core_mesh_res_um=0.055, element_order=1, export_grid=False))
-            nm_t = _pk_t(solve_modes_fem(sp_t, (wl0_t - dwl_t) * 1e-9, num_modes=2, n_guess=n0_t, core_mesh_res_um=0.055, element_order=1, export_grid=False))
-            np_t = _pk_t(solve_modes_fem(sp_t, (wl0_t + dwl_t) * 1e-9, num_modes=2, n_guess=n0_t, core_mesh_res_um=0.055, element_order=1, export_grid=False))
+            n0_t = _pk_t(solve_modes_fem(sp_t, wl0_t * 1e-9, num_modes=2, core_mesh_res_um=0.055, element_order=2, export_grid=False))
+            nm_t = _pk_t(solve_modes_fem(sp_t, (wl0_t - dwl_t) * 1e-9, num_modes=2, n_guess=n0_t, core_mesh_res_um=0.055, element_order=2, export_grid=False))
+            np_t = _pk_t(solve_modes_fem(sp_t, (wl0_t + dwl_t) * 1e-9, num_modes=2, n_guess=n0_t, core_mesh_res_um=0.055, element_order=2, export_grid=False))
             ng_est = n0_t - wl0_t * ((np_t - nm_t) / (2.0 * dwl_t))
+            auto_synth_lrail = True
+            ng_est_target = ng_est
 
             # Continuous 2D (W_S, L_rail) synthesis simultaneously matching Z0 = z_targ AND n_RF = n_g,opt
             lr_grid = (2.0, 6.0, 11.5, 17.5, 24.5)
@@ -2151,6 +2441,8 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             if bracket_pair is not None:
                 s0, s1 = bracket_pair
                 denom_dn = s1[3] - s0[3]
+                if abs(s1[0] - s0[0]) > 0.1 and abs(denom_dn) > 1e-4:
+                    dn_dlrail_est = denom_dn / (s1[0] - s0[0])
                 frac = (ng_est - s0[3]) / denom_dn if abs(denom_dn) > 1e-6 else 0.5
                 lr_p1 = float(np.clip(s0[0] + frac * (s1[0] - s0[0]), 1.5, 26.0))
                 w_p1, z_p1, n_p1 = _solve_ws_for_z0(lr_p1)
@@ -2185,15 +2477,39 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
                         b = m
                 ws_opt = round(0.5 * (a + b), 2)
 
-    # Final full-resolution 2D-FEM RF solve (with exact Holloway-Kuester skin-loss derivative & 1-step Z0_10GHz polish)
+    # Final full-resolution P2 2D-FEM (+ 3D periodic FVM fringing) RF solve & exact 10 GHz (Z0, n_RF) polish
     _, _, rf_cs = _eval_fast_rf(ws_opt, l_rail_opt, full=True)
     if auto_synthesized:
         f10 = 10.0e9
-        r_hf_10_ex = (math.sqrt(math.pi * f10 * MU0_H_PER_M * rho_m) / MU0_H_PER_M) * float(rf_cs["dl_dn_h_per_m2"])
-        l_10_ex = float(rf_cs["l_ext_h_per_m"]) + r_hf_10_ex / (2.0 * math.pi * f10)
-        z_10_ex = math.sqrt(l_10_ex / max(float(rf_cs["c_diel_f_per_m"]) + c_pn_est_f_m, 1e-15))
-        if abs(z_10_ex - z_targ) > 0.45:
-            ws_opt = round(float(np.clip(ws_opt * ((z_10_ex / z_targ) ** 1.38), 1.2, 98.0)), 2)
+        om10 = 2.0 * math.pi * f10
+        tm_m_p = max(cfg.metal_thickness_um, 0.12) * 1e-6
+        delta_10 = math.sqrt(rho_m / (math.pi * f10 * MU0_H_PER_M))
+        xi_10 = tm_m_p / max(2.0 * delta_10, 1e-12)
+        ez_10 = np.exp(-2.0 * min(xi_10, 30.0)) * np.exp(-2j * xi_10)
+        f_im_10 = float(np.imag((1.0 + 1j) * ((1.0 + ez_10) / (1.0 - ez_10)))) if xi_10 >= 1e-3 else (2.0 / 3.0) * xi_10
+
+        def _eval_10g_zn(cs_d: dict) -> tuple[float, float]:
+            r_hf_10 = (math.sqrt(math.pi * f10 * MU0_H_PER_M * rho_m) / MU0_H_PER_M) * float(cs_d["dl_dn_h_per_m2"])
+            l_10 = float(cs_d["l_ext_h_per_m"]) + (r_hf_10 * f_im_10) / om10
+            c_10 = max(float(cs_d["c_diel_f_per_m"]) + c_pn_est_f_m, 1e-15)
+            return math.sqrt(l_10 / c_10), C0_M_PER_S * math.sqrt(l_10 * c_10)
+
+        prev_lr: float | None = None
+        prev_n10: float | None = None
+        for _ in range(3):
+            z_10_ex, n_10_ex = _eval_10g_zn(rf_cs)
+            need_z = abs(z_10_ex - z_targ) > 0.40
+            need_n = auto_synth_lrail and (ng_est_target is not None) and (abs(n_10_ex - ng_est_target) > 0.008)
+            if not (need_z or need_n):
+                break
+            if need_n and ng_est_target is not None:
+                if prev_lr is not None and prev_n10 is not None and abs(l_rail_opt - prev_lr) > 0.05 and abs(n_10_ex - prev_n10) > 1e-4:
+                    dn_dlrail_est = (n_10_ex - prev_n10) / (l_rail_opt - prev_lr)
+                prev_lr, prev_n10 = l_rail_opt, n_10_ex
+                slope_safe = dn_dlrail_est if abs(dn_dlrail_est) > 1e-3 else 0.032
+                l_rail_opt = round(float(np.clip(l_rail_opt + (ng_est_target - n_10_ex) / slope_safe, 1.5, 26.0)), 2)
+            if need_z or need_n:
+                ws_opt = round(float(np.clip(ws_opt * ((z_10_ex / z_targ) ** 1.38), 1.2, 98.0)), 2)
             _, _, rf_cs = _eval_fast_rf(ws_opt, l_rail_opt, full=True)
     duty_eo = float(rf_cs["t_duty"])
     g_inner_um = float(rf_cs["g_inner_um"])
@@ -2273,8 +2589,28 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         k_rough_f = 1.0 + (2.0 / math.pi) * np.arctan(1.4 * ((rq_rough_m / np.maximum(delta_skin_m, 1e-9)) ** 2))
         rs_f = np.sqrt(math.pi * fg_hz * MU0_H_PER_M * rho_m) * k_rough_f
         rhf_m = (rs_f / MU0_H_PER_M) * dl_dn
-        rrf_m = np.sqrt(r_dc_ohm_m ** 2 + rhf_m ** 2)
-        lint_m = (rhf_m / om) / np.sqrt(1.0 + (r_dc_ohm_m / np.maximum(rhf_m, 1e-9)) ** 2)
+        # Exact 1D finite-thickness conducting-slab skin transition:
+        #   R(f)   uses xi_R    = R_hf / R_dc   -> exact R_dc as f->0 and R_hf as f->inf
+        #   L_int  uses xi_phys = t_m / (2*delta) -> exact DC internal inductance (1/6)*t_m*(dL/dn) as f->0 and R_hf/om as f->inf
+        xi_r = rhf_m / np.maximum(r_dc_ohm_m, 1e-12)
+        ez_r = np.exp(-2.0 * np.minimum(xi_r, 30.0)) * np.exp(-2j * xi_r)
+        small_r = xi_r < 1e-3
+        f_r_c = np.where(
+            small_r,
+            (1.0 / np.maximum(xi_r, 1e-12)) + 1j * (2.0 / 3.0) * xi_r,
+            (1.0 + 1j) * ((1.0 + ez_r) / np.where(small_r, 1.0, 1.0 - ez_r)),
+        )
+        rrf_m = rhf_m * np.real(f_r_c)
+
+        xi_p = tm_m / np.maximum(2.0 * delta_skin_m, 1e-12)
+        ez_p = np.exp(-2.0 * np.minimum(xi_p, 30.0)) * np.exp(-2j * xi_p)
+        small_p = xi_p < 1e-3
+        f_p_c = np.where(
+            small_p,
+            (1.0 / np.maximum(xi_p, 1e-12)) + 1j * (2.0 / 3.0) * xi_p,
+            (1.0 + 1j) * ((1.0 + ez_p) / np.where(small_p, 1.0, 1.0 - ez_p)),
+        )
+        lint_m = (rhf_m * np.imag(f_p_c)) / np.maximum(om, 1.0)
         ltot_m = l_ext_m + lint_m
 
         # Frequency-dependent polar-phonon / ferroelectric dielectric loss tangent tan_delta(f)
@@ -2300,13 +2636,16 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
 
         if elec_top == "t_rail_cpw" and l_rail_opt > 0.2:
             # Exact symmetric ABCD Bloch-Floquet unit-cell [trunk/2 - T-cap - trunk/2] dispersion
-            # Transverse skin-current charging resistance across Signal + Ground T-stems & T-caps + 90-deg corner crowding
+            # Transverse skin-current charging resistance across symmetric GSG T-stems & T-caps:
+            # Two parallel slots with 2 stems in series per slot -> 2/2 = 1.0 effective stem;
+            # substrate-side displacement current crowds onto the lower face & inner sidewalls (w + tm)
+            # plus 2 right-angle 90-deg T-junction corner bends (trunk->stem & stem->cap, ~1 sq each).
             w_stem_m = max(float(cfg.t_rail_stem_width_um), 1.0) * 1e-6
             w_cap_m = max(w_cap_bar_um, 1.2) * 1e-6
-            l_stem_m = max(l_rail_opt, 0.5) * 1e-6
+            l_stem_m = max(l_rail_opt - w_cap_bar_um, 0.4) * 1e-6
             l_cap_wing_m = max(duty_eo * lam_seg_m - w_stem_m, 0.0)
-            r_stem_geom = (l_stem_m / (w_stem_m + tm_m)) + l_cap_wing_m / (24.0 * (w_cap_m + tm_m)) + 2.5
-            r_stem_cell = 2.0 * rs_f * r_stem_geom
+            r_stem_geom = (l_stem_m / (w_stem_m + tm_m)) + l_cap_wing_m / (12.0 * (w_cap_m + tm_m)) + 2.0
+            r_stem_cell = rs_f * r_stem_geom
             c_rail_cell = max(dc_rail_m * duty_eo * lam_seg_m, 1e-18)
             stem_enh = 1.0 / (1.0 - (om / om_stem_rad) ** 2 + 1j * om * c_rail_cell * r_stem_cell)
             tan_d_tr_f = tan_d_used + c_trunk_slope * (fg_ghz / 100.0)

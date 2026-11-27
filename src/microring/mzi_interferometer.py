@@ -156,11 +156,16 @@ def _poynting_overlap_shifted(
     src: EigenmodeResult,
     dst: EigenmodeResult,
     x_shift_m: float = 0.0,
+    *,
+    beta_tap_per_m: float = 0.0,
+    r_curv_m: float = math.inf,
 ) -> complex:
     """Complex bidirectional Poynting mode overlap `<src(x - x_shift, y) | dst(x, y)>`.
 
-    Preserves full complex vector phase (`<RULE>` §3). Both modes are evaluated on `dst`'s
-    Cartesian grid `(dst.x_m, dst.y_m)`, normalized to unit transverse Poynting power.
+    Preserves full complex vector phase (`<RULE>` §3), including optional paraxial cylindrical
+    wavefront curvature `exp(-i * beta_tap * x^2 / (2 * R_curv))` for linear access tapers.
+    Both modes are evaluated on `dst`'s Cartesian grid `(dst.x_m, dst.y_m)`, normalized to
+    unit transverse Poynting power.
     """
     xd = dst.x_m
     yd = dst.y_m
@@ -189,6 +194,12 @@ def _poynting_overlap_shifted(
     ey_s = _interp_c(src.Ey)
     hx_s = _interp_c(src.Hx)
     hy_s = _interp_c(src.Hy)
+    if math.isfinite(r_curv_m) and abs(r_curv_m) > 1e-9 and abs(beta_tap_per_m) > 0.0:
+        ph_curv = np.exp(-1j * beta_tap_per_m * (xx ** 2) / (2.0 * r_curv_m))
+        ex_s = ex_s * ph_curv
+        ey_s = ey_s * ph_curv
+        hx_s = hx_s * ph_curv
+        hy_s = hy_s * ph_curv
 
     # Symmetrized unconjugated/conjugated waveguide mode orthogonality product
     cross_1 = ex_s * np.conj(dst.Hy) - ey_s * np.conj(dst.Hx)
@@ -491,8 +502,8 @@ def design_mmi_coupler_eme(
         h_top_clad_um=box_pad,
     )
 
-    n_req_modes = 14 if not is_1x2 else 11
-    n_eig_req = min(22, 2 * n_req_modes - 4)
+    n_req_modes = 18 if not is_1x2 else 12
+    n_eig_req = min(28, 2 * n_req_modes - 2)
     modes_0_raw = solve_modes_fem(
         mmi_spec,
         wl0_nm * 1e-9,
@@ -544,14 +555,28 @@ def design_mmi_coupler_eme(
     )
     tap_0 = _pick_pol_modes(tap_modes, cfg.polarization, n_clad)[0]
 
-    # Complex Poynting projection onto MMI guided eigenmodes
+    # Complex Poynting projection onto MMI guided eigenmodes (with linear-taper cylindrical wavefront curvature)
     x_in_m = 0.0 if is_1x2 else (-x_port_um * 1e-6)
     x_bar_m = -x_port_um * 1e-6
     x_cross_m = +x_port_um * 1e-6
+    beta_tap_m = (2.0 * math.pi / (wl0_nm * 1e-9)) * float(np.real(tap_0.n_eff))
+    l_tap_um = float(cfg.mmi_taper_length_um)
+    dw_tap_um = w_taper - float(cfg.arm1_width_um)
+    r_tap_m = (l_tap_um * w_taper / dw_tap_um) * 1e-6 if (dw_tap_um > 0.05 and l_tap_um > 0.5) else math.inf
 
-    c_in = np.array([_poynting_overlap_shifted(tap_0, m, x_in_m) for m in guided_0], dtype=complex)
-    d_bar = np.array([np.conj(_poynting_overlap_shifted(tap_0, m, x_bar_m)) for m in guided_0], dtype=complex)
-    d_cross = np.array([np.conj(_poynting_overlap_shifted(tap_0, m, x_cross_m)) for m in guided_0], dtype=complex)
+    c_in = np.array(
+        [_poynting_overlap_shifted(tap_0, m, x_in_m, beta_tap_per_m=beta_tap_m, r_curv_m=r_tap_m) for m in guided_0],
+        dtype=complex,
+    )
+    r_out_m = -r_tap_m if math.isfinite(r_tap_m) else math.inf
+    d_bar = np.array(
+        [np.conj(_poynting_overlap_shifted(tap_0, m, x_bar_m, beta_tap_per_m=beta_tap_m, r_curv_m=r_out_m)) for m in guided_0],
+        dtype=complex,
+    )
+    d_cross = np.array(
+        [np.conj(_poynting_overlap_shifted(tap_0, m, x_cross_m, beta_tap_per_m=beta_tap_m, r_curv_m=r_out_m)) for m in guided_0],
+        dtype=complex,
+    )
     if is_1x2:
         # Enforce exact mirror symmetry (x <-> -x) for centered 1x2 symmetric self-imaging MMI
         for k in range(m_cnt):
@@ -656,6 +681,7 @@ def design_mmi_coupler_eme(
         "summary": {
             "solver": MZI_SPLITTER_CATALOG[key]["solver"],
             "guided_modes_solved": m_cnt,
+            "num_guided_modes": m_cnt,
             "mmi_width_um": round(w_mmi, 3),
             "effective_width_we0_um": round(w_eff, 3),
             "mmi_length_um": round(l_mmi_um, 3),

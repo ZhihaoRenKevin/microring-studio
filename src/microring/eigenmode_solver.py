@@ -26,6 +26,7 @@ from pathlib import Path
 import tempfile
 from typing import Callable
 
+import matplotlib.tri as mtri
 import numpy as np
 import scipy.constants
 import scipy.sparse.linalg
@@ -481,7 +482,7 @@ def solve_modes_fem(
     y_mid_m = 0.5 * (spec.h_slab_um + spec.h_film_um) * 1e-6
     w_core_m = spec.w_bottom_um * 1e-6
 
-    # Fast 1D core midline probe (61 points) for node counting
+    # Fast 1D core midline probe (61 points) for node counting using shared Triangulation finder
     probe_half_span_m = (
         (0.5 * spec.twin_core_gap_um + 0.92 * spec.w_bottom_um) * 1e-6
         if spec.twin_core_gap_um > 0.0
@@ -489,7 +490,32 @@ def solve_modes_fem(
     )
     x_line_m = np.linspace(-probe_half_span_m, probe_half_span_m, 61)
     pts_line = np.vstack([x_line_m, np.full_like(x_line_m, y_mid_m)])
-    probe_et_line = et_basis.probes(pts_line)
+
+    # Ensure strictly counter-clockwise triangle ordering for Matplotlib TrapezoidMapTriFinder
+    _p0 = mesh.p[:, mesh.t[0]]
+    _p1 = mesh.p[:, mesh.t[1]]
+    _p2 = mesh.p[:, mesh.t[2]]
+    _area2 = (_p1[0] - _p0[0]) * (_p2[1] - _p0[1]) - (_p2[0] - _p0[0]) * (_p1[1] - _p0[1])
+    _t_ccw = mesh.t.T.copy()
+    _neg_tri = _area2 < 0.0
+    if np.any(_neg_tri):
+        _t_ccw[_neg_tri, 1], _t_ccw[_neg_tri, 2] = _t_ccw[_neg_tri, 2].copy(), _t_ccw[_neg_tri, 1].copy()
+    tri_finder = mtri.Triangulation(mesh.p[0], mesh.p[1], _t_ccw).get_trifinder()
+    mp_mesh = mesh.mapping()
+
+    cells_line = tri_finder(pts_line[0], pts_line[1])
+    valid_line = cells_line >= 0
+    cv_line = cells_line[valid_line]
+    if len(cv_line) > 0:
+        xref_line = mp_mesh.invF(pts_line[:, valid_line][:, :, None], tind=cv_line)
+        edofs_et_line = et_basis.element_dofs[:, cv_line]
+        phi_et_line = np.stack(
+            [et_basis.elem.gbasis(mp_mesh, xref_line, i, tind=cv_line)[0].value[:, :, 0] for i in range(edofs_et_line.shape[0])],
+            axis=0,
+        )
+    else:
+        edofs_et_line = None
+        phi_et_line = None
 
     # Outer-rim quadrature mask for domain truncation audit
     rim_tol_m = max(clad_mesh_res_um * 1.2e-6, 0.25e-6)
@@ -510,17 +536,42 @@ def solve_modes_fem(
         xx, yy = np.meshgrid(x_m, y_m)
         pts = np.vstack([xx.ravel(), yy.ravel()])
         ny, nx = len(y_m), len(x_m)
+        n_pts_grid = pts.shape[1]
         rho_grid = 1.0 + xx * inv_r
-        probe_et = et_basis.probes(pts)
-        probe_ez = ez_basis.probes(pts)
-        probe_dg = dg_basis.probes(pts)
+
+        # Precompute shared single-pass TriFinder + exact basis evaluation tables once for all modes
+        cells_grid = tri_finder(pts[0], pts[1])
+        valid_grid = cells_grid >= 0
+        cv_grid = cells_grid[valid_grid]
+        xref_grid = mp_mesh.invF(pts[:, valid_grid][:, :, None], tind=cv_grid)
+        edofs_et_g = et_basis.element_dofs[:, cv_grid]
+        edofs_ez_g = ez_basis.element_dofs[:, cv_grid]
+        edofs_dg_g = dg_basis.element_dofs[:, cv_grid]
+        phi_et_g = np.stack(
+            [et_basis.elem.gbasis(mp_mesh, xref_grid, i, tind=cv_grid)[0].value[:, :, 0] for i in range(edofs_et_g.shape[0])],
+            axis=0,
+        )
+        phi_ez_g = np.stack(
+            [ez_basis.elem.gbasis(mp_mesh, xref_grid, i, tind=cv_grid)[0].value[:, 0] for i in range(edofs_ez_g.shape[0])],
+            axis=0,
+        )
+        phi_dg_g = np.stack(
+            [dg_basis.elem.gbasis(mp_mesh, xref_grid, i, tind=cv_grid)[0].value[:, 0] for i in range(edofs_dg_g.shape[0])],
+            axis=0,
+        )
+        # Precompute element-local block-diagonal DG2 inverse mass matrices (exact L2 projection, zero global sparse solves)
+        p_dg_q = np.stack([b[0].value for b in dg_basis.basis], axis=1)  # (nelems, n_dg_loc, nq)
+        m_dg_inv = np.linalg.inv(np.einsum("eiq,ejq,eq->eij", p_dg_q, p_dg_q, dg_basis.dx))
+        dg_edofs_T = dg_basis.element_dofs.T
     else:
         step_m = eval_grid_step_um * 1e-6
         x_m = np.array([0.0], dtype=float)
         y_m = np.array([y_mid_m], dtype=float)
         ny, nx = 1, 1
+        n_pts_grid = 1
         rho_grid = np.ones((1, 1), dtype=float)
-        probe_et = probe_ez = probe_dg = None
+        valid_grid = edofs_et_g = edofs_ez_g = edofs_dg_g = None
+        phi_et_g = phi_ez_g = phi_dg_g = p_dg_q = m_dg_inv = dg_edofs_T = None
 
     results: list[EigenmodeResult] = []
 
@@ -580,7 +631,9 @@ def solve_modes_fem(
             gamma_core = 0.80
 
         # Core node count along 1D core midline
-        et_line = (probe_et_line @ et_vec).reshape(2, -1)
+        et_line = np.zeros((2, pts_line.shape[1]), dtype=complex)
+        if phi_et_line is not None and edofs_et_line is not None:
+            et_line[:, valid_line] = np.einsum("icp,ip->cp", phi_et_line, et_vec[edofs_et_line])
         line_comp = et_line[0] if te_frac >= 0.5 else et_line[1]
         idx_pk = int(np.argmax(np.abs(line_comp)))
         if abs(line_comp[idx_pk]) > 0:
@@ -591,17 +644,35 @@ def solve_modes_fem(
             nodes = 0
 
         if export_grid:
-            hr_dg = dg_basis.project(hr_q, dtype=complex)
-            hy_dg = dg_basis.project(hy_q, dtype=complex)
-            hz_dg = dg_basis.project(hz_q, dtype=complex)
+            # Exact element-local L2 projection of magnetic field components onto DG2
+            def _proj_dg_local(q_arr: np.ndarray) -> np.ndarray:
+                rhs = np.einsum("eiq,eq,eq->ei", p_dg_q, q_arr, dg_basis.dx)
+                dofs = np.zeros(dg_basis.N, dtype=complex)
+                dofs[dg_edofs_T] = np.einsum("eij,ej->ei", m_dg_inv, rhs)
+                return dofs
 
-            et_pts = (probe_et @ et_vec).reshape(2, ny, nx)
-            Ex_grid = et_pts[0]
-            Ey_grid = et_pts[1]
-            Ez_grid = ((probe_ez @ ez_tilde_vec).reshape(ny, nx)) / rho_grid
-            Hx_grid = (probe_dg @ hr_dg).reshape(ny, nx)
-            Hy_grid = (probe_dg @ hy_dg).reshape(ny, nx)
-            Hz_grid = (probe_dg @ hz_dg).reshape(ny, nx)
+            hr_dg = _proj_dg_local(hr_q)
+            hy_dg = _proj_dg_local(hy_q)
+            hz_dg = _proj_dg_local(hz_q)
+
+            et_pts = np.zeros((2, n_pts_grid), dtype=complex)
+            et_pts[:, valid_grid] = np.einsum("icp,ip->cp", phi_et_g, et_vec[edofs_et_g])
+            Ex_grid = et_pts[0].reshape(ny, nx)
+            Ey_grid = et_pts[1].reshape(ny, nx)
+
+            ez_flat = np.zeros(n_pts_grid, dtype=complex)
+            ez_flat[valid_grid] = np.einsum("ip,ip->p", phi_ez_g, ez_tilde_vec[edofs_ez_g])
+            Ez_grid = ez_flat.reshape(ny, nx) / rho_grid
+
+            hx_flat = np.zeros(n_pts_grid, dtype=complex)
+            hy_flat = np.zeros(n_pts_grid, dtype=complex)
+            hz_flat = np.zeros(n_pts_grid, dtype=complex)
+            hx_flat[valid_grid] = np.einsum("ip,ip->p", phi_dg_g, hr_dg[edofs_dg_g])
+            hy_flat[valid_grid] = np.einsum("ip,ip->p", phi_dg_g, hy_dg[edofs_dg_g])
+            hz_flat[valid_grid] = np.einsum("ip,ip->p", phi_dg_g, hz_dg[edofs_dg_g])
+            Hx_grid = hx_flat.reshape(ny, nx)
+            Hy_grid = hy_flat.reshape(ny, nx)
+            Hz_grid = hz_flat.reshape(ny, nx)
 
             p_grid_w = float(0.5 * np.real(np.sum(Ex_grid * np.conj(Hy_grid) - Ey_grid * np.conj(Hx_grid))) * (step_m ** 2))
             e_sq = np.abs(Ex_grid) ** 2 + np.abs(Ey_grid) ** 2 + np.abs(Ez_grid) ** 2

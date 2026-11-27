@@ -1,12 +1,12 @@
 # MicroRing Studio（开源光子芯片 PIC、微环谐振器、MZI、300 GHz 行波/慢波电极、硅 PN TCAD 与热有限元平台）
 
-**无需 Ansys Lumerical MODE/FDTD/CHARGE/HEAT、HFSS、Synopsys RSoft 或 COMSOL 商业许可证 —— 通过中英双语 AI 光子设计助手（Copilot）、亚太赫兹（`100–300+ GHz`）行波与慢波 `T-Rail` 电光电极设计、三维晶体张量晶圆切向寻优、二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD`、稳态+瞬态热有限元、零 3D-FDTD 马赫-曾德尔干涉仪（`MZI`：`Y 分支` / `DC` / `MMI`）、2D-FEM 端面耦合器与 2D 全波 `FDFD` 表面光栅耦合器、超高 Q（`10^4`–`10^8+`）瞬时稳态收敛引擎、Lumerical INTERCONNECT 导出及双向 GDSII 版图桥，一站式打通光子集成电路（PIC）从物理仿真到流片掩膜的全流程。**
+**无需 Ansys Lumerical MODE/FDTD/CHARGE/HEAT、HFSS、Synopsys RSoft 或 COMSOL 商业许可证，通过中英双语 AI 光子设计助手（Copilot）、亚太赫兹（`100–300+ GHz`）行波与慢波 `T-Rail` 电光电极设计、三维晶体张量晶圆切向寻优、二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD`、稳态+瞬态热有限元、零 3D-FDTD 马赫-曾德尔干涉仪（`MZI`：`Y 分支` / `DC` / `MMI`）、2D-FEM 端面耦合器与 2D 全波 `FDFD` 表面光栅耦合器、超高 Q（`10^4`–`10^8+`）瞬时稳态收敛引擎、Lumerical INTERCONNECT 导出及双向 GDSII 版图桥，一站式打通光子集成电路（PIC）从物理仿真到流片掩膜的全流程。**
 
 [English](../README.md) | [简体中文](./README_zh-CN.md) | [求解器交叉验证与基准](./VERIFICATION_AND_BENCHMARKS.md) | [Lumerical / COMSOL / HFSS 独立验证报告](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) | [369 篇实验论文核验总账](./PUBLICATION_VALIDATION_LEDGER.md) | [对话与 GDS 进阶教程](./tutorials/chatbot_and_gds_guide.md) | [Codex 与 Claude 极省 Token 接入指南](./tutorials/ai_agents_codex_claude.md) | [llms.txt](./llms.txt) | [更新日志](../CHANGELOG.md)
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.8.0](https://img.shields.io/badge/release-v3.8.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.8.0)
+[![Release: v3.9.0](https://img.shields.io/badge/release-v3.9.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.9.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
@@ -17,14 +17,44 @@
 
 ---
 
+## 四方独立求解器验证总览（全 11 套件 · `10/10` 物理审计 `PASS`）
+
+**MicroRing Studio (`v3.9.0`)** 全部 11 个物理引擎均为纯开源第一性原理独立求解器（`scikit-fem` + `NumPy/SciPy`，无任何商业求解器痕迹或预制查表）。全部基准均从同一份中立物理规格 JSON 出发，独立头对头对标 **Ansys Lumerical 2026 R1**（`MODE`、`3D/2D FDTD` RTX 5090 GPU、`EME`、`CHARGE`、`HEAT`、`INTERCONNECT`）、**COMSOL Multiphysics 6.4**（`ewfd`、`emw`、`es`、`ht` 2D/3D、`GeneralFormPDE`）与 **Ansys HFSS 2026 R1**（`10–300 GHz` 三维全波驱动模式），同时完成 **369 篇独立 DOI 实验论文实算核验（`367/369 PASS`，`99.5%`；其余 2 篇非均匀 Floquet/PSO 逆向优化器件按物理适用边界如实保留，不做人为拟合）**。
+
+| 套件 | 验证物理引擎 | 商业软件对标对象 | 独立实测一致度 |
+| :--- | :--- | :--- | :--- |
+| **1** | 二维弯曲/直波导全矢量 FEM（`532–4200 nm`） | Lumerical `MODE`, COMSOL `ewfd` | 最大 $\|\Delta n_{\mathrm{eff}}\| = 1.6\times 10^{-5}$（COMSOL）/ $5.35\times 10^{-4}$（MODE）；$n_g$ 误差 `< 0.05%` |
+| **2** | 三维总线-微环耦合器（5 波段 + `100–250 nm` 间距） | Lumerical `3D FDTD`（RTX 5090 GPU） | SOI `100–250 nm` 误差 `0.1%–1.5%`；`4H-SiC` 滑轮 `0.97%`、中红外 `Ge` `2.1%`、`532/780 nm` `3.7%/5.8%` |
+| **3** | MZI `2x2` DC、`1x2` MMI/Y 分支与均匀表面光栅 | Lumerical `MODE`/`2D & 3D FDTD`, COMSOL | DC 拍长 $L_\pi$ 误差 `0.16%`（COMSOL）/ `0.36%`；`1x2` MMI `0.242 vs 0.242 dB`、Y 分支 `1.02 vs 1.07 dB`、光栅 `3.30 vs 3.33 dB` |
+| **4** | 二维稳态与瞬态热光微加热器（`TiN`、深隔离槽） | COMSOL `ht`, Lumerical `HEAT` | 热阻 $R_{\mathrm{th}}$ 误差 `0.23%–0.38%`（COMSOL）/ `0.51%–1.16%`（`HEAT`）；通量误差 `0.0000%`，严格 `t_rise == t_fall` |
+| **5** | 二维各向异性静电场 Pockels 电光调制（`TFLN`, `ScAlN`） | COMSOL `es`+`ewfd`, Lumerical `MODE` | 三款器件单臂 $V_\pi L$ 全部在 `0.20%–0.87%` 内；`X切 TFLN` 线电容 $C_{\mathrm{line}}$ 误差 `0.26%` |
+| **6** | 芯片端面耦合器（Butt/Edge）与高斯切趾 26 齿光栅 | Lumerical `MODE`/`EME`/`2D FDTD`, COMSOL | 端面插损误差 `0.005–0.057 dB`，`1-dB` 对准容差 `0.01 µm`；切趾光栅峰值 `1553.2 vs 1553.4 nm`，插损 `2.95 vs 2.91 dB` |
+| **7** | `2x2` MMI、低 Q 整环（`R=5 µm`）与 `INTERCONNECT` 闭环 | Lumerical `3D FDTD` GPU & `INTERCONNECT` | 整环 FSR `17.83 vs 18.19 nm`、$Q_L$ `7926 vs 8174`（`3.0%`）；`INTERCONNECT` MZI FSR `7.000 vs 7.012 nm`、ER `33.35 vs 33.33 dB` |
+| **8** | 亚太赫兹（`10–300 GHz`）行波 CPW 与三维慢波 `T-Rail` | **Ansys HFSS 3D**, COMSOL `es`/`emw`/3D | 均匀 CPW（`40 GHz`）$Z_0$ 误差 `0.3%–1.1%`、$n_{\mathrm{RF}}$ `0.25%–0.70%`（HFSS 3D）；3D `T-Rail` $Z_0$ `49.51 vs 49.24 Ω`（`0.56%` COMSOL 3D），`40–300 GHz` $\alpha_{\mathrm{RF}}$ `1.20–7.59 vs 1.37–7.46 dB/cm` |
+| **9** | 二维非线性泊松-玻尔兹曼硅 `PN` 掺杂 `TCAD` | Lumerical `CHARGE`+`MODE`, COMSOL `PDE` | 三方结电容 $C_j(0/-3\text{ V})$ 一致度 `0.17%–3.2%`；横向结自由载流子吸收 `FCA` `10.76 vs 10.78 dB/cm`（`0.19%`），$V_\pi L$ `1.48 vs 1.56 V·cm` |
+| **10** | 进阶热结构（`XeF2` 悬臂、掺杂硅脊、PN 接触散热）+ 3D 核验 | COMSOL `2D & 3D ht`, Lumerical `HEAT` | 三类进阶热阻 $R_{\mathrm{th}}$ 误差 `0.54%–0.78%`（横跨 `0.58–34.5 K/mW`）；量化 `+54.4%` PN 电极散热惩罚与 `-2.0%` 3D 端面漏热 |
+| **11** | 洁净室光刻 CD 与间距反相关工艺漂移（`±20 nm`，正/负胶） | Lumerical `MODE`+`3D FDTD`, COMSOL `ewfd` | $\mathrm{d}\lambda/\mathrm{dCD} = 775.79 / 775.97 / 776.36\text{ pm/nm}$（三方离散仅 `0.07%`）；耦合比 $\kappa^2$ 相对 3D FDTD 误差 `0.3%–4.8%` |
+
+<details>
+<summary><b>展开查看 12 子图四方商业软件对比总图（套件 1–11：MicroRing vs. Lumerical / COMSOL / HFSS 3D）</b></summary>
+
+![Phase-1 Commercial Solver Validation Overview (Suites 1-5)](./images/commercial_validation_overview.png)
+![Phase-2 Commercial Solver Validation Overview (Suites 6-11)](./images/commercial_validation_p2_overview.png)
+
+</details>
+
+- 完整四方数据表、差异物理归因、12 份带单位表头 CSV 与可复现脚本：[**Lumerical / COMSOL / HFSS 独立验证报告**](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) | [**求解器交叉验证与基准**](./VERIFICATION_AND_BENCHMARKS.md) | [**369 篇实验论文核验总账（`367/369 PASS`, `99.5%`）**](./PUBLICATION_VALIDATION_LEDGER.md)
+
+---
+
 ## 核心亮点
 
-1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（对标 [Ansys Lumerical 2026 R1、COMSOL 6.4 与 Ansys HFSS 2026 R1 全 11 套件四方独立验证报告 `10/10 PASS`](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) 及 [369 篇独立 DOI 同行评审实验论文 `369/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
+1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（对标 [Ansys Lumerical 2026 R1、COMSOL 6.4 与 Ansys HFSS 2026 R1 全 11 套件四方独立验证报告 `10/10 PASS`](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) 及 [369 篇独立 DOI 同行评审实验论文 `367/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
    - **行波与慢波 `T-Rail` 电极自动综合（`design_eom_electrode`）**：二维各向异性 Laplace 有限元 + Ghione/Heinrich 保角趋肤损耗 + Hammerstad-Jensen 粗糙度 + 对称 ABCD Bloch-Floquet 周期单元色散（`f_Bragg`）+ Frankel-Rutledge Cherenkov 衬底辐射诊断，连续二维反解 `50 Ω` 线宽 $W_S$ 与速度匹配悬臂 $L_{\mathrm{rail}}$（石英衬底 `X切 TFLN` 达 **`f_3dBe > 300 GHz`**，`S21_EO(300 GHz) = -2.30 dBe`），一键导出零短路双层金属跨桥（`METAL_2 13/0 + VIA 12/0`）`.GDS` 掩膜、IEEE Touchstone `.s2p` 与 INTERCONNECT `TWMOD` 模型包。
    - **三维晶体张量晶圆切向与 `0°–360°` 方位角寻优 + 5 种新铁电材料（`LT` / `BTO` / `PZT`）**：精确计算 `TFLN`、`超低双折射钽酸锂 TFLT`、`硅基外延钛酸钡 BTO`（$r_{42}^S = 360\text{ pm/V}$）、`面内自极化 PZT`（$r_{\mathrm{eff}} = 67\text{ pm/V}$）、`ScAlN` 与 `3C/4H-SiC` 的最佳传输角、SEMI 参考边对准及圆环微环劈裂推挽效率。
    - **二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD` 与稳态 + Crank-Nicolson 瞬态热有限元**：自研阻尼牛顿迭代提取 `横向 / L型 / U型 / PIN` 结二维载流子分布、$C_j(V)$、$R_s$、$V_\pi L(V)$ 与多层离子注入 `.GDS`；热有限元完整求解 `顶层 TiN`、`深空气隔离槽`、`XeF2 掏空悬臂`（$P_\pi < 1\text{ mW}$）与 `重掺杂硅脊` 的瞬态升降温波形 $t_{10\text{--}90\%}$ 与邻臂热串扰。
 2. **零 3D-FDTD 马赫-曾德尔干涉仪（`MZI`）与高速电光/热光调制器套件（`v3.6.0`）**：
-   - **可选 4 类 `50:50` 分束/合束器，全部由原生 2D 保形全矢量 FEM + 多模本征模展开（`EME`）直接求解**：**`2x2 DC` 定向耦合器**采用严格镜像对称双芯奇偶超模色散（$n_{\mathrm{even}}, n_{\mathrm{odd}}$，插损 `0.044 dB`）；**`1x2` / `2x2 MMI` 多模干涉仪**采用多阶导模 2D-FEM `EME` + 复坡印廷锥形波导重叠积分 + 自成像长度自动寻优（输出二维 `|E(x,z)|` 干涉自成像场图）；**`1x2 Y 分支`**采用分叉缩腰尖端偶超模重叠积分（`130 nm` 工艺最小间距下插损 `0.273 dB`）。
+   - **可选 4 类 `50:50` 分束/合束器，全部由原生 2D 保形全矢量 FEM + 多模本征模展开（`EME`）直接求解**：**`2x2 DC` 定向耦合器**采用严格镜像对称双芯奇偶超模色散（$n_{\mathrm{even}}, n_{\mathrm{odd}}$，插损 `0.044 dB`）；**`1x2` / `2x2 MMI` 多模干涉仪**采用多阶导模 2D-FEM `EME` + 复坡印廷锥形波导重叠积分 + 自成像长度自动寻优（输出二维 `|E(x,z)|` 干涉自成像场图）；**`1x2 Y 分支`**采用钝尖端双芯偶超模重叠积分（`130 nm` 工艺最小间距下标准线性分支插损 `1.024 dB`，与 Lumerical 3D FDTD `1.069 dB` 一致）。
    - **完整调制器指标、微环辅助 `RAMZI` 与 INTERCONNECT / GDS 导出**：支持平衡/非平衡臂（给定 $\Delta L$ 或目标 `FSR`）、微环辅助线性化 `RAMZI`，以及推挽（`push-pull`）/ 单臂驱动下的 `硅 PN 耗尽`、`X切 TFLN / SiC / ScAlN Pockels 电光`、`TiN 热光` 与 `硅 PIN 注入` 调制分析（直接输出 $V_\pi L$、$V_\pi$、$P_\pi$、非谐振 RC/热学 `3-dB` 带宽、开关传递曲线 $T(u)$、流片 `.GDS` 版图与 **Ansys Lumerical INTERCONNECT** `SPAR + OMM + .lsf` 模型包）。
 2. **解决高 Q 微环在 Lumerical FDTD 中极慢且无法收敛的痛点（`v3.5.0`）**：
    - 对于低损耗 `Si3N4`、`TFLN` 或 `4H-SiC` 高 Q 微环（如 `Q_loaded = 3.02 × 10^6`，腔内光子寿命 `τ_ph = 2487 ps`），时域 3D-FDTD 要达到 `auto shutoff = 1e-5` 需仿真 **`28.64 ns`（超过 `8,200` 圈往返！）**；提前截断会导致严重的 FFT `sinc` 振铃伪影并使表观消光比从 `64.8 dB` 坍塌至 `< 2 dB`。
@@ -63,8 +93,8 @@
 
 | 操作系统 | 安装包文件 | 安装与首次打开方法 |
 | :--- | :--- | :--- |
-| **macOS（Apple Silicon）** | [**`MicroRing-Studio-v3.8.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | 双击打开 `.dmg`，将 **`MicroRing Studio.app`** 拖入 **`Applications（应用程序）`**。*（首次打开开源未公证应用时，请右键点击 **`MicroRing Studio.app`** $\rightarrow$ 选择 **打开（Open）**，或在 **系统设置 $\rightarrow$ 隐私与安全性** 中点击“仍要打开”。）* |
-| **Windows 10 / 11（64位）** | **`MicroRing-Studio-v3.8.0-Windows-Setup-x64.exe`** *（或免安装 `.zip`）* | 双击运行 **`Setup.exe`** 安装向导（无需管理员密码，自动创建桌面与开始菜单快捷方式）；也可按下方“方式三”下载源码 ZIP 后双击 `launchers\MicroRing_Windows.bat` 一键自动配置。 |
+| **macOS（Apple Silicon）** | [**`MicroRing-Studio-v3.9.0-macOS-AppleSilicon.dmg`**](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest) | 双击打开 `.dmg`，将 **`MicroRing Studio.app`** 拖入 **`Applications（应用程序）`**。*（首次打开开源未公证应用时，请右键点击 **`MicroRing Studio.app`** $\rightarrow$ 选择 **打开（Open）**，或在 **系统设置 $\rightarrow$ 隐私与安全性** 中点击“仍要打开”。）* |
+| **Windows 10 / 11（64位）** | **`MicroRing-Studio-v3.9.0-Windows-Setup-x64.exe`** *（或免安装 `.zip`）* | 双击运行 **`Setup.exe`** 安装向导（无需管理员密码，自动创建桌面与开始菜单快捷方式）；也可按下方“方式三”下载源码 ZIP 后双击 `launchers\MicroRing_Windows.bat` 一键自动配置。 |
 
 *（独立桌面版导出的 `.gds` 版图、`.lyp` 图层配色与 `.csv` 光谱默认保存在本地 `~/Documents/MicroRing_Studio/` 目录。）*
 
@@ -207,7 +237,7 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. 实验透射谱拟合（背向散射双峰劈裂 Q_int / Q_ext / 2g 与多 FSR 群折射率提取）：
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# 运行全套 14 项自动化物理测试 + 48 篇同行评审实验论文（50 项硬件基准）头对头核验：
+# 运行全套 17 项自动化物理测试 + 369 篇同行评审实验论文头对头核验：
 python tests/test_microring_all.py
 python benchmarks/run_publication_validation.py
 ```

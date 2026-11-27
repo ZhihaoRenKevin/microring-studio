@@ -615,8 +615,22 @@ def _point_coupler_kappa_power_from_gap_curve(
         dphi_z = (beta_bus * r2_m) * np.arctan2(z_m, r2_m + 0.5 * d0_m) - (beta_ring * r1_m) * np.arctan2(z_m, r1_m + 0.5 * d0_m)
 
     kd_z = np.interp(g_z_um, gaps_grid_um, kd_grid_per_m, left=kd_grid_per_m[0], right=0.0)
-    theta_eff = abs(np.sum(kd_z * np.exp(1j * dphi_z)) * dz_m)
-    return float(math.sin(min(theta_eff, 0.5 * math.pi)) ** 2)
+    # Exact unitary 2x2 coupled-mode transfer-matrix integration along the curved approach:
+    # d/dz [a1; a2] = -i [[0, k(z) exp(i dphi(z))]; [k(z) exp(-i dphi(z)), 0]] [a1; a2]
+    # Preserves exact |a1|^2 + |a2|^2 = 1 across both weak and strong-coupling regimes.
+    a1 = 1.0 + 0.0j
+    a2 = 0.0 + 0.0j
+    for k_v, ph_v in zip(kd_z, dphi_z):
+        if k_v <= 0.0:
+            continue
+        ang = float(k_v) * dz_m
+        c_v = math.cos(ang)
+        s_v = math.sin(ang)
+        ep = complex(math.cos(float(ph_v)), math.sin(float(ph_v)))
+        na1 = c_v * a1 - 1j * s_v * ep * a2
+        na2 = -1j * s_v * ep.conjugate() * a1 + c_v * a2
+        a1, a2 = na1, na2
+    return float(min(max(abs(a2) ** 2, 0.0), 1.0))
 
 
 def _vernier_crow_spectra(

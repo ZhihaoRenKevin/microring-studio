@@ -1,5 +1,5 @@
 # Solvers: MicroRing Studio v3.9.0 (Phase-2 Complete Physical Engine Suite) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + RF emw + AC/DC es + GeneralFormPDE g + 2D/3D Heat ht) | Ansys Lumerical 2026R1.0 (MODE FDE/EME + 3D FDTD RTX 5090 GPU + 2D FDTD + CHARGE + HEAT + INTERCONNECT)
 delta_cd_nm,w_fab_nm,gap_fab_nm,neff_bent_microring,neff_bent_comsol,neff_bent_lumerical,delta_lambda_nm_microring,delta_lambda_nm_comsol,delta_lambda_nm_lumerical,kappa_power_microring_cmt,one_minus_S21_sq_3dfdtd
--20.0,430.0,201.0,2.309643,2.309538,2.308663,-16.4836,-16.4898,-16.4986,0.071199,0.07012
-0.0,450.0,180.0,2.355267,2.355187,2.354329,0.0,0.0,0.0,0.068864,0.06491
-20.0,470.0,159.0,2.395534,2.395463,2.394618,14.5481,14.5488,14.5557,0.067203,0.06344
+-20.0,430.0,201.0,2.309643,2.309538,2.308663,-16.4836,-16.4898,-16.4986,0.070304,0.07012
+0.0,450.0,180.0,2.355267,2.355187,2.354329,0.0,0.0,0.0,0.068034,0.06491
+20.0,470.0,159.0,2.395534,2.395463,2.394618,14.5481,14.5488,14.5557,0.066425,0.06344

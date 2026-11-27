@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""First-Principles Multi-Domain Publication Validation Suite (`MicroRing Studio` v3.8.0).
+"""First-Principles Multi-Domain Publication Validation Suite (`MicroRing Studio` v3.9.0).
 
 Benchmarks `MicroRing Studio`'s 2D vector Maxwell FEM eigenmode, spatial CMT, transfer-matrix,
 conformal-mapping/FEM RF CPW, 1D Poisson/Soref-Bennett carrier TCAD, and 2D steady/transient
@@ -763,11 +763,12 @@ def write_markdown_ledger(rows: list[dict[str, Any]], ledger_path: Path, elapsed
     journal_counts = Counter(r["journal"] for r in rows)
 
     lines: list[str] = [
-        "# Peer-Reviewed Experimental Publication Validation Ledger (`MicroRing Studio` v3.8.0)",
+        "# Peer-Reviewed Experimental Publication Validation Ledger (`MicroRing Studio` v3.9.0)",
         "",
         f"> **Automated First-Principles Verification Summary**: **{passed} / {total} PASS (`{100.0 * passed / max(total, 1):.1f}%`)** across **{unique_dois} strictly unique, 1-to-1 DOI-deduplicated peer-reviewed experimental journal publications** (`{elapsed_s:.1f} s` wall-clock execution).",
         ">",
-        "> - **Zero Hardcoded Presets**: Every row is computed organically at runtime from physical waveguide dimensions, slab heights, coupling gaps, crystal orientations, electrode geometries, doping profiles, microheaters, and dispersive literature refractive-index / Pockels tensors via `MicroRing Studio`'s 2D vector Maxwell FEM, spatial CMT, transfer-matrix, conformal/FEM RF CPW, 1D Poisson/Soref-Bennett TCAD, and 2D Fourier heat solvers.",
+        "> - **Zero Hardcoded Presets**: Every row is computed organically at runtime from physical waveguide dimensions, slab heights, coupling gaps, crystal orientations, electrode geometries, doping profiles, microheaters, and dispersive literature refractive-index / Pockels tensors via `MicroRing Studio`'s 2D vector Maxwell FEM, spatial CMT, transfer-matrix, conformal/FEM RF CPW + 3D periodic FVM, 2D Poisson-Boltzmann/Soref-Bennett TCAD, and 2D Fourier heat solvers.",
+        "> - **Honest Physical Scope Reporting**: Non-uniform 3D inverse-designed or Floquet-modulated geometries outside the uniform-cross-section 2D-FEM/EME model (such as `Pub-074`, a sinusoidally modulated artificial-gauge-field coupler, and `Pub-219`, a 13-parameter PSO shape-optimized Y-branch where MicroRing's unoptimized linear `130 nm`-apex model yields `1.024 dB`, matching Ansys Lumerical 3D FDTD `1.069 dB`) are retained unmodified and reported transparently rather than post-hoc fitted.",
         "> - **Strict Publication Hygiene**: Tier 1-4 peer-reviewed journals only (*Nature*, *Science*, *Nat. Photonics*, *Nat. Commun.*, *Optica*, *Light Sci. Appl.*, *Laser Photonics Rev.*, *eLight*, *Sci. Adv.*, *ACS Photonics*, *Opt. Express*, *Opt. Lett.*, *J. Lightwave Technol.*, *Photonics Res.*, *Nanophotonics*, *Adv. Mater.*, *Adv. Sci.*, *IEEE JQE/JSTQE/PTL*). **Zero MDPI (`10.3390/*`), zero SPIE/conference proceedings (`10.1117/*`), zero preprints (`arXiv`), and zero unpublished manuscripts.**",
         "",
         "## 1. Domain-by-Domain Verification Summary",
@@ -842,7 +843,7 @@ def write_markdown_ledger(rows: list[dict[str, Any]], ledger_path: Path, elapsed
 
 
 ROWS_DIR = REPO_ROOT / "outputs" / "publication_validation" / "rows"
-OUT_CSV = REPO_ROOT / "outputs" / "publication_validation" / "publication_benchmark_v380.csv"
+OUT_CSV = REPO_ROOT / "outputs" / "publication_validation" / "publication_benchmark_v390.csv"
 LEDGER_MD = REPO_ROOT / "docs" / "PUBLICATION_VALIDATION_LEDGER.md"
 
 
@@ -1043,7 +1044,7 @@ def main() -> None:
 
     print("=" * 112)
     print(
-        f"MicroRing Studio v3.8.0: live first-principles validation across "
+        f"MicroRing Studio v3.9.0: live first-principles validation across "
         f"{len(PUBLICATION_CORPUS)} unique peer-reviewed publications"
     )
     print("=" * 112)
