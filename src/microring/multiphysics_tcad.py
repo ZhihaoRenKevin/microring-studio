@@ -232,8 +232,11 @@ def _build_2d_doping_profile_cm3(
         na_core = cfg.na_core_cm3 * p_frac
         nd_core = cfg.nd_core_cm3 * (1.0 - p_frac)
     elif jtype == "u_shaped_pn":
-        # U-shaped wrap-around: n-type inner pillar (`|x - xj| < 0.11` and `y < 0.15`), p-type wrapping top & outer walls
-        in_inner_n = (0.5 * erfc((np.abs(x_um - xj) - 0.11) / s2)) * (0.5 * erfc((y_um - 0.155) / s2))
+        # U-shaped wrap-around: n-type inner pillar (`|x - xj| < 0.11` and `y < 0.155`) connected continuously
+        # into the right n-slab access wing (`x > xj + 0.11`, `y < h_slab`), with p-type wrapping top & outer walls
+        in_pillar = (0.5 * erfc((np.abs(x_um - xj) - 0.11) / s2)) * (0.5 * erfc((y_um - 0.155) / s2))
+        in_rslab = (0.5 * erfc(-(x_um - (xj + 0.11)) / s2)) * (0.5 * erfc((y_um - cfg.slab_height_um) / s2))
+        in_inner_n = np.clip(np.maximum(in_pillar, in_rslab), 0.0, 1.0)
         nd_core = cfg.nd_core_cm3 * in_inner_n
         na_core = cfg.na_core_cm3 * (1.0 - in_inner_n)
     else:
@@ -265,9 +268,19 @@ def _build_2d_doping_profile_cm3(
     return na, nd
 
 
-def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
-    """Solve 2D Nonlinear Poisson-Boltzmann PN/PIN TCAD + Coupled 2D Vector Maxwell Eigenmodes."""
-    t0 = time.perf_counter()
+def solve_2d_pn_poisson_boltzmann_fem(
+    cfg: PNDopingTCADConfig,
+    *,
+    mesh_core_um: float = 0.014,
+    compute_capacitance_dv: bool = True,
+) -> dict:
+    """Solve the exact 2D Nonlinear Poisson-Boltzmann PDE across Silicon rib + slab + SiO2 cladding.
+
+    Reusable core TCAD engine shared by `simulate_pn_doping_tcad`, `active_tuning.py` (MRR Si PN
+    depletion), and `eom_electrode.py` (Silicon traveling-wave PN MZM), replacing legacy 1D abrupt
+    depletion approximations with self-consistent 2D carrier profiles `n(x,y,V), p(x,y,V)`, exact
+    Gauss-Law differential capacitance `C_j(V) = dQ_n/dV`, and Caughey-Thomas 2D slab resistance `R_s`.
+    """
     biases = [float(v) for v in cfg.bias_voltages_v] if cfg.bias_voltages_v else [0.0, -0.5, -1.0, -2.0, -3.0, -4.0, -5.0]
     if not any(abs(v) < 1e-9 for v in biases):
         biases = [0.0] + biases
@@ -282,7 +295,7 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
     x_dom = d_cont + 0.55
     xj = float(cfg.pn_offset_nm) * 1e-3
 
-    # High-resolution 2D Semiconductor TCAD mesh (12 nm spacing inside rib core/junction!)
+    # High-resolution 2D Semiconductor TCAD mesh (14 nm default spacing inside rib core/junction!)
     x_knots = sorted(set([
         -x_dom, -d_cont, -float(cfg.inter_implant_offset_um),
         -0.5 * w_wg, -0.5 * w_top, xj - 0.08, xj, xj + 0.08,
@@ -293,7 +306,8 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
     if cfg.junction_type == "l_shaped_pn":
         y_knots.append(float(np.clip(cfg.l_vertical_y_nm * 1e-3, h_slab + 0.01, h_film - 0.01)))
 
-    # Fine 14 nm mesh across [-0.35, +0.35] um core, 45 nm across slab wings
+    hx_core = max(float(mesh_core_um), 0.010)
+    hx_wing = max(hx_core * 3.2, 0.045)
     segs_x: list[np.ndarray] = []
     uniq_x = sorted(set(round(k, 5) for k in x_knots))
     for i in range(len(uniq_x) - 1):
@@ -301,11 +315,13 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
         if b - a <= 1e-6:
             continue
         mid = 0.5 * (a + b)
-        hx = 0.014 if abs(mid) <= 0.5 * w_wg + 0.12 else 0.045
+        hx = hx_core if abs(mid) <= 0.5 * w_wg + 0.12 else hx_wing
         seg = np.linspace(a, b, max(2, int(math.ceil((b - a) / hx))) + 1)
         segs_x.append(seg if not segs_x else seg[1:])
     x_axis_um = np.concatenate(segs_x)
 
+    hy_core = max(float(mesh_core_um), 0.010)
+    hy_clad = max(hy_core * 3.9, 0.055)
     segs_y: list[np.ndarray] = []
     uniq_y = sorted(set(round(k, 5) for k in y_knots))
     for i in range(len(uniq_y) - 1):
@@ -313,7 +329,7 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
         if b - a <= 1e-6:
             continue
         mid = 0.5 * (a + b)
-        hy = 0.014 if -0.02 <= mid <= h_film + 0.02 else 0.055
+        hy = hy_core if -0.02 <= mid <= h_film + 0.02 else hy_clad
         seg = np.linspace(a, b, max(2, int(math.ceil((b - a) / hy))) + 1)
         segs_y.append(seg if not segs_y else seg[1:])
     y_axis_um = np.concatenate(segs_y)
@@ -356,6 +372,7 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
 
     vt = (KB_J_PER_K * T_REF_K) / Q_E_C
     ni_m3 = NI_SI_300K_CM3 * 1e6
+    v_bi_v = vt * math.log((max(cfg.na_core_cm3, 1e15) * max(cfg.nd_core_cm3, 1e15)) / (NI_SI_300K_CM3 ** 2))
 
     # Ohmic silicide contact Dirichlet nodes at left P++ edge and right N++ edge on slab top
     p_cont_nodes = np.flatnonzero(in_si_nodes & (px_um <= -d_cont - 0.05) & (py_um <= h_slab + 1e-4))
@@ -374,13 +391,11 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
         v_init_v: float = 0.0,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
         """Damped Newton-Raphson solver for 2D Nonlinear Poisson-Boltzmann PDE + Gauss-Law terminal charge."""
-        # Keep p-contact at reference 0 V and apply reverse bias V_bias <= 0 by raising n-side quasi-Fermi phi_Fn = -V_bias
         v_fwd_lim = 1.05 if cfg.junction_type == "pin_diode" else 0.55
         v_clamped = min(float(v_bias_v), v_fwd_lim)
         phi_fp = 0.0
         phi_fn = -v_clamped
 
-        # Smooth warm-start across both Si and cladding so heavy 1e20 N++ wing starts near charge neutrality
         dv_shift = -(v_clamped - min(float(v_init_v), v_fwd_lim))
         n_side_w = 0.5 * (1.0 + np.tanh((px_um - xj) / 0.08))
         psi = psi_init + dv_shift * n_side_w
@@ -399,13 +414,11 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
             if _it >= 2 and float(np.max(np.abs(res_free))) < 1e-20:
                 break
 
-            # Exact analytical Jacobian J = K_pois + diag(q * (p + n) / V_T * vol_si) (strictly SPD!)
             jac_diag = Q_E_C * ((p_m3 + n_m3) / vt) * vol_si_nodes_m2
             J_tot = K_pois + diags(jac_diag, 0, format="csc")
             J_ff = J_tot[free_idx, :][:, free_idx]
             dpsi_f = spsolve(J_ff, -res_free)
 
-            # Limit maximum step to 6.0 * V_T (~155 mV) per Newton iteration so exponentials never overflow
             max_step = float(np.max(np.abs(dpsi_f)))
             alpha_damp = min(1.0, (6.0 * vt) / max(max_step, 1e-15))
             psi[free_idx] += alpha_damp * dpsi_f
@@ -416,7 +429,6 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
         arg_n = np.clip((psi - phi_fn) / vt, -60.0, 60.0)
         p_m3 = np.where(in_si_nodes, ni_m3 * np.exp(arg_p), 0.0)
         n_m3 = np.where(in_si_nodes, ni_m3 * np.exp(arg_n), 0.0)
-        # Active junction electron sheet charge Q_n [C/m] inside |x| <= d_cont - 0.12 um (excluding 1e20 ohmic pad)
         junc_mask = in_si_nodes & (np.abs(px_um) <= d_cont - 0.12)
         q_n_junc_c_per_m = float(np.sum((n_m3 * vol_si_nodes_m2)[junc_mask])) * Q_E_C
         return psi, n_m3 * 1e-6, p_m3 * 1e-6, q_n_junc_c_per_m
@@ -430,7 +442,14 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
     mu_p_nodes = 44.9 + (470.5 - 44.9) / (1.0 + (ntot_cm3 / 2.23e17) ** 0.719)
     mu_n_nodes = 68.5 + (1414.0 - 68.5) / (1.0 + (ntot_cm3 / 9.20e16) ** 0.711)
 
-    # Solve across all requested bias voltages + central +/-25 mV finite difference for exact 2D differential C_j(V) = dQ_n / dV!
+    core_x_mask = np.abs(x_axis_um) <= 0.5 * w_wg
+    core_y_mask = (y_axis_um >= 0.0) & (y_axis_um <= h_film)
+    slab_rows = (y_axis_um >= -1e-5) & (y_axis_um <= h_slab + 1e-5)
+    dy_m = np.gradient(y_axis_um[slab_rows]) * 1e-6
+    dx_m = np.gradient(x_axis_um) * 1e-6
+    g_core_ref = Q_E_C * (160.0 * max(cfg.na_core_cm3, 1e17)) * 100.0 * (h_slab * 1e-6)
+    eps_si_f_m = 11.7 * EPS0_F_PER_M
+
     bias_solutions: list[dict] = []
     perturbation_fns = []
 
@@ -438,28 +457,33 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
         psi_v, n_v, p_v, _ = _solve_poisson_boltzmann_at_bias(v_b, psi_prev, v_prev)
         psi_prev = psi_v
         v_prev = v_b
-        dv = 0.025
-        _, _, _, q_n_plus = _solve_poisson_boltzmann_at_bias(v_b + dv, psi_v, v_b)
-        _, _, _, q_n_minus = _solve_poisson_boltzmann_at_bias(v_b - dv, psi_v, v_b)
-        cj_f_per_m = abs(q_n_plus - q_n_minus) / (2.0 * dv) + 0.035e-9  # 2D space-charge dQ/dV + 0.035 fF/um SiO2 fringing cap
+        if compute_capacitance_dv:
+            dv = 0.025
+            _, _, _, q_n_plus = _solve_poisson_boltzmann_at_bias(v_b + dv, psi_v, v_b)
+            _, _, _, q_n_minus = _solve_poisson_boltzmann_at_bias(v_b - dv, psi_v, v_b)
+            cj_sc_f_per_m = abs(q_n_plus - q_n_minus) / (2.0 * dv)
+            cj_f_per_m = cj_sc_f_per_m + 0.035e-9  # 2D space-charge dQ/dV + 0.035 fF/um SiO2 fringing cap
+        else:
+            cj_sc_f_per_m = 0.25e-9
+            cj_f_per_m = 0.285e-9
         cj_ff_per_um = cj_f_per_m * 1e9
+        w_dep_eff_um = (eps_si_f_m * (h_film * 1e-6) / max(cj_sc_f_per_m, 1e-12)) * 1e6
 
         # 2D slab series resistance R_s [Ohm*cm] integrated across undepleted p/p+/p++ and n/n+/n++ wings up to depletion edges!
         sigma_s_per_m = Q_E_C * (mu_p_nodes * p_v + mu_n_nodes * n_v) * 100.0
         sigma_2d = sigma_s_per_m.reshape(ny_g, nx_g)
-        slab_rows = (y_axis_um >= -1e-5) & (y_axis_um <= h_slab + 1e-5)
-        dy_m = np.gradient(y_axis_um[slab_rows]) * 1e-6
-        dx_m = np.gradient(x_axis_um) * 1e-6
-        g_sheet_s = np.sum(sigma_2d[slab_rows, :] * dy_m[:, None], axis=0)  # sheet conductance [S] along x
-        # Exclude only the carrier-depleted space-charge core (where sheet conductance drops below 22% of core neutral slab)
-        g_core_ref = Q_E_C * (160.0 * max(cfg.na_core_cm3, 1e17)) * 100.0 * (h_slab * 1e-6)
+        g_sheet_s = np.sum(sigma_2d[slab_rows, :] * dy_m[:, None], axis=0)
         in_access = (np.abs(x_axis_um) <= d_cont) & (g_sheet_s >= 0.22 * g_core_ref)
         r_unit_len_ohm_m = float(np.sum(dx_m[in_access] / np.maximum(g_sheet_s[in_access], 1e-5))) + 0.0040
-        r_series_ohm_cm = r_unit_len_ohm_m * 100.0  # [Ohm * cm] for 1 cm length (R_device = R_ohm_cm / L_cm)
+        r_series_ohm_cm = r_unit_len_ohm_m * 100.0
 
         n_2d = n_v.reshape(ny_g, nx_g)
         p_2d = p_v.reshape(ny_g, nx_g)
         psi_2d = psi_v.reshape(ny_g, nx_g)
+        gy_v, gx_v = np.gradient(psi_2d, y_axis_um, x_axis_um)
+        e_mag_core = np.hypot(gx_v, gy_v)[np.ix_(core_y_mask, core_x_mask)]
+        e_pk_v_per_um = float(np.max(e_mag_core)) if e_mag_core.size else 0.0
+
         in_n = RegularGridInterpolator((y_axis_um, x_axis_um), n_2d, bounds_error=False, fill_value=0.0)
         in_p = RegularGridInterpolator((y_axis_um, x_axis_um), p_2d, bounds_error=False, fill_value=0.0)
 
@@ -481,12 +505,49 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
             "voltage_v": round(v_b, 4),
             "cj_ff_per_um": round(cj_ff_per_um, 4),
             "r_series_ohm_cm": round(r_series_ohm_cm, 4),
+            "e_pk_v_per_um": round(e_pk_v_per_um, 3),
+            "w_dep_eff_um": round(w_dep_eff_um, 4),
             "psi_2d": psi_2d,
             "n_2d": n_2d,
             "p_2d": p_2d,
         })
 
-    # Solve 2D Vector Maxwell Optical Eigenmode across intrinsic Si + all TCAD bias states!
+    return {
+        "biases": biases,
+        "x_axis_um": x_axis_um,
+        "y_axis_um": y_axis_um,
+        "x_dom": x_dom,
+        "d_cont": d_cont,
+        "h_film": h_film,
+        "h_slab": h_slab,
+        "w_wg": w_wg,
+        "xj": xj,
+        "poly_rib": poly_rib,
+        "poly_si": poly_si,
+        "v_bi_v": v_bi_v,
+        "bias_solutions": bias_solutions,
+        "perturbation_fns": perturbation_fns,
+    }
+
+
+def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
+    """Solve 2D Nonlinear Poisson-Boltzmann PN/PIN TCAD + Coupled 2D Vector Maxwell Eigenmodes."""
+    t0 = time.perf_counter()
+    pb = solve_2d_pn_poisson_boltzmann_fem(cfg, mesh_core_um=0.014, compute_capacitance_dv=True)
+    x_axis_um = pb["x_axis_um"]
+    y_axis_um = pb["y_axis_um"]
+    x_dom = pb["x_dom"]
+    d_cont = pb["d_cont"]
+    h_film = pb["h_film"]
+    h_slab = pb["h_slab"]
+    w_wg = pb["w_wg"]
+    xj = pb["xj"]
+    poly_rib = pb["poly_rib"]
+    poly_si = pb["poly_si"]
+    bias_solutions = pb["bias_solutions"]
+    perturbation_fns = pb["perturbation_fns"]
+
+    # Solve 2D Vector Maxwell Optical Eigenmode across intrinsic Si + all TCAD bias states (quadratic Nedelec2xP2!)
     wl_m = cfg.wavelength_nm * 1e-9
     wl_scale = float(np.clip(cfg.wavelength_nm / 1550.0, 0.35, 4.50))
     spec = WaveguideCrossSectionSpec(
@@ -504,8 +565,9 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
     opt_rows = solve_perturbed_neff_sweep_fem(
         spec, wl_m, [None] + perturbation_fns,
         polarization=cfg.polarization,
-        core_mesh_res_um=float(np.clip(0.032 * wl_scale, 0.016, 0.08)),
-        element_order=1,
+        core_mesh_res_um=float(np.clip(0.048 * wl_scale, 0.022, 0.09)),
+        clad_mesh_res_um=max(0.34 * wl_scale, 0.28),
+        element_order=2,
     )
     ref_0v_idx = int(np.argmin(np.abs([b["voltage_v"] for b in bias_solutions])))
     neff_0v = float(opt_rows[1 + ref_0v_idx]["neff_real"])
@@ -1029,8 +1091,9 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
     opt_rows = solve_perturbed_neff_sweep_fem(
         spec, wl_m, [None, _th_pert],
         polarization=cfg.polarization,
-        core_mesh_res_um=float(np.clip(0.040 * wl_scale, 0.018, 0.14)),
-        element_order=1,
+        core_mesh_res_um=float(np.clip(0.052 * wl_scale, 0.022, 0.14)),
+        clad_mesh_res_um=max(0.36 * wl_scale, 0.28),
+        element_order=2,
     )
     dneff_per_mw = abs(float(opt_rows[1]["neff_real"]) - float(opt_rows[0]["neff_real"])) / p_test_mw
     # Phase shift Delta_phi = 2 * pi / lambda * dneff_per_mw * P_mw * L = pi  =>  P_pi = lambda / (2 * L * dneff_per_mw)

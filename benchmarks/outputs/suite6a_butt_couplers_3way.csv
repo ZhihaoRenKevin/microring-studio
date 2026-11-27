@@ -1,4 +1,4 @@
 # Solvers: MicroRing Studio v3.9.0 (Phase-2 Complete Physical Engine Suite) | Ansys Lumerical 2026R1.0 (MODE FDE/EME + 3D FDTD RTX 5090 GPU + 2D FDTD + CHARGE + HEAT + INTERCONNECT) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + RF emw + AC/DC es + GeneralFormPDE g + 2D/3D Heat ht)
 case_id,w_tip_nominal_um,neff_tip_microring,neff_tip_lumerical,neff_tip_comsol,overlap_pct_microring,overlap_pct_lumerical,overlap_pct_comsol,facet_il_db_microring,facet_il_db_lumerical,facet_il_db_comsol,taper_il_eme_db_lumerical,tol_1db_x_um_mr_lum_com,tol_1db_y_um_mr_lum_com
-SOI_220nm_Butt_Lensed2p5um,0.2,1.480257,1.478274,1.478674,91.01,92.21,91.93,0.42,0.363,0.376,0.1488,0.538/0.545/0.544,0.537/0.543/0.542
-Si3N4_400nm_Butt_DFB1310nm,0.3,1.479274,1.479309,1.479239,86.61,86.71,86.66,0.635,0.63,0.633,0.0074,0.501/0.502/0.502,0.315/0.322/0.322
+SOI_220nm_Butt_Lensed2p5um,0.2,1.47886,1.478274,1.478674,91.66,92.21,91.93,0.389,0.363,0.376,0.1488,0.542/0.545/0.544,0.54/0.543/0.542
+Si3N4_400nm_Butt_DFB1310nm,0.3,1.479115,1.479309,1.479239,86.97,86.71,86.66,0.617,0.63,0.633,0.0074,0.501/0.502/0.502,0.321/0.322/0.322

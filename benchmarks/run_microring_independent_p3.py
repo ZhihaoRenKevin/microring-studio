@@ -369,6 +369,9 @@ def run_suite13(specs: dict) -> dict:
         num_periods=len(c4["grooves_r_um"]),
         apodized=True,
         focusing=True,
+        focal_length_um=float(c4["grooves_r_um"][0][0]),
+        fan_angle_deg=float(c4["opening_angle_deg"]),
+        groove_shape="circular",
         wavelength_nm=c4["wavelength_nm"],
         wavelength_span_nm=c4["wl_max_nm"] - c4["wl_min_nm"],
     )
@@ -380,6 +383,8 @@ def run_suite13(specs: dict) -> dict:
         "il_1550_2dfdfd_db": round(float(m4.get("center_il_db", m4.get("il_at_1550_dB", 0.0))), 3),
         "eta_up_1550_pct": round(float(m4.get("upward_directionality_pct", m4.get("eta_up_pct", 0.0))), 2),
         "s11_1550_db": round(float(m4.get("s11_db", m4.get("back_reflection_s11_db", 0.0))), 2),
+        "spectrum_wl_nm": res_gc["spectrum"]["wavelength_nm"],
+        "spectrum_il_db": res_gc["spectrum"]["il_db"],
         "raw_metrics": {k: v for k, v in m4.items() if isinstance(v, (int, float))},
         "wall_time_s": round(time.perf_counter() - t0, 2),
     }

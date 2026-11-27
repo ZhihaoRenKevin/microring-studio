@@ -1224,49 +1224,63 @@ def run_active_tuning_analysis(
                     perturbation_fns.append(_mk_v_eo_fn(vv))
 
     elif mech == "si_pn_depletion":
+        from .multiphysics_tcad import PNDopingTCADConfig, solve_2d_pn_poisson_boltzmann_fem
+
         na = max(float(na_p_cm3), 1e15)
         nd = max(float(nd_n_cm3), 1e15)
-        vt_v = (KB_J_PER_K * T_REF_K) / Q_E_C
-        v_bi = vt_v * math.log((na * nd) / (NI_SI_300K_CM3 ** 2))
-        eps_si = EPS0_F_PER_M * 11.7
-        na_m3 = na * 1e6
-        nd_m3 = nd * 1e6
-        ld_p_um = math.sqrt((eps_si * KB_J_PER_K * T_REF_K) / ((Q_E_C ** 2) * na_m3)) * 1e6
-        ld_n_um = math.sqrt((eps_si * KB_J_PER_K * T_REF_K) / ((Q_E_C ** 2) * nd_m3)) * 1e6
-        xj_um = float(pn_offset_nm) * 1e-3
         d_cont_um = max(float(heavy_contact_offset_um), 0.15)
-        x_pp_edge = -0.5 * work_cfg.ring_width_um - d_cont_um
-        x_nn_edge = +0.5 * work_cfg.ring_width_um + d_cont_um
-
-        def _w_dep_um(v_bias: float) -> float:
-            v_eff = min(float(v_bias), v_bi - 0.08)
-            w_m = math.sqrt((2.0 * eps_si / Q_E_C) * ((1.0 / na_m3) + (1.0 / nd_m3)) * (v_bi - v_eff))
-            return w_m * 1e6
-
-        w_dep_0_um = _w_dep_um(0.0)
+        d_cont_center_um = 0.5 * work_cfg.ring_width_um + d_cont_um
         v_min_rev = min(vals) if vals else -4.0
-        w_dep_max_um = _w_dep_um(v_min_rev)
 
-        # Geometry-derived slab access series resistance R_s [Ohm] & junction capacitance C_j [fF/um]
-        mu_p, mu_n = _si_carrier_mobilities_cm2_vs(na, nd)
-        rho_p_ohm_m = 0.01 / (Q_E_C * mu_p * na)
-        rho_n_ohm_m = 0.01 / (Q_E_C * mu_n * nd)
-        h_slab_m = max(work_cfg.slab_height_um, 0.05) * 1e-6
-        l_act_m = max(l_act_um, 5.0) * 1e-6
-        r_slab_p = rho_p_ohm_m * ((d_cont_um + 0.25 * work_cfg.ring_width_um) * 1e-6) / (h_slab_m * l_act_m)
-        r_slab_n = rho_n_ohm_m * ((d_cont_um + 0.25 * work_cfg.ring_width_um) * 1e-6) / (h_slab_m * l_act_m)
-        r_series_ohm = r_slab_p + r_slab_n + 4.5  # + ohmic silicide contact resistance
+        # Solve unique requested biases via exact 2D Nonlinear Poisson-Boltzmann FEM
+        uniq_v = sorted({round(float(v), 5) for v in all_states_vals} | {0.0, round(0.5 * v_min_rev, 5)})
+        # Order from 0 V outward for smooth Newton-Raphson continuation
+        uniq_v.sort(key=lambda v: abs(v))
+        pb_cfg = PNDopingTCADConfig(
+            junction_type="lateral_pn",
+            wavelength_nm=wl_nm,
+            polarization=work_cfg.polarization,
+            film_height_um=work_cfg.film_height_um,
+            slab_height_um=work_cfg.slab_height_um,
+            waveguide_width_um=work_cfg.ring_width_um,
+            sidewall_deg=work_cfg.sidewall_deg,
+            na_core_cm3=na,
+            nd_core_cm3=nd,
+            na_inter_cm3=na,
+            nd_inter_cm3=nd,
+            n_heavy_contact_cm3=5.0e19,
+            pn_offset_nm=float(pn_offset_nm),
+            inter_implant_offset_um=0.5 * work_cfg.ring_width_um + 0.45 * d_cont_um,
+            heavy_contact_offset_um=d_cont_center_um,
+            bias_voltages_v=tuple(uniq_v),
+        )
+        pb_res = solve_2d_pn_poisson_boltzmann_fem(pb_cfg, mesh_core_um=0.016, compute_capacitance_dv=True)
+        pb_sols = pb_res["bias_solutions"]
+        pb_fns = pb_res["perturbation_fns"]
+        pb_vs = np.array([float(b["voltage_v"]) for b in pb_sols], dtype=float)
 
-        cj_0v_ff_per_um = (eps_si * (work_cfg.film_height_um * 1e-6) / max(w_dep_0_um * 1e-6, 15e-9) + 0.06e-9) * 1e9
-        v_mid_bias = 0.5 * v_min_rev
-        cj_mid_ff_per_um = (eps_si * (work_cfg.film_height_um * 1e-6) / max(_w_dep_um(v_mid_bias) * 1e-6, 15e-9) + 0.06e-9) * 1e9
+        def _pick_pb(vq: float) -> tuple[dict, object]:
+            ix = int(np.argmin(np.abs(pb_vs - float(vq))))
+            return pb_sols[ix], pb_fns[ix]
+
+        b_0v, _ = _pick_pb(0.0)
+        b_min, _ = _pick_pb(v_min_rev)
+        b_mid, _ = _pick_pb(0.5 * v_min_rev)
+
+        v_bi = float(pb_res["v_bi_v"])
+        w_dep_0_um = float(b_0v["w_dep_eff_um"])
+        w_dep_max_um = float(b_min["w_dep_eff_um"])
+        l_act_cm = max(l_act_um * 1e-4, 5.0e-4)
+        r_series_ohm = float(b_mid["r_series_ohm_cm"]) / l_act_cm + 2.5
+        cj_0v_ff_per_um = float(b_0v["cj_ff_per_um"])
+        cj_mid_ff_per_um = float(b_mid["cj_ff_per_um"])
         c_tot_ff = cj_mid_ff_per_um * l_act_um + 8.0
         f_rc_ghz = 1.0 / (2.0 * math.pi * (r_series_ohm + float(driver_impedance_ohm)) * (c_tot_ff * 1e-15)) * 1e-9
         f_opt_ghz = (C0_M_PER_S / (wl_m * max(q_loaded_passive, 1.0))) * 1e-9
         f_eo_3db = 1.0 / math.hypot(1.0 / max(f_rc_ghz, 1e-6), 1.0 / max(f_opt_ghz, 1e-6))
 
         geometry_physics.update({
-            "solver": "2D Debye-Screened Silicon PN Poisson Depletion + 2D Vector FEM Eigenmode (Zero COMSOL)",
+            "solver": "2D Nonlinear Poisson-Boltzmann Silicon PN FEM + 2D Vector FEM Eigenmode (Zero Commercial TCAD)",
             "slab_height_um": work_cfg.slab_height_um,
             "slab_auto_promoted_from_strip": slab_auto_promoted,
             "na_p_cm3": na,
@@ -1286,42 +1300,14 @@ def run_active_tuning_analysis(
         })
 
         for v_val in all_states_vals:
-            vv = float(v_val)
-            w_d = _w_dep_um(vv)
-            e_pk = (2.0 * max(v_bi - min(vv, v_bi - 0.08), 0.08)) / max(w_d, 0.02)
-            cj_v_ff = (eps_si * (work_cfg.film_height_um * 1e-6) / max(w_d * 1e-6, 15e-9) + 0.06e-9) * 1e9
+            b_v, fn_v = _pick_pb(float(v_val))
             state_aux_meta.append({
                 "power_mw": 0.0,
-                "e_core_v_per_um": round(e_pk, 3),
-                "w_dep_nm": round(w_d * 1e3, 2),
-                "cj_ff_per_um": round(cj_v_ff, 4),
+                "e_core_v_per_um": round(float(b_v["e_pk_v_per_um"]), 3),
+                "w_dep_nm": round(float(b_v["w_dep_eff_um"]) * 1e3, 2),
+                "cj_ff_per_um": round(float(b_v["cj_ff_per_um"]), 4),
             })
-
-            def _mk_pn_fn(v_loc: float):
-                wd_loc = _w_dep_um(v_loc)
-                xp_edge = xj_um - wd_loc * (nd / (na + nd))
-                xn_edge = xj_um + wd_loc * (na / (na + nd))
-
-                def _fn(x_um: np.ndarray, y_um: np.ndarray, reg_name: str):
-                    _ = y_um
-                    if reg_name not in ("core", "slab"):
-                        z = np.zeros_like(x_um, dtype=complex)
-                        return z, z, z
-                    # Debye-screened majority hole & electron spatial profiles
-                    p_loc = 0.5 * na * erfc((x_um - xp_edge) / (math.sqrt(2.0) * max(ld_p_um, 0.002)))
-                    n_loc = 0.5 * nd * erfc((xn_edge - x_um) / (math.sqrt(2.0) * max(ld_n_um, 0.002)))
-                    if reg_name == "slab":
-                        # Heavy p++ / n++ (5e19 cm^-3) ohmic contact wings in outer slab
-                        p_wing = 5.0e19 * 0.5 * erfc((x_um - x_pp_edge) / 0.035)
-                        n_wing = 5.0e19 * 0.5 * erfc((x_nn_edge - x_um) / 0.035)
-                        p_loc = np.maximum(p_loc, p_wing)
-                        n_loc = np.maximum(n_loc, n_wing)
-                    dn_r, dk_i = soref_bennett_si_dn_dk(n_loc, p_loc, wl_nm)
-                    c_pert = dn_r + 1j * dk_i
-                    return c_pert, c_pert, c_pert
-                return _fn
-
-            perturbation_fns.append(_mk_pn_fn(vv))
+            perturbation_fns.append(fn_v)
 
     elif mech == "si_pin_injection":
         tau_s = max(float(carrier_lifetime_ns), 0.05) * 1e-9

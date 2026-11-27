@@ -203,14 +203,14 @@
     },
     {
       "case_id": "SOI_220nm_UShaped_PN",
-      "neff_0V": 2.522118,
-      "neff_m3V": 2.522331,
-      "delta_neff_m3V": 0.000213306,
-      "V_pi_L_at_m3V_Vcm": 1.09,
-      "alpha_FCA_0V_dB_per_cm": 8.821,
-      "alpha_FCA_m3V_dB_per_cm": 4.379,
-      "Cj_0V_fF_per_um": 0.8648,
-      "Cj_m3V_fF_per_um": 0.3729
+      "neff_0V": 2.52216,
+      "neff_m3V": 2.522345,
+      "delta_neff_m3V": 0.000184195,
+      "V_pi_L_at_m3V_Vcm": 1.262,
+      "alpha_FCA_0V_dB_per_cm": 9.806,
+      "alpha_FCA_m3V_dB_per_cm": 5.77,
+      "Cj_0V_fF_per_um": 0.7099,
+      "Cj_m3V_fF_per_um": 0.3448
     }
   ]
 }

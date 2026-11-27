@@ -287,10 +287,13 @@ def design_directional_coupler_eme(
     """Solve a 2x2 Directional Coupler via exact Twin-Core 2D Vector FEM Even/Odd Supermodes."""
     wl0_nm = float(cfg.wavelength_nm)
     wl_scale = float(np.clip(wl0_nm / 1550.0, 0.32, 4.50))
-    mesh_res = round(float(np.clip(0.042 * wl_scale, 0.016, 0.140)), 4)
+    # Quadratic Nedelec2xP2 achieves O(h^4) supermode accuracy at ~0.058 um core / 0.38 um clad (~3x faster!)
+    mesh_res = round(float(np.clip(0.058 * wl_scale, 0.020, 0.160)), 4)
+    clad_res = round(max(mesh_res * 6.0, 0.38 * wl_scale), 4)
     min_core_dim_um = min(float(cfg.arm1_width_um), float(cfg.film_height_um))
     if min_core_dim_um > 1.8:
         mesh_res = max(mesh_res, round(0.065 * min_core_dim_um, 4))
+        clad_res = max(clad_res, round(mesh_res * 6.0, 4))
     box_pad = round(max(2.0, 1.45 * wl0_nm * 1e-3), 3)
 
     core_fn = get_material_fn(cfg.core_material)
@@ -331,7 +334,7 @@ def design_directional_coupler_eme(
             num_modes=5,
             n_guess=n_guess_seed,
             core_mesh_res_um=mesh_res,
-            clad_mesh_res_um=max(mesh_res * 4.8, 0.22),
+            clad_mesh_res_um=clad_res,
             element_order=2,
             export_grid=False,
         )
@@ -391,7 +394,7 @@ def design_directional_coupler_eme(
             num_modes=5,
             n_guess=even_neff_0 + 0.02,
             core_mesh_res_um=mesh_res,
-            clad_mesh_res_um=max(mesh_res * 4.8, 0.22),
+            clad_mesh_res_um=clad_res,
             element_order=2,
             export_grid=False,
         )

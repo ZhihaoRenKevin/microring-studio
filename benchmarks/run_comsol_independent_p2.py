@@ -1453,7 +1453,7 @@ public class ComsolSuite9PN {{
       double xCapEnd = Math.max(xj + 0.16e-6, 0.5*w - 0.03e-6);
       pFracExpr = "max(0.5*(1-erf((x-(" + xLeg + "))/s2)), (0.5*(1-erf(-(y-(" + yj + "))/s2)))*(0.5*(1-erf((x-(" + xCapEnd + "))/s2))))";
     }} else if (jcode == 2) {{
-      pFracExpr = "(1 - (0.5*(1-erf((abs(x-(" + xj + "))-0.11e-6)/s2)))*(0.5*(1-erf((y-0.155e-6)/s2))))";
+      pFracExpr = "(1 - min(1, max((0.5*(1-erf((abs(x-(" + xj + "))-0.11e-6)/s2)))*(0.5*(1-erf((y-0.155e-6)/s2))), (0.5*(1-erf(-(x-(" + (xj + 0.11e-6) + "))/s2)))*(0.5*(1-erf((y-(" + hs + "))/s2))))))";
     }} else {{
       pFracExpr = "(0.5*(1-erf((x-(" + xj + "))/s2)))";
     }}

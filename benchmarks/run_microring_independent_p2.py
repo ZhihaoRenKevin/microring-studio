@@ -369,6 +369,7 @@ def run_suite8_rf_electrodes(specs: dict) -> tuple[list[dict], list[dict]]:
             t_rail_duty=c["t_rail_duty"],
             t_rail_cap_width_um=c["t_rail_cap_width_um"] if c["t_rail_cap_width_um"] > 0 else None,
             t_rail_stem_width_um=c["t_rail_stem_width_um"] if c["t_rail_stem_width_um"] > 0 else 4.0,
+            metal_rms_roughness_nm=0.0,
             max_freq_ghz=320.0,
             run_gap_sweep=False,
         )

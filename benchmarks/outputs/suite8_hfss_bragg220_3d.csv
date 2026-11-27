@@ -1,4 +1,4 @@
-# Solvers: Ansys HFSS 2026 R1 3D Driven Modal (3 periods, Lambda=220 um, L=660 um) | MicroRing ABCD f_Bragg=302.8 GHz
+# Solvers: Ansys HFSS 2026 R1 3D Driven Modal (3 periods, Lambda=220 um, L=660 um) | MicroRing ABCD f_Bragg=287.6 GHz
 freq_GHz,S21_mag_dB,S11_mag_dB,alpha_3d_abcd_dB_per_cm,n_RF_3d_abcd,Z0_3d_abcd_ohm
 160.0,-1.022,-18.24,17.553,0.1646,63.957
 200.0,-15.758,-0.82,224.666,1.0199,2.475

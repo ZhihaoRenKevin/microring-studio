@@ -404,7 +404,68 @@ def design_butt_edge_coupler(
     opt_rec = min(tip_records, key=lambda r: r["facet_il_db"])
     m_tip, align_eta_x, align_eta_y, chosen_rec = solved_tip_modes[chosen_wt]
 
-    # Bus waveguide mode for EME adiabatic taper beat-length calculation
+    # Refine the chosen operating tip mode with quadratic Nedelec2xP2 FEM (O(h^4) accuracy for n_eff & MFD)
+    spec_tip_hi = WaveguideCrossSectionSpec(
+        w_bottom_um=float(chosen_wt),
+        h_film_um=float(film_height_um),
+        h_slab_um=float(slab_height_um),
+        sidewall_deg=float(sidewall_deg),
+        core_material_fn=core_fn,
+        clad_material_fn=clad_fn,
+        top_clad_material_fn=top_fn,
+        domain_width_um=clad_w_um,
+        h_box_um=clad_below_um,
+        h_top_clad_um=clad_above_um,
+    )
+    m_tip_hi = select_target_polarization_mode(
+        solve_modes_fem(
+            spec_tip_hi,
+            wl_m,
+            bend_radius_m=math.inf,
+            num_modes=2,
+            n_guess=max(float(chosen_rec["n_eff_tip"]), n_clad_ref + 0.012),
+            core_mesh_res_um=core_res_um,
+            clad_mesh_res_um=max(clad_res_um * 1.45, 0.38 * wl_scale),
+            eval_grid_step_um=grid_step_um,
+            element_order=2,
+        ),
+        pol_key,
+    )
+    neff_r_hi = float(np.real(m_tip_hi.n_eff))
+    y_mid_m_hi = 0.5 * float(film_height_um) * 1e-6
+    eta0_hi, eta_dx_hi, eta_dy_hi, chip_wx_hi, chip_wy_hi = _vector_poynting_gaussian_overlap(
+        m_tip_hi,
+        w0x_m,
+        w0y_m,
+        y_mid_m_hi,
+        n_facet_env,
+        polarization,
+        dx_offsets_um * 1e-6,
+        dy_offsets_um * 1e-6,
+    )
+    w0y_chip_hi = max(0.5 * chip_wy_hi, 0.25)
+    if undercut_suspended or clad_material in ("CaF2", "MgF2", "Al2O3"):
+        eta_sub_hi = 1.0
+    else:
+        eta_sub_hi = float(np.clip(1.0 - 0.5 * erfc(math.sqrt(2.0) * float(box_thickness_um) / w0y_chip_hi), 0.15, 1.0))
+    r_fresnel_hi = 0.0025 if ar_coating else float(((neff_r_hi - n_facet_env) / (neff_r_hi + n_facet_env)) ** 2)
+    eta_facet_hi = float(np.clip(eta0_hi * eta_sub_hi * (1.0 - r_fresnel_hi), 1e-6, 1.0))
+    chosen_rec.update({
+        "n_eff_tip": round(neff_r_hi, 6),
+        "chip_mfd_x_um": round(chip_wx_hi, 3),
+        "chip_mfd_y_um": round(chip_wy_hi, 3),
+        "mode_overlap_pct": round(eta0_hi * 100.0, 2),
+        "substrate_keep_pct": round(eta_sub_hi * 100.0, 2),
+        "fresnel_refl_db": round(10.0 * math.log10(max(r_fresnel_hi, 1e-9)), 2),
+        "facet_efficiency_pct": round(eta_facet_hi * 100.0, 2),
+        "facet_il_db": round(-10.0 * math.log10(eta_facet_hi), 3),
+    })
+    m_tip = m_tip_hi
+    align_eta_x = eta_dx_hi * eta_sub_hi * (1.0 - r_fresnel_hi)
+    align_eta_y = eta_dy_hi * eta_sub_hi * (1.0 - r_fresnel_hi)
+    opt_rec = min(tip_records, key=lambda r: r["facet_il_db"])
+
+    # Bus waveguide mode for EME adiabatic taper beat-length calculation (quadratic Nedelec2xP2 FEM)
     spec_bus = WaveguideCrossSectionSpec(
         w_bottom_um=float(w_bus_um),
         h_film_um=float(film_height_um),
@@ -420,8 +481,9 @@ def design_butt_edge_coupler(
             wl_m,
             num_modes=2,
             n_guess=0.78 * n_core_ref + 0.22 * n_clad_ref,
-            core_mesh_res_um=core_res_um,
-            element_order=1,
+            core_mesh_res_um=max(core_res_um, 0.045 * wl_scale),
+            clad_mesh_res_um=max(core_res_um * 6.0, 0.32 * wl_scale),
+            element_order=2,
             export_grid=False,
         ),
         pol_key,
@@ -999,6 +1061,9 @@ def design_grating_coupler(
     n_env: float | None = None,
     min_feature_nm: float = 80.0,
     wavelength_span_nm: float | None = None,
+    focal_length_um: float | None = None,
+    fan_angle_deg: float | None = None,
+    groove_shape: Literal["confocal", "circular"] = "confocal",
 ) -> dict:
     """Synthesize uniform/apodized/focusing Grating Coupler and solve via Native 2D Full-Wave Maxwell FDFD."""
     t0 = time.perf_counter()
@@ -1052,16 +1117,55 @@ def design_grating_coupler(
     grooves_local = synth["grooves_um"]
     gc_len_um = synth["total_grating_length_um"]
 
-    # Lateral (out-of-plane x) 1D overlap between fundamental TE0 cosine mode in W_gc and Gaussian MFD
-    # int_{-W/2}^{W/2} cos(pi x / W) * exp(-x^2 / w0^2) dx
-    x_lat = np.linspace(-2.5 * max(grating_width_um, mfd_val_um), 2.5 * max(grating_width_um, mfd_val_um), 401)
-    dx_lat = float(x_lat[1] - x_lat[0])
-    u_lat = np.where(np.abs(x_lat) <= 0.5 * grating_width_um, np.cos(math.pi * x_lat / grating_width_um), 0.0)
-    g_lat = np.exp(-((x_lat / (0.5 * mfd_val_um)) ** 2))
-    lateral_overlap = float(
-        (np.sum(u_lat * g_lat) * dx_lat) ** 2
-        / max((np.sum(u_lat ** 2) * dx_lat) * (np.sum(g_lat ** 2) * dx_lat), 1e-30)
+    # Focusing curved-groove sector parameters (from waveguide origin to first curved arc)
+    focal_length_eff_um = (
+        round(max(float(focal_length_um), 4.0 * wl_scale), 2)
+        if focal_length_um is not None and float(focal_length_um) > 0.0
+        else round(max(18.0 * wl_scale, 1.45 * float(grating_width_um)), 2)
     )
+    half_fan_rad = (
+        math.radians(0.5 * float(np.clip(fan_angle_deg, 8.0, 85.0)))
+        if fan_angle_deg is not None and float(fan_angle_deg) > 0.0
+        else math.atan2(0.5 * float(grating_width_um), focal_length_eff_um)
+    )
+
+    # Lateral (out-of-plane x) mode overlap with Gaussian fiber MFD:
+    # - Linear / straight grating (`focusing=False`): exact 1D cosine mode in constant width `grating_width_um`.
+    # - Compact focusing sector (`focusing=True` with explicit `focal_length_um` or `fan_angle_deg`):
+    #   exact 2D expanding-sector cosine overlap averaged across the longitudinal fiber footprint
+    #   `W(z) = 2 * (R_f + z) * tan(theta_open / 2)`, including radial TE polarization projection `cos(phi)`
+    #   and (for concentric circular arcs `groove_shape="circular"`) off-axis cylindrical wavefront phase residual.
+    x_lat = np.linspace(-2.5 * max(grating_width_um, mfd_val_um), 2.5 * max(grating_width_um, mfd_val_um), 501)
+    dx_lat = float(x_lat[1] - x_lat[0])
+    w0_lat = 0.5 * mfd_val_um
+    g_lat = np.exp(-((x_lat / w0_lat) ** 2))
+    g_lat_n = g_lat / math.sqrt(max(float(np.sum(g_lat ** 2) * dx_lat), 1e-30))
+    if focusing and (focal_length_um is not None or fan_angle_deg is not None):
+        z_opt_est = min(0.45 * gc_len_um, 0.52 * mfd_val_um)
+        z_lat = np.linspace(max(0.0, z_opt_est - 2.0 * w0_lat), z_opt_est + 2.0 * w0_lat, 81)
+        w_z_env = np.exp(-2.0 * (((z_lat - z_opt_est) / w0_lat) ** 2))
+        k_env_lat = (2.0 * math.pi * n_f_env) / wl0_um
+        sin_fib = math.sin(math.radians(float(fiber_angle_deg)))
+        want_te_lat = polarization.upper().startswith("TE")
+        c_lat_z = np.empty(len(z_lat), dtype=complex)
+        for iz_l, zv in enumerate(z_lat):
+            rz = focal_length_eff_um + float(zv)
+            w_sec = max(2.0 * rz * math.tan(half_fan_rad), 1.0)
+            u_sec = np.where(np.abs(x_lat) <= 0.5 * w_sec, np.cos(math.pi * x_lat / w_sec), 0.0)
+            u_sec_n = u_sec / math.sqrt(max(float(np.sum(u_sec ** 2) * dx_lat), 1e-30))
+            pol_proj = np.cos(np.arctan2(x_lat, rz)) if want_te_lat else 1.0
+            if groove_shape == "circular":
+                ph_res = np.exp(-1j * k_env_lat * sin_fib * (np.sqrt(rz * rz + x_lat * x_lat) - rz))
+            else:
+                ph_res = 1.0
+            c_lat_z[iz_l] = complex(np.sum(u_sec_n * pol_proj * ph_res * g_lat_n) * dx_lat)
+        lateral_overlap = float(np.clip(abs(np.sum(w_z_env * c_lat_z) / max(float(np.sum(w_z_env)), 1e-30)) ** 2, 0.05, 0.995))
+    else:
+        u_lat = np.where(np.abs(x_lat) <= 0.5 * grating_width_um, np.cos(math.pi * x_lat / grating_width_um), 0.0)
+        lateral_overlap = float(
+            (np.sum(u_lat * g_lat) * dx_lat) ** 2
+            / max((np.sum(u_lat ** 2) * dx_lat) * (np.sum(g_lat ** 2) * dx_lat), 1e-30)
+        )
 
     # Stage 2: Build 2D Sagittal FDFD Grid with Non-Uniform Core-Refined y-Mesh & Subpixel Averaging
     # Longitudinal dz (~19 pts/lambda in Si) suppresses 2nd-order Yee dispersion while graded y-mesh
@@ -1254,7 +1358,7 @@ def design_grating_coupler(
     bw_3db_nm = _bandwidth_nm(3.0)
 
     # Focusing curved-groove focal length (from waveguide end to first curved arc)
-    focal_length_um = round(max(18.0 * wl_scale, 1.45 * float(grating_width_um)), 2)
+    focal_length_um = focal_length_eff_um
 
     warnings = []
     if mid_r["eta_down"] > 0.36:

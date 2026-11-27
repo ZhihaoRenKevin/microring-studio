@@ -3,7 +3,7 @@ group,case_id,topology,wavelength_nm,gap_nm,kappa_power_microring_cmt,S31_sq_lum
 5band_topology,Vis_532nm_Si3N4_Strip,point_circular_ap,532.0,140.0,0.055705,0.057867,0.943666,0.056334,0.0,1.001533,2
 5band_topology,VNIR_780nm_TiO2_Strip,point_circular_ap,780.0,160.0,0.109315,0.103319,0.898899,0.101101,0.0,1.002218,2
 5band_topology,OBand_1310nm_SOI_220nm,point_circular_ad,1310.0,160.0,0.035941,0.031766,0.96862,0.03138,0.0,1.000386,2
-5band_topology,CBand_1550nm_4HSiC_Pulley,pulley_ap,1550.0,250.0,0.052898,0.05342,0.947123,0.052877,0.0,1.000543,2
+5band_topology,CBand_1550nm_4HSiC_Pulley,pulley_ap,1550.0,250.0,0.052786,0.05342,0.947123,0.052877,0.0,1.000543,2
 5band_topology,MidIR_4200nm_Ge_CaF2,racetrack_ap,4200.0,350.0,0.004642,0.004742,0.995325,0.004675,0.0,1.000067,2
 soi_1550_gap_sweep,SOI_1550nm_Point_Gap100nm,point_circular_ap,1550.0,100.0,0.249418,0.253301,0.750109,0.249891,0.0,1.003411,2
 soi_1550_gap_sweep,SOI_1550nm_Point_Gap150nm,point_circular_ap,1550.0,150.0,0.111976,0.110563,0.890961,0.109039,0.0,1.001524,2

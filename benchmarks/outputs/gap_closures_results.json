@@ -309,7 +309,7 @@
     "case_id": "TFLN_SlowWave_TRail_Bragg220um_Clean",
     "period_um": 220.0,
     "simulated_length_um": 660.0,
-    "microring_f_bragg_cutoff_GHz": 302.8,
+    "microring_f_bragg_cutoff_GHz": 287.6,
     "bragg_peak_freq_GHz": 280.0,
     "bragg_min_S21_dB": -57.924,
     "bragg_max_S11_dB": -0.45,

@@ -1,5 +1,5 @@
 # Solvers: MicroRing Studio v3.9.0 (Phase-2 Complete Physical Engine Suite) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + RF emw + AC/DC es + GeneralFormPDE g + 2D/3D Heat ht)
 case_id,R_th_core_K_per_mW_microring,R_th_core_K_per_mW_comsol,R_th_rel_diff_pct,P_pi_mW_microring,t_rise_us_microring,f_3dB_kHz_microring,crosstalk_20um_pct_microring,crosstalk_20um_pct_comsol
-SOI_220nm_Undercut_Suspended,34.4695,34.6711,0.58,0.561,519.45,0.69,0.045,0.0443
-SOI_220nm_Doped_Si_Rib,0.7371,0.7411,0.54,28.315,8.56,42.0,0.167,0.1657
-SOI_220nm_CoInt_PN_TiN_Heater,0.5824,0.587,0.78,35.919,12.27,30.02,3.04,2.9885
+SOI_220nm_Undercut_Suspended,34.4695,34.6711,0.58,0.555,519.45,0.69,0.045,0.0443
+SOI_220nm_Doped_Si_Rib,0.7371,0.7411,0.54,28.118,8.56,42.0,0.167,0.1657
+SOI_220nm_CoInt_PN_TiN_Heater,0.5824,0.587,0.78,35.665,12.27,30.02,3.04,2.9885

@@ -1144,9 +1144,10 @@ def solve_perturbed_neff_sweep_fem(
         clad_mesh_res_um=clad_mesh_res_um,
     )
     elem = (ElementTriN1() * ElementTriP1()) if element_order == 1 else (ElementTriN2() * ElementTriP2())
-    basis = Basis(mesh, elem)
+    # Use 7-point Gauss quadrature (intorder=5) on quadratic elements so sub-mesh carrier
+    # depletion boundaries and localized thermal/EO fields are integrated without vertex aliasing.
+    basis = Basis(mesh, elem, intorder=5 if element_order >= 2 else 3)
     dg1 = basis.with_element(ElementDG(ElementTriP1()))
-    dg_q = basis.with_element(ElementDG(ElementTriP2()))
 
     temp_k = spec.temperature_k
     polygons = spec.build_polygons_um()
@@ -1189,6 +1190,7 @@ def solve_perturbed_neff_sweep_fem(
             max_eps_re = max(max_eps_re, float(np.real(ex_c)), float(np.real(ey_c)))
 
     k0 = 2.0 * math.pi / wavelength_m
+    om_rad_s = C0_M_PER_S * k0
     inv_r = 0.0 if not math.isfinite(bend_radius_m) else (1.0 / bend_radius_m)
 
     @BilinearForm(dtype=complex)
@@ -1218,7 +1220,7 @@ def solve_perturbed_neff_sweep_fem(
     zero_x = basis.zeros(dtype=complex)
     ez_dofs_idx = basis.split_indices()[1]
 
-    q_coords = np.asarray(dg_q.global_coordinates(), dtype=float)
+    q_coords = np.asarray(basis.global_coordinates(), dtype=float)
     rho_quad = 1.0 + q_coords[0] * inv_r
     dx_quad = basis.dx
 
@@ -1242,7 +1244,7 @@ def solve_perturbed_neff_sweep_fem(
         fn: Callable[[np.ndarray, np.ndarray, str], tuple[np.ndarray, np.ndarray, np.ndarray]] | None,
         sigma_val: float,
         u_ref_norm: np.ndarray | None,
-    ) -> tuple[dict, np.ndarray, float]:
+    ) -> tuple[dict, np.ndarray, float, tuple]:
         eps_x_dofs = dg1.zeros(dtype=complex)
         eps_y_dofs = dg1.zeros(dtype=complex)
         eps_z_dofs = dg1.zeros(dtype=complex)
@@ -1333,6 +1335,7 @@ def solve_perturbed_neff_sweep_fem(
         er_q = np.asarray(er_df, dtype=complex)
         ey_q = np.asarray(ey_df, dtype=complex)
         ez_q = np.asarray(ez_df, dtype=complex) / rho_quad
+        grad_ez_q = np.asarray(ez_df.grad, dtype=complex)
 
         ex2_int = float(np.sum((np.abs(er_q) ** 2) * dx_quad))
         ey2_int = float(np.sum((np.abs(ey_q) ** 2) * dx_quad))
@@ -1361,9 +1364,51 @@ def solve_perturbed_neff_sweep_fem(
             "ex_core_nodes": int(nodes),
             "mode_overlap": float(ov_val),
         }
-        return info, u_sel_unit, (k0 * neff_re) ** 2
+        fields_ref = (beta_sel, u_phys)
+        return info, u_sel_unit, (k0 * neff_re) ** 2, fields_ref
 
-    ref_info, u_ref, sigma_ref = _assemble_and_solve(None, sigma_init, None)
+    ref_info, u_ref, sigma_ref, ref_fields = _assemble_and_solve(None, sigma_init, None)
+    beta_ref_c, u_phys_ref = ref_fields
+
+    # Exact cylindrical Lorentz-reciprocity normalization for unconjugated variational perturbation
+    # evaluated on high-order 19-point interior Gauss quadrature (intorder=9, ~8 nm spacing inside
+    # a 50 nm core triangle) with zero extra ARPACK cost, eliminating triangle-straddling quadrature
+    # aliasing across narrow 2D PN depletion edges while retaining exact O(h^4) Nedelec2xP2 fields:
+    #   H_x = (-(beta/rho)*E_y - i*(d(rho*E_z)/dy)/rho) / (omega * mu0)
+    #   H_y = (+(beta/rho)*E_x + i*(d(rho*E_z)/dx)/rho) / (omega * mu0)
+    #   Delta_beta = (omega * eps0 / P_c) * integral( (deps_x*Ex^2 + deps_y*Ey^2 - deps_z*Ez^2) * rho dA )
+    basis_var = Basis(mesh, elem, intorder=9 if element_order >= 2 else 5)
+    q_var = np.asarray(basis_var.global_coordinates(), dtype=float)
+    rho_var = 1.0 + q_var[0] * inv_r
+    dx_var = basis_var.dx
+    (er_vdf, ey_vdf), ez_vdf = basis_var.interpolate(u_phys_ref)
+    er_ref = np.asarray(er_vdf, dtype=complex)
+    ey_ref = np.asarray(ey_vdf, dtype=complex)
+    ez_ref = np.asarray(ez_vdf, dtype=complex) / rho_var
+    grad_ez_ref = np.asarray(ez_vdf.grad, dtype=complex)
+
+    hx_ref = (-(beta_ref_c / rho_var) * ey_ref - 1j * (grad_ez_ref[1] / rho_var)) / (om_rad_s * MU0_H_PER_M)
+    hy_ref = (+(beta_ref_c / rho_var) * er_ref + 1j * (grad_ez_ref[0] / rho_var)) / (om_rad_s * MU0_H_PER_M)
+    p_lorentz_c = complex(2.0 * np.sum((er_ref * hy_ref - ey_ref * hx_ref) * dx_var))
+    w_q = rho_var * dx_var
+
+    e2_ref = np.abs(er_ref) ** 2 + np.abs(ey_ref) ** 2 + np.abs(ez_ref) ** 2
+    e2_mode_thresh = 1.0e-3 * max(float(np.max(e2_ref)), 1e-30)
+
+    reg_quad_cache: list[tuple[str, MaterialIndexTensor, tuple[complex, complex, complex], np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+    for reg_name, mat_tensor in region_mats.items():
+        if reg_name in mesh.subdomains:
+            elems = np.asarray(mesh.subdomains[reg_name], dtype=np.int64)
+            if elems.size == 0:
+                continue
+            xq_um = q_var[0, elems, :] * 1e6
+            yq_um = q_var[1, elems, :] * 1e6
+            w_reg = w_q[elems, :]
+            wx_reg = (er_ref[elems, :] ** 2) * w_reg
+            wy_reg = (ey_ref[elems, :] ** 2) * w_reg
+            wz_reg = -(ez_ref[elems, :] ** 2) * w_reg
+            in_support = e2_ref[elems, :] >= e2_mode_thresh
+            reg_quad_cache.append((reg_name, mat_tensor, mat_tensor.complex_eps_diag(), xq_um, yq_um, wx_reg, wy_reg, wz_reg, in_support))
 
     out_rows: list[dict] = []
     cur_u = u_ref
@@ -1371,8 +1416,57 @@ def solve_perturbed_neff_sweep_fem(
     for fn in perturbation_fns:
         if fn is None:
             out_rows.append(dict(ref_info))
-        else:
-            row, cur_u, cur_sigma = _assemble_and_solve(fn, cur_sigma, cur_u)
-            out_rows.append(row)
+            continue
+
+        # Evaluate perturbation directly on all 19 interior Gauss quadrature points per triangle.
+        # Gate the exact full-ARPACK fallback on |dn| inside the active optical mode support
+        # (|E|^2 >= 1e-3 * max |E|^2) so far-out heavy P++/N++ ohmic contacts never spuriously
+        # trigger full eigensolves while high-contrast core/cap PCM or extreme thermal shifts do.
+        num_acc = 0.0j
+        max_abs_dn_mode = 0.0
+        for reg_name, mat_tensor, (ex0, ey0, ez0), xq_um, yq_um, wx_reg, wy_reg, wz_reg, in_support in reg_quad_cache:
+            dn_x_raw, dn_y_raw, dn_z_raw = fn(xq_um.ravel(), yq_um.ravel(), reg_name)
+            dn_x = np.broadcast_to(np.asarray(dn_x_raw, dtype=complex), xq_um.size).reshape(xq_um.shape)
+            dn_y = np.broadcast_to(np.asarray(dn_y_raw, dtype=complex), xq_um.size).reshape(xq_um.shape)
+            dn_z = np.broadcast_to(np.asarray(dn_z_raw, dtype=complex), xq_um.size).reshape(xq_um.shape)
+            if np.any(in_support):
+                loc_max = max(
+                    float(np.max(np.abs(dn_x[in_support]))),
+                    float(np.max(np.abs(dn_y[in_support]))),
+                    float(np.max(np.abs(dn_z[in_support]))),
+                )
+                if loc_max > max_abs_dn_mode:
+                    max_abs_dn_mode = loc_max
+                if max_abs_dn_mode > 0.025:
+                    break
+            nx_loc = mat_tensor.nx + np.real(dn_x)
+            ny_loc = mat_tensor.ny + np.real(dn_y)
+            nz_loc = mat_tensor.nz + np.real(dn_z)
+            kx_loc = np.maximum(0.0, mat_tensor.kx + np.imag(dn_x))
+            ky_loc = np.maximum(0.0, mat_tensor.ky + np.imag(dn_y))
+            kz_loc = np.maximum(0.0, mat_tensor.kz + np.imag(dn_z))
+            deps_x = (nx_loc + 1j * kx_loc) ** 2 - ex0
+            deps_y = (ny_loc + 1j * ky_loc) ** 2 - ey0
+            deps_z = (nz_loc + 1j * kz_loc) ** 2 - ez0
+            num_acc += complex(np.sum(deps_x * wx_reg + deps_y * wy_reg + deps_z * wz_reg))
+
+        if max_abs_dn_mode <= 0.025 and abs(p_lorentz_c) > 1e-20:
+            dbeta_c = (om_rad_s * EPS0_F_PER_M / p_lorentz_c) * num_acc
+            if abs(dbeta_c / k0) <= 0.020:
+                neff_pert = (beta_ref_c + dbeta_c) / k0
+                neff_re = float(np.real(neff_pert))
+                neff_im = float(max(0.0, np.imag(neff_pert)))
+                alpha_modal_db_cm = (10.0 / math.log(10.0)) * (4.0 * math.pi * neff_im / wavelength_m) * 1e-2
+                row = dict(ref_info)
+                row["n_eff"] = complex(neff_re, neff_im)
+                row["neff_real"] = neff_re
+                row["neff_imag"] = neff_im
+                row["alpha_modal_db_per_cm"] = alpha_modal_db_cm
+                row["mode_overlap"] = 1.0
+                out_rows.append(row)
+                continue
+
+        row, cur_u, cur_sigma, _ = _assemble_and_solve(fn, cur_sigma, cur_u)
+        out_rows.append(row)
     return out_rows
 

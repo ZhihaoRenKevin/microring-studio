@@ -3,12 +3,12 @@ subsuite,metric,microring,lumerical_3dfdtd
 13A_MMI_2x2_OptLen,split_bar_cross_pct,44.83/47.08,44.68/46.65
 13A_MMI_2x2_OptLen,excess_loss_db,0.367,0.393
 13A_MMI_2x2_OptLen,imbalance_db,-0.213,-0.188
-13B_DC_2x2_FullSBend,split_bar_cross_pct,52.4/46.62,55.11/44.72
+13B_DC_2x2_FullSBend,split_bar_cross_pct,52.13/46.88,55.11/44.72
 13B_DC_2x2_FullSBend,excess_loss_db,0.043,0.007
 13C_LowQ_RAMZI_R5um,FSR_nm,17.68,18.021
-13C_LowQ_RAMZI_R5um,ER_bar_dB,14.63,14.94
+13C_LowQ_RAMZI_R5um,ER_bar_dB,14.85,14.94
 13D_3D_Focusing_GC,peak_wavelength_nm,1555.33,1553.98
-13D_3D_Focusing_GC,peak_il_db,3.132,3.522
+13D_3D_Focusing_GC,peak_il_db,3.49,3.522
 13D_3D_Focusing_GC,eta_up_1550_pct,53.29,53.87
-13E_3D_Butt_Taper_30um,taper_il_db,0.029,-0.144
-13E_3D_Butt_Taper_30um,total_il_db,0.62,0.777
+13E_3D_Butt_Taper_30um,taper_il_db,0.03,-0.144
+13E_3D_Butt_Taper_30um,total_il_db,0.588,0.777
