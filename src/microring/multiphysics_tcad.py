@@ -46,7 +46,7 @@ import gdstk
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.sparse import diags
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import splu, spsolve
 from scipy.special import erfc
 import shapely
 from shapely.geometry import Polygon, box
@@ -143,6 +143,7 @@ class PNDopingTCADConfig:
     bias_voltages_v: list[float] | None = None  # e.g. [0.0, -1.0, -2.0, -3.0, -4.0, -5.0]
     map_bias_v: float = -3.0                # unit: V (reverse voltage at which 2D carrier/potential map is exported)
     driver_impedance_ohm: float = 50.0      # unit: Ohm
+    plasma_model: str = "soref_bennett_1987"  # "soref_bennett_1987" | "nedeljkovic_2011"
 
 
 @dataclass
@@ -470,7 +471,7 @@ def simulate_pn_doping_tcad(cfg: PNDopingTCADConfig) -> dict:
                 pts = np.column_stack([yu, xu])
                 nl = np.maximum(interp_n_loc(pts), 0.0)
                 pl = np.maximum(interp_p_loc(pts), 0.0)
-                dn_r, dk_i = soref_bennett_si_dn_dk(nl, pl, cfg.wavelength_nm)
+                dn_r, dk_i = soref_bennett_si_dn_dk(nl, pl, cfg.wavelength_nm, plasma_model=cfg.plasma_model)
                 c = dn_r + 1j * dk_i
                 return c, c, c
             return _fn
@@ -1062,35 +1063,69 @@ def simulate_thermal_phase_shifter(cfg: ThermalSimConfig) -> dict:
         f_3db_khz = float(f_khz_grid[-1])
     tau_eff_us = 1.0 / (2.0 * math.pi * max(f_3db_khz * 1e3, 1.0)) * 1e6
 
-    # 4. Exact 2D Crank-Nicolson Implicit Transient Step Heating (0 -> t_pulse) & Cooling (t_pulse -> 2*t_pulse)
-    t_pulse_us = max(4.2 * tau_eff_us, 8.0)
-    n_half = 28
-    dt_step_s = (t_pulse_us * 1e-6) / n_half
-    A_cn = (M_ff + 0.5 * dt_step_s * K_ff).tocsc()
-    B_cn = (M_ff - 0.5 * dt_step_s * K_ff).tocsc()
+    # 4. Exact 2D Crank-Nicolson Implicit Transient Step Heating & Cooling (2-stage adaptive grid via cached LU)
+    # Normalizes 10%-90% rise and 90%-10% fall strictly against exact steady-state `dt_core_at_ppi`
+    # so slow multi-exponential heat diffusion into the thick Si handle substrate is never truncated!
+    t_stage1_us = max(1.2 * tau_eff_us, 2.0)
+    t_pulse_us = max(10.0 * tau_eff_us, 16.0)
+    n_s1 = 24
+    n_s2 = 32
+    dt1_s = (t_stage1_us * 1e-6) / n_s1
+    dt2_s = ((t_pulse_us - t_stage1_us) * 1e-6) / n_s2
 
-    t_vec_us = [0.0]
-    t_core_wave_k = [0.0]
+    lu_1 = splu((M_ff + 0.5 * dt1_s * K_ff).tocsc())
+    B_1 = (M_ff - 0.5 * dt1_s * K_ff).tocsc()
+    lu_2 = splu((M_ff + 0.5 * dt2_s * K_ff).tocsc())
+    B_2 = (M_ff - 0.5 * dt2_s * K_ff).tocsc()
+
+    rhs_on_1 = dt1_s * (p_pi_mw * b_f)
+    rhs_on_2 = dt2_s * (p_pi_mw * b_f)
+
+    heat_t_us = [0.0]
+    heat_y_k = [0.0]
     u_cur = np.zeros(len(free_idx), dtype=float)
-    rhs_on = dt_step_s * (p_pi_mw * b_f)
+    t_acc_us = 0.0
+    for _ in range(n_s1):
+        u_cur = lu_1.solve((B_1 @ u_cur) + rhs_on_1)
+        t_acc_us += dt1_s * 1e6
+        heat_t_us.append(round(t_acc_us, 3))
+        heat_y_k.append(round(float(np.mean(u_cur[core_free_pos])), 4))
+    for _ in range(n_s2):
+        u_cur = lu_2.solve((B_2 @ u_cur) + rhs_on_2)
+        t_acc_us += dt2_s * 1e6
+        heat_t_us.append(round(t_acc_us, 3))
+        heat_y_k.append(round(float(np.mean(u_cur[core_free_pos])), 4))
 
-    for step in range(1, 2 * n_half + 1):
-        rhs = (B_cn @ u_cur) + (rhs_on if step <= n_half else 0.0)
-        u_cur = spsolve(A_cn, rhs)
-        t_vec_us.append(round(step * dt_step_s * 1e6, 3))
-        t_core_wave_k.append(round(float(np.mean(u_cur[core_free_pos])), 4))
+    # Continue seamlessly into cooling phase after heater turn-off at t = t_pulse_us
+    cool_dt_us = [0.0]
+    cool_y_k = [heat_y_k[-1]]
+    t_cool_acc = 0.0
+    for _ in range(n_s1):
+        u_cur = lu_1.solve(B_1 @ u_cur)
+        t_cool_acc += dt1_s * 1e6
+        cool_dt_us.append(round(t_cool_acc, 3))
+        cool_y_k.append(round(float(np.mean(u_cur[core_free_pos])), 4))
+    for _ in range(n_s2):
+        u_cur = lu_2.solve(B_2 @ u_cur)
+        t_cool_acc += dt2_s * 1e6
+        cool_dt_us.append(round(t_cool_acc, 3))
+        cool_y_k.append(round(float(np.mean(u_cur[core_free_pos])), 4))
 
-    heat_seg_t = np.asarray(t_vec_us[: n_half + 1])
-    heat_seg_y = np.asarray(t_core_wave_k[: n_half + 1])
-    y_ss = max(float(heat_seg_y[-1]), 1e-9)
-    t10 = float(np.interp(0.10 * y_ss, heat_seg_y, heat_seg_t))
-    t90 = float(np.interp(0.90 * y_ss, heat_seg_y, heat_seg_t))
+    t_vec_us = heat_t_us + [round(t_pulse_us + tc, 3) for tc in cool_dt_us[1:]]
+    t_core_wave_k = heat_y_k + cool_y_k[1:]
+
+    heat_seg_t = np.asarray(heat_t_us, dtype=float)
+    heat_seg_y = np.asarray(heat_y_k, dtype=float)
+    y_ss_exact = max(float(dt_core_at_ppi), float(heat_seg_y[-1]), 1e-9)
+    t10 = float(np.interp(0.10 * y_ss_exact, heat_seg_y, heat_seg_t))
+    t90 = float(np.interp(0.90 * y_ss_exact, heat_seg_y, heat_seg_t))
     t_rise_10_90_us = max(t90 - t10, 0.05)
 
-    cool_seg_t = np.asarray(t_vec_us[n_half:]) - t_pulse_us
-    cool_seg_y = np.asarray(t_core_wave_k[n_half:])
-    t90_c = float(np.interp(0.90 * y_ss, cool_seg_y[::-1], cool_seg_t[::-1]))
-    t10_c = float(np.interp(0.10 * y_ss, cool_seg_y[::-1], cool_seg_t[::-1]))
+    cool_seg_t = np.asarray(cool_dt_us, dtype=float)
+    cool_seg_y = np.asarray(cool_y_k, dtype=float)
+    y_cool_ref = max(float(cool_seg_y[0]), 1e-9)
+    t90_c = float(np.interp(0.90 * y_cool_ref, cool_seg_y[::-1], cool_seg_t[::-1]))
+    t10_c = float(np.interp(0.10 * y_cool_ref, cool_seg_y[::-1], cool_seg_t[::-1]))
     t_fall_90_10_us = max(t10_c - t90_c, 0.05)
 
     # 5. Lateral Thermal Crosstalk Profile Delta_T(x) across waveguide plane y = 0.5 * h_film at P = P_pi!

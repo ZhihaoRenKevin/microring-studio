@@ -32,10 +32,13 @@ FDTD_AUTO_SHUTOFF_MIN = 1.0e-5       # unitless: energy decay convergence thresh
 FDTD_SIM_TIME_FS = 8000.0            # unit: fs (8 ps max coupler transit window)
 FDTD_PML_LAYERS = 12                 # unitless: standard stretched-coordinate PML
 LUMERICAL_WIN_HINTS = [
+    r"C:\Program Files\ANSYS Inc\v261\Lumerical\api\python",
+    r"C:\Program Files\ANSYS Inc\v252\Lumerical\api\python",
+    r"C:\Program Files\ANSYS Inc\v251\Lumerical\api\python",
+    r"C:\Program Files\Ansys Inc\v242\Lumerical\api\python",
     r"C:\Program Files\Lumerical\v242\api\python",
     r"C:\Program Files\Lumerical\v241\api\python",
     r"C:\Program Files\Lumerical\v232\api\python",
-    r"C:\Program Files\Ansys Inc\v242\Lumerical\api\python",
 ]
 
 HERE = Path(__file__).resolve().parent
@@ -168,13 +171,13 @@ def run_mode_fde_case(mode_sess, case: dict) -> dict:
     set("number of trial modes", 6);
     """
     mode_sess.eval(lsf)
-    n_modes = int(mode_sess.eval("findmodes;"))
+    n_modes = int(mode_sess.findmodes())
     best_neff, best_ng = np.nan, np.nan
     for idx in range(1, n_modes + 1):
-        te_pol = float(np.real(mode_sess.getdata(f"FDE::data::mode{idx}", "TE polarization fraction")))
+        te_pol = float(np.real(np.asarray(mode_sess.getdata(f"FDE::data::mode{idx}", "TE polarization fraction"))).reshape(-1)[0])
         if te_pol >= 0.5:
-            best_neff = float(np.real(mode_sess.getdata(f"FDE::data::mode{idx}", "neff")))
-            best_ng = float(np.real(mode_sess.getdata(f"FDE::data::mode{idx}", "ng")))
+            best_neff = float(np.real(np.asarray(mode_sess.getdata(f"FDE::data::mode{idx}", "neff"))).reshape(-1)[0])
+            best_ng = float(np.real(np.asarray(mode_sess.getdata(f"FDE::data::mode{idx}", "ng"))).reshape(-1)[0])
             break
     return {"neff_lumerical_fde": round(best_neff, 6), "ng_lumerical_fde": round(best_ng, 6)}
 
@@ -322,9 +325,19 @@ def run_3d_fdtd_coupler_case(fdtd_sess, case: dict) -> dict:
     setglobalsource("wavelength start", {wl_m * 0.995});
     setglobalsource("wavelength stop", {wl_m * 1.005});
     setglobalmonitor("frequency points", 5);
-    run;
     """
     fdtd_sess.eval(lsf)
+    fsp_tmp = HERE / "outputs" / f"_{case['case_id']}_tmp.fsp"
+    fdtd_sess.save(str(fsp_tmp))
+    try:
+        fdtd_sess.run("FDTD", "GPU")
+    except Exception:
+        fdtd_sess.run("FDTD")
+    if fsp_tmp.is_file():
+        try:
+            fsp_tmp.unlink()
+        except OSError:
+            pass
     try:
         exp_res = fdtd_sess.getresult("FDTD::ports::BusThru", "expansion for port monitor")
         t_fwd = np.asarray(exp_res["T_forward"]).reshape(-1)

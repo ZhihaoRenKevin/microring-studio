@@ -306,12 +306,27 @@ async def api_upload_gds(request: Request) -> JSONResponse:
 def _solve_mode_sync(payload: dict) -> dict:
     t0 = time.perf_counter()
     core_mat = str(payload.get("core_material", "4H-SiC"))
+    custom_n_raw = payload.get("custom_n")
+    custom_n = float(custom_n_raw) if custom_n_raw not in (None, "") else None
+    custom_k = float(payload.get("custom_k", 0.0) or 0.0)
+    custom_clad_raw = payload.get("custom_clad_n")
+    custom_clad_n = float(custom_clad_raw) if custom_clad_raw not in (None, "") else None
+    custom_top_raw = payload.get("custom_top_clad_n")
+    custom_top_n = float(custom_top_raw) if custom_top_raw not in (None, "") else None
     core_fn = get_material_fn(
         core_mat,
         sc_fraction=float(payload.get("sc_fraction", 0.20)) if core_mat.startswith("ScAlN") else None,
+        custom_n=custom_n,
+        custom_k=custom_k,
     )
-    clad_fn = get_material_fn(str(payload.get("clad_material", "SiO2")))
-    top_fn = get_material_fn(str(payload.get("top_clad_material", "SiO2")))
+    clad_fn = get_material_fn(
+        "Custom" if custom_clad_n is not None else str(payload.get("clad_material", "SiO2")),
+        custom_n=custom_clad_n,
+    )
+    top_fn = get_material_fn(
+        "Custom" if custom_top_n is not None else str(payload.get("top_clad_material", "SiO2")),
+        custom_n=custom_top_n,
+    )
 
     wl_nm = float(payload.get("wavelength_nm", 1550.0))
     wl_m = wl_nm * 1e-9
@@ -417,6 +432,10 @@ def _sweep_width_sync(payload: dict) -> dict:
         w_max_um=float(payload.get("w_max_um", 2.00)),
         num_points=int(payload.get("num_points", 8)),
         polarization=str(payload.get("polarization", "TE0")),
+        custom_n=float(payload["custom_n"]) if payload.get("custom_n") not in (None, "") else None,
+        custom_k=float(payload.get("custom_k", 0.0) or 0.0),
+        custom_clad_n=float(payload["custom_clad_n"]) if payload.get("custom_clad_n") not in (None, "") else None,
+        custom_top_clad_n=float(payload["custom_top_clad_n"]) if payload.get("custom_top_clad_n") not in (None, "") else None,
     )
 
 

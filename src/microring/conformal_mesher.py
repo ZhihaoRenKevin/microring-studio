@@ -215,13 +215,33 @@ def build_conformal_waveguide_mesh(
             row_right = hw_y + s_right * (xmax - hw_y)
             xx[j, :] = np.concatenate([row_left, row_cneg, row_cpos, row_right])
     else:
-        # Two non-crossing positive control curves: 0 < c_in(y) < c_out(y) < min(|xmin|, xmax)
-        xc_twin = 0.5 * float(getattr(spec, "twin_core_gap_um", 0.0)) + hw_bot
+        # Two non-crossing control curves on left (-co_L, -ci_L) and right (+ci_R, +co_R)
+        g_twin = float(getattr(spec, "twin_core_gap_um", 0.0))
+        w2_spec = getattr(spec, "twin_core_w2_bottom_um", None)
+        hw2_bot = 0.5 * float(w2_spec) if (is_twin_core and w2_spec is not None) else hw_bot
+        inv_tan_c = 0.0 if spec.sidewall_deg == 90.0 else 1.0 / math.tan(math.radians(spec.sidewall_deg))
+        hw2_top = max(hw2_bot - max(h_f - h_s, 0.0) * inv_tan_c, 0.01)
+        xc_twin_l = 0.5 * g_twin + hw_bot
+        xc_twin_r = 0.5 * g_twin + hw2_bot
 
-        def _c_in_out(y_val: float) -> tuple[float, float]:
+        def _hw2_at_y(y_val: float) -> float:
+            if y_val <= h_s:
+                return hw2_bot
+            if y_val <= h_f:
+                t = (y_val - h_s) / max(h_f - h_s, 1e-12)
+                return hw2_bot + t * (hw2_top - hw2_bot)
+            return hw2_top
+
+        def _c_in_out_lr(y_val: float) -> tuple[float, float, float, float]:
             if is_twin_core:
-                hm = _hw_main_at_y(y_val)
-                return max(xc_twin - hm, 0.004), xc_twin + hm
+                hm_l = _hw_main_at_y(y_val)
+                hm_r = _hw2_at_y(y_val)
+                return (
+                    max(xc_twin_l - hm_l, 0.004),
+                    xc_twin_l + hm_l,
+                    max(xc_twin_r - hm_r, 0.004),
+                    xc_twin_r + hm_r,
+                )
             if step_at_cap and not step_at_upper:
                 hm = _hw_main_at_y(y_val)
                 ratio_cap = min(hw_cap, ref_top_hw) / max(hw_cap, ref_top_hw)
@@ -231,26 +251,31 @@ def build_conformal_waveguide_mesh(
                 else:
                     c_in = hm
                     c_out = (hm / ratio_cap) if y_val < y_cap0 else hw_cap
-                return c_in, c_out
+                return c_in, c_out, c_in, c_out
             # Step between lower core and upper core at y = h_f
             c1 = hw_bot + ((y_val - h_s) / max(h_f - h_s, 1e-12)) * (hw_top - hw_bot) if h_s <= y_val <= h_f else (hw_bot if y_val < h_s else hw_top)
             c2 = hw_up_bot + ((y_val - y0_up) / max(y1_up - y0_up, 1e-12)) * (hw_up_top - hw_up_bot) if y0_up <= y_val <= y1_up else (hw_up_bot if y_val < y0_up else hw_up_top)
-            return min(c1, c2), max(c1, c2)
+            c_in, c_out = min(c1, c2), max(c1, c2)
+            return c_in, c_out, c_in, c_out
 
-        cin_nom, cout_nom = _c_in_out(0.5 * (h_s + h_f))
-        s01 = _graded_1d_segment(0.0, max(cin_nom, h_core_res), h_core_res, h_core_res) / max(cin_nom, h_core_res)
-        s12 = _graded_1d_segment(cin_nom, max(cout_nom, cin_nom + h_core_res), h_core_res, h_core_res)[1:]
-        s12 = (s12 - cin_nom) / max(cout_nom - cin_nom, h_core_res)
-        x_clad_r = _graded_1d_segment(cout_nom, xmax, h_core_res, h_clad_res)[1:]
-        sr = (x_clad_r - cout_nom) / max(xmax - cout_nom, 1e-9)
-        x_clad_l = -_graded_1d_segment(cout_nom, abs(xmin), h_core_res, h_clad_res)[::-1][:-1]
-        sl = (x_clad_l + cout_nom) / max(abs(xmin) - cout_nom, 1e-9)
+        cil_nom, col_nom, cir_nom, cor_nom = _c_in_out_lr(0.5 * (h_s + h_f))
+        s01_r = _graded_1d_segment(0.0, max(cir_nom, h_core_res), h_core_res, h_core_res) / max(cir_nom, h_core_res)
+        s12_r = _graded_1d_segment(cir_nom, max(cor_nom, cir_nom + h_core_res), h_core_res, h_core_res)[1:]
+        s12_r = (s12_r - cir_nom) / max(cor_nom - cir_nom, h_core_res)
+        x_clad_r = _graded_1d_segment(cor_nom, xmax, h_core_res, h_clad_res)[1:]
+        sr = (x_clad_r - cor_nom) / max(xmax - cor_nom, 1e-9)
+
+        s01_l = _graded_1d_segment(0.0, max(cil_nom, h_core_res), h_core_res, h_core_res) / max(cil_nom, h_core_res)
+        s12_l = _graded_1d_segment(cil_nom, max(col_nom, cil_nom + h_core_res), h_core_res, h_core_res)[1:]
+        s12_l = (s12_l - cil_nom) / max(col_nom - cil_nom, h_core_res)
+        x_clad_l = -_graded_1d_segment(col_nom, abs(xmin), h_core_res, h_clad_res)[::-1][:-1]
+        sl = (x_clad_l + col_nom) / max(abs(xmin) - col_nom, 1e-9)
 
         rows_list = []
         for yv in y_rows:
-            ci, co = _c_in_out(float(yv))
-            pos = np.concatenate([s01 * ci, ci + s12 * (co - ci), co + sr * (xmax - co)])
-            neg = np.concatenate([-co + sl * (abs(xmin) - co), -(ci + s12 * (co - ci))[::-1], -(s01[1:] * ci)[::-1]])
+            cil, col, cir, cor = _c_in_out_lr(float(yv))
+            pos = np.concatenate([s01_r * cir, cir + s12_r * (cor - cir), cor + sr * (xmax - cor)])
+            neg = np.concatenate([-col + sl * (abs(xmin) - col), -(cil + s12_l * (col - cil))[::-1], -(s01_l[1:] * cil)[::-1]])
             rows_list.append(np.concatenate([neg, pos]))
         xx = np.vstack(rows_list)
         nx = xx.shape[1]

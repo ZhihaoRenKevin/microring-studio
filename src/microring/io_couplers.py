@@ -711,9 +711,17 @@ def _solve_gc_fdfd_single_wl(
     lateral_overlap: float,
     return_field: bool = False,
 ) -> dict:
-    """Solve 2D Full-Wave Maxwell FDFD at a single wavelength using coordinate-stretched UPML."""
+    """Solve 2D Full-Wave Maxwell FDFD at a single wavelength using coordinate-stretched UPML.
+
+    Supports both uniform and non-uniform core-refined staggered Yee y-grids so thin
+    high-index grating etch layers are resolved at ~10-12 nm without wasting DOFs in cladding.
+    """
     dz = float(z_um[1] - z_um[0])
-    dy = float(y_um[1] - y_um[0])
+    dy_h = np.diff(y_um)  # (Ny-1,) primal cell intervals between y_um[j] and y_um[j+1]
+    dy_n = np.empty_like(y_um, dtype=np.float64)
+    dy_n[0] = dy_h[0]
+    dy_n[-1] = dy_h[-1]
+    dy_n[1:-1] = 0.5 * (dy_h[:-1] + dy_h[1:])  # (Ny,) dual cell widths centered on y_um[j]
     nz = len(z_um)
     ny = len(y_um)
     k0 = 2.0 * math.pi / wl_um
@@ -735,10 +743,10 @@ def _solve_gc_fdfd_single_wl(
     sy_n = _s_prof(y_um, y_um[0], y_um[-1], pml_y_um, sig_max_y)
     sy_h = _s_prof(0.5 * (y_um[:-1] + y_um[1:]), y_um[0], y_um[-1], pml_y_um, sig_max_y)
 
-    # 2. Exact 1D discrete slab waveguide eigenmode on the y-grid (port profile without thick Si handle mode)
+    # 2. Exact 1D discrete slab waveguide eigenmode on the non-uniform y-grid
     is_te = pol.upper().startswith("TE")
-    ay_p = 1.0 / (sy_n[:-1] * sy_h * (dy ** 2))  # (Ny-1,) coupling (iy -> iy+1)
-    ay_m = 1.0 / (sy_n[1:] * sy_h * (dy ** 2))   # (Ny-1,) coupling (iy -> iy-1)
+    ay_p = 1.0 / (sy_n[:-1] * sy_h * dy_n[:-1] * dy_h)  # (Ny-1,) coupling (iy -> iy+1)
+    ay_m = 1.0 / (sy_n[1:] * sy_h * dy_n[1:] * dy_h)    # (Ny-1,) coupling (iy -> iy-1)
 
     if is_te:
         wy_p = ay_p
@@ -838,28 +846,40 @@ def _solve_gc_fdfd_single_wl(
 
     # 5. Extract Modal Reflection S11, Residual Transmission, Up/Down Radiated Power & Fiber Overlap
     if is_te:
-        w_orth = np.ones(ny, dtype=np.float64)
+        w_orth = dy_n.copy()
         # Guided power normalization: P_in = (beta_grid / (2 w mu0)) int |u0|^2 dy (up to common constant C)
-        p_in = float(beta_grid * np.sum(np.abs(u0) ** 2) * dy)
+        p_in = float(beta_grid * np.sum(w_orth * (np.abs(u0) ** 2)))
     else:
-        w_orth = 1.0 / np.real(eps_port_1d)
-        p_in = float(beta_grid * np.sum(w_orth * (np.abs(u0) ** 2)) * dy)
+        w_orth = dy_n / np.real(eps_port_1d)
+        p_in = float(beta_grid * np.sum(w_orth * (np.abs(u0) ** 2)))
 
-    norm_u0 = float(np.sum(w_orth * (np.abs(u0) ** 2)) * dy)
+    norm_u0 = float(np.sum(w_orth * (np.abs(u0) ** 2)))
     # At iz_refl < iz_src, field is purely reflected scattered field!
-    amp_r = complex(np.sum(w_orth * field[iz_refl, :] * np.conj(u0)) * dy / norm_u0)
+    amp_r = complex(np.sum(w_orth * field[iz_refl, :] * np.conj(u0)) / norm_u0)
     r_mag = float(min(abs(amp_r), 0.999))
     r_power = r_mag ** 2
 
-    amp_t_wg = complex(np.sum(w_orth * field[iz_trans, :] * np.conj(u0)) * dy / norm_u0)
+    amp_t_wg = complex(np.sum(w_orth * field[iz_trans, :] * np.conj(u0)) / norm_u0)
     t_wg_power = float(min(abs(amp_t_wg) ** 2, 1.0))
 
-    # Upward (+y) and downward (-y) Poynting flux across horizontal monitors above/below grating
+    # Upward (+y) and downward (-y) Poynting flux across horizontal monitors (exact 3-pt non-uniform derivative)
     z_mon = z_um[iz_mon_slice]
     f_up = field[iz_mon_slice, iy_up_mon]
-    df_dy_up = (field[iz_mon_slice, iy_up_mon + 1] - field[iz_mon_slice, iy_up_mon - 1]) / (2.0 * dy)
+    h_up_m = float(y_um[iy_up_mon] - y_um[iy_up_mon - 1])
+    h_up_p = float(y_um[iy_up_mon + 1] - y_um[iy_up_mon])
+    df_dy_up = (
+        (h_up_m / (h_up_p * (h_up_m + h_up_p))) * field[iz_mon_slice, iy_up_mon + 1]
+        + ((h_up_p - h_up_m) / (h_up_m * h_up_p)) * f_up
+        - (h_up_p / (h_up_m * (h_up_m + h_up_p))) * field[iz_mon_slice, iy_up_mon - 1]
+    )
     f_dn = field[iz_mon_slice, iy_dn_mon]
-    df_dy_dn = (field[iz_mon_slice, iy_dn_mon + 1] - field[iz_mon_slice, iy_dn_mon - 1]) / (2.0 * dy)
+    h_dn_m = float(y_um[iy_dn_mon] - y_um[iy_dn_mon - 1])
+    h_dn_p = float(y_um[iy_dn_mon + 1] - y_um[iy_dn_mon])
+    df_dy_dn = (
+        (h_dn_m / (h_dn_p * (h_dn_m + h_dn_p))) * field[iz_mon_slice, iy_dn_mon + 1]
+        + ((h_dn_p - h_dn_m) / (h_dn_m * h_dn_p)) * f_dn
+        - (h_dn_p / (h_dn_m * (h_dn_m + h_dn_p))) * field[iz_mon_slice, iy_dn_mon - 1]
+    )
 
     if is_te:
         # S_y proportional to Im(conj(Ex) * dEx/dy)
@@ -1020,9 +1040,12 @@ def design_grating_coupler(
         / max((np.sum(u_lat ** 2) * dx_lat) * (np.sum(g_lat ** 2) * dx_lat), 1e-30)
     )
 
-    # Stage 2: Build 2D Sagittal FDFD Grid with Subpixel Interface Smoothing
-    dz = round(0.032 * wl_scale, 5)
-    dy = round(0.024 * wl_scale, 5)
+    # Stage 2: Build 2D Sagittal FDFD Grid with Non-Uniform Core-Refined y-Mesh & Subpixel Averaging
+    # Longitudinal dz (~19 pts/lambda in Si) suppresses 2nd-order Yee dispersion while graded y-mesh
+    # resolves the thin partial-etch core at ~13 nm and stays <= 44 nm in BOX/cladding/Si-substrate.
+    dz = round(0.024 * wl_scale, 5)
+    dy_core = round(0.013 * wl_scale, 5)
+    dy_clad = round(0.044 * wl_scale, 5)
     pml_z = round(0.75 * wl_scale, 3)
     pml_y = round(0.65 * wl_scale, 3)
 
@@ -1039,7 +1062,31 @@ def design_grating_coupler(
     y_max = round(float(film_height_um) + t_top + air_buf + pml_y, 4)
 
     z_um = np.arange(0.0, z_max, dz)
-    y_um = np.arange(y_min, y_max, dy)
+
+    def _build_graded_y(y_lo: float, y_hi: float, c_lo: float, c_hi: float, h_f: float, h_c: float, r: float = 1.15) -> np.ndarray:
+        yc = np.arange(c_lo, c_hi + 0.5 * h_f, h_f)
+        lo_pts = []
+        y_cur = float(yc[0])
+        step = h_f
+        while y_cur > y_lo + 1e-6:
+            step = min(step * r, h_c)
+            y_cur = max(y_lo, y_cur - step)
+            lo_pts.append(y_cur)
+        hi_pts = []
+        y_cur = float(yc[-1])
+        step = h_f
+        while y_cur < y_hi - 1e-6:
+            step = min(step * r, h_c)
+            y_cur = min(y_hi, y_cur + step)
+            hi_pts.append(y_cur)
+        return np.concatenate([np.array(lo_pts[::-1], dtype=np.float64), yc, np.array(hi_pts, dtype=np.float64)])
+
+    y_um = _build_graded_y(y_min, y_max, -0.06 * wl_scale, float(film_height_um) + 0.06 * wl_scale, dy_core, dy_clad)
+    dy_edges = np.empty(len(y_um) + 1, dtype=np.float64)
+    dy_edges[1:-1] = 0.5 * (y_um[:-1] + y_um[1:])
+    dy_edges[0] = y_um[0] - 0.5 * (y_um[1] - y_um[0])
+    dy_edges[-1] = y_um[-1] + 0.5 * (y_um[-1] - y_um[-2])
+    dy_cell = np.maximum(np.diff(dy_edges), 1e-9)
 
     iz_src = int(np.argmin(np.abs(z_um - (pml_z + 0.95 * wl_scale))))
     iz_refl = int(np.argmin(np.abs(z_um - (pml_z + 0.40 * wl_scale))))
@@ -1062,16 +1109,16 @@ def design_grating_coupler(
         nsub = float(sub_fn(wm, T_REF_K).nx) if clad_material == "SiO2" else ncl
         nsup = n_f_env  # Superstrate above top_clad (air or index-matching gel)
 
-        # Base 1D unetched stack along y (eps_1d includes bottom Si handle; eps_port_1d keeps BOX below core
-        # so the 1D port solver extracts the genuine waveguide core mode rather than a thick Si-wafer slab mode)
+        # Base 1D unetched stack along y (subpixel cell-averaged over exact dual intervals [dy_edges[iy], dy_edges[iy+1]])
         eps_1d = np.empty(len(y_um), dtype=np.float64)
         eps_port_1d = np.empty(len(y_um), dtype=np.float64)
-        for iy, yv in enumerate(y_um):
-            y_lo = yv - 0.5 * dy
-            y_hi = yv + 0.5 * dy
+        for iy in range(len(y_um)):
+            y_lo = float(dy_edges[iy])
+            y_hi = float(dy_edges[iy + 1])
+            dy_i = float(dy_cell[iy])
 
             def _ov(a: float, b: float) -> float:
-                return max(0.0, min(y_hi, b) - max(y_lo, a)) / dy
+                return max(0.0, min(y_hi, b) - max(y_lo, a)) / dy_i
 
             f_sub = _ov(-1e6, -t_box)
             f_box = _ov(-t_box, 0.0)
@@ -1100,9 +1147,10 @@ def design_grating_coupler(
         y_etch_top = float(film_height_um)
 
         # Vertical etch-zone overlap weights (Ny,)
-        wy_etch = np.array(
-            [max(0.0, min(yv + 0.5 * dy, y_etch_top) - max(yv - 0.5 * dy, y_etch_bot)) / dy for yv in y_um]
-        )
+        wy_etch = np.array([
+            max(0.0, min(float(dy_edges[iy + 1]), y_etch_top) - max(float(dy_edges[iy]), y_etch_bot)) / float(dy_cell[iy])
+            for iy in range(len(y_um))
+        ])
         etch_mask_y = wy_etch > 0.0
 
         for g0_loc, g1_loc in grooves_local:

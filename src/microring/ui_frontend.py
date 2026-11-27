@@ -4,11 +4,11 @@ Designed for clarity and zero visual overload:
   - Left Panel: Spacious Guided Chatbot asking ONE clear question at a time with clickable cards/chips.
   - Top Bar: 6-Step Progress Tracker + optional `⚙ Expert Controls` slide-over drawer (hidden by default).
   - Right Panel: Contextual Live Stage showing ONLY the visual relevant to the current step:
-      1) `overview` — Workflow Entry Cards + Live Design Blueprint & Cross-Section SVG
-      2) `mode`     — 2D Vector Mode |E| Heatmap + Single-Mode Width Cutoff Curve
-      3) `mrr`      — 5 Key KPIs (including Propagation Loss dB/cm <-> Q_int) + Spectrum + Coupler/Sweep Curve
-      4) `gds`      — Interactive 2D GDSII Polygon & Sub-nm Gap Caliper Canvas + Mask Export
-      5) `fit`      — Lab Spectrum CMT Fitter & Propagation Loss (`dB/cm`) Extractor -> 1-Click Design Handoff
+      1) `overview`: Workflow Entry Cards + Live Design Blueprint & Cross-Section SVG
+      2) `mode`:     2D Vector Mode |E| Heatmap + Single-Mode Width Cutoff / Mode Spectrum
+      3) `mrr`:      5 Key KPIs (including Propagation Loss dB/cm <-> Q_int) + Spectrum + Coupler/Sweep Curve
+      4) `gds`:      Interactive 2D GDSII Polygon & Sub-nm Gap Caliper Canvas + Mask Export
+      5) `fit`:      Lab Spectrum CMT Fitter & Propagation Loss (`dB/cm`) Extractor -> 1-Click Design Handoff
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ HTML_APP_PAGE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>MicroRing Studio — Guided Photonics Microring Designer</title>
+<title>MicroRing Studio · Independent First-Principles Photonics PDE Solver</title>
 <style>
 :root {
   --bg-app: #0b101b;
@@ -51,38 +51,40 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ==================== TOP HEADER & STEP PROGRESS ==================== */
+/* ==================== TOP HEADER & MINIMAL CONTROLS ==================== */
 header {
-  height: 58px;
-  background: #0d1424;
+  height: 52px;
+  background: #0b111e;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  gap: 16px;
+  padding: 0 18px;
+  gap: 14px;
   flex-shrink: 0;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-logo {
-  width: 32px; height: 32px; border-radius: 9px;
+  width: 30px; height: 30px; border-radius: 8px;
   background: linear-gradient(135deg, #0ea5e9, #6366f1);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 15px; color: #fff;
-  box-shadow: 0 2px 10px rgba(14,165,233,0.35);
+  font-weight: 800; font-size: 14px; color: #fff;
+  box-shadow: 0 2px 10px rgba(14,165,233,0.30);
 }
-.brand-title { font-size: 15.5px; font-weight: 700; letter-spacing: 0.2px; }
+.brand-title { font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
+.brand-sub { font-size: 11px; color: var(--text-muted); margin-left: 2px; }
 .hw-pill {
-  font-size: 11px; padding: 3px 9px; border-radius: 999px;
-  background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35);
+  font-size: 10.5px; padding: 2.5px 8px; border-radius: 999px;
+  background: rgba(52,211,153,0.10); border: 1px solid rgba(52,211,153,0.32);
   color: var(--green); font-family: var(--font-mono);
 }
 
 .stepper {
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(22,32,51,0.75); padding: 5px 10px;
+  display: none; align-items: center; gap: 5px;
+  background: rgba(22,32,51,0.75); padding: 4px 10px;
   border-radius: 999px; border: 1px solid var(--border);
 }
+.stepper.visible { display: flex; }
 .step-item {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--text-muted);
@@ -235,22 +237,85 @@ header {
   background: var(--bg-app);
 }
 .stage-topbar {
-  height: 46px; padding: 0 22px;
+  height: 44px; padding: 0 20px;
   border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-  background: rgba(17,24,39,0.65); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: rgba(15,23,42,0.72); flex-shrink: 0; position: relative;
 }
-.stage-pills { display: flex; gap: 5px; }
+.stage-context-left {
+  display: flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden;
+}
+.stage-active-name {
+  font-size: 12.5px; font-weight: 700; color: var(--text-main); white-space: nowrap;
+}
+.solver-proof-pill {
+  display: none; align-items: center; gap: 6px;
+  font-size: 11px; font-family: var(--font-mono);
+  padding: 2.5px 9px; border-radius: 999px;
+  background: rgba(56,189,248,0.10); border: 1px solid rgba(56,189,248,0.32);
+  color: #bae6fd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.solver-proof-pill.live { display: inline-flex; }
+.solver-proof-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0;
+}
+.stage-topbar-right {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0; position: relative;
+}
+.modules-popover {
+  display: none; position: absolute; top: 38px; right: 0; z-index: 80;
+  width: 440px; max-width: 88vw;
+  background: #0f172a; border: 1px solid #334155; border-radius: 12px;
+  padding: 12px; box-shadow: 0 18px 42px rgba(0,0,0,0.62);
+}
+.modules-popover.open { display: block; }
+.modules-popover-hdr {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-muted); font-weight: 700; margin-bottom: 8px; padding: 0 4px;
+}
+.stage-pills {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
+}
 .stage-pill {
-  padding: 5px 12px; border-radius: 7px; border: 1px solid transparent;
-  background: transparent; color: var(--text-muted);
-  font-size: 12px; font-weight: 600; cursor: pointer;
+  padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(36,50,75,0.8);
+  background: rgba(22,32,51,0.55); color: var(--text-sub);
+  font-size: 12px; font-weight: 600; cursor: pointer; text-align: left;
+  transition: all 0.14s ease;
 }
-.stage-pill:hover { color: var(--text-main); background: rgba(255,255,255,0.04); }
+.stage-pill:hover { color: #fff; background: #1d2a44; border-color: #475569; }
 .stage-pill.active {
-  background: var(--bg-card); border-color: var(--border); color: var(--cyan);
+  background: rgba(56,189,248,0.14); border-color: var(--cyan); color: var(--cyan);
 }
-.stage-status { font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono); }
+.stage-status { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; }
+
+/* CLEAN EMPTY-STATE SOLVER CANVAS */
+.solver-hero {
+  background: linear-gradient(180deg, rgba(17,24,39,0.92), rgba(13,20,36,0.75));
+  border: 1px solid var(--border); border-radius: 14px; padding: 26px 28px;
+}
+.solver-hero-kicker {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--cyan); margin-bottom: 10px;
+}
+.solver-hero h1 { font-size: 20px; font-weight: 800; color: #f8fafc; margin-bottom: 8px; letter-spacing: -0.2px; }
+.solver-hero p { font-size: 13.2px; color: var(--text-sub); line-height: 1.6; max-width: 720px; }
+.engine-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 18px;
+}
+.engine-card {
+  background: rgba(15,23,42,0.7); border: 1px solid var(--border);
+  border-radius: 10px; padding: 13px 15px;
+}
+.engine-card-title { font-size: 12.8px; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
+.engine-card-desc { font-size: 11.8px; color: var(--text-muted); line-height: 1.5; }
+.dropzone-hint {
+  margin-top: 14px; padding: 11px 14px; border-radius: 10px;
+  border: 1px dashed #334155; background: rgba(13,20,36,0.5);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: var(--text-muted);
+}
+.chat-col.drag-over { outline: 2px dashed var(--cyan); outline-offset: -6px; background: #132036; }
 
 .stage-content {
   flex: 1; overflow-y: auto; padding: 22px;
@@ -456,57 +521,84 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
   <!-- RIGHT: CLEAN CONTEXTUAL LIVE STAGE -->
   <main class="stage-col">
     <div class="stage-topbar">
-      <div class="stage-pills">
-        <button class="stage-pill active" id="pill-overview" onclick="setStageView('overview')" data-i18n="pill_overview">📋 Blueprint</button>
-        <button class="stage-pill" id="pill-mode" onclick="setStageView('mode')" data-i18n="pill_mode">🔬 2D Mode</button>
-        <button class="stage-pill" id="pill-mrr" onclick="setStageView('mrr')" data-i18n="pill_mrr">📊 Ring Spectrum</button>
-        <button class="stage-pill" id="pill-gds" onclick="setStageView('gds')" data-i18n="pill_gds">📐 GDS Mask</button>
-        <button class="stage-pill" id="pill-fit" onclick="setStageView('fit')" data-i18n="pill_fit">📈 Loss &amp; Q Fit</button>
-        <button class="stage-pill" id="pill-fab" onclick="setStageView('fab'); if(!lastFabResult) runFabToleranceUI();" data-i18n="pill_fab">🧪 Fab &amp; Dose</button>
-        <button class="stage-pill" id="pill-tuning" onclick="setStageView('tuning'); if(!lastTuningResult) runActiveTuningUI();" data-i18n="pill_tuning">⚡ Tuning &amp; IC</button>
-        <button class="stage-pill" id="pill-io" onclick="setStageView('io'); if(!lastIoResult && !lastHighQResult) runIoCouplerUI();" data-i18n="pill_io">🔌 I/O &amp; High-Q</button>
-        <button class="stage-pill" id="pill-mzi" onclick="setStageView('mzi'); if(!lastMziResult) runMziUI();" data-i18n="pill_mzi">🔀 MZI</button>
-        <button class="stage-pill" id="pill-eom" onclick="setStageView('eom'); if(!lastEomResult) runEomUI();" data-i18n="pill_eom">📡 EOM · PN · Thermal</button>
-        <button class="stage-pill" id="pill-foundry" onclick="setStageView('foundry'); if(!lastFoundryResult) runFoundrySuiteUI();" data-i18n="pill_foundry">🏭 PDK · PRISM · WDM</button>
+      <div class="stage-context-left">
+        <span class="stage-active-name" id="stage-active-name" data-i18n="stage_idle_title">Live Solver Canvas</span>
+        <span class="solver-proof-pill" id="solver-proof-badge">
+          <span class="solver-proof-dot"></span>
+          <span id="solver-proof-text"></span>
+        </span>
       </div>
-      <span class="stage-status" id="spec-status" data-i18n="status_ready">Ready · 400 nm – 14 µm</span>
+      <div class="stage-topbar-right">
+        <span class="stage-status" id="spec-status" data-i18n="status_ready">Ready · 400 nm – 14 µm</span>
+        <button class="btn sm" id="btn-modules-menu" onclick="toggleModulesPopover()" data-i18n="btn_modules">🧩 Solver Views ▾</button>
+        <div class="modules-popover" id="modules-popover">
+          <div class="modules-popover-hdr" data-i18n="modules_menu_hdr">Manual Solver Inspector (Optional · Chat Routes Automatically)</div>
+          <div class="stage-pills">
+            <button class="stage-pill active" id="pill-overview" onclick="setStageView('overview'); toggleModulesPopover(false);" data-i18n="pill_overview">🏠 Solver Home</button>
+            <button class="stage-pill" id="pill-mode" onclick="setStageView('mode'); toggleModulesPopover(false);" data-i18n="pill_mode">🔬 2D Vector Mode</button>
+            <button class="stage-pill" id="pill-mrr" onclick="setStageView('mrr'); toggleModulesPopover(false);" data-i18n="pill_mrr">📊 Ring Resonator</button>
+            <button class="stage-pill" id="pill-mzi" onclick="setStageView('mzi'); toggleModulesPopover(false);" data-i18n="pill_mzi">🔀 MZI &amp; Splitters</button>
+            <button class="stage-pill" id="pill-io" onclick="setStageView('io'); toggleModulesPopover(false);" data-i18n="pill_io">🔌 Butt / GC &amp; High-Q</button>
+            <button class="stage-pill" id="pill-eom" onclick="setStageView('eom'); toggleModulesPopover(false);" data-i18n="pill_eom">📡 RF EOM · PN · Thermal</button>
+            <button class="stage-pill" id="pill-tuning" onclick="setStageView('tuning'); toggleModulesPopover(false);" data-i18n="pill_tuning">⚡ Active Tuning &amp; IC</button>
+            <button class="stage-pill" id="pill-fab" onclick="setStageView('fab'); toggleModulesPopover(false);" data-i18n="pill_fab">🧪 Fab &amp; PR Dose</button>
+            <button class="stage-pill" id="pill-foundry" onclick="setStageView('foundry'); toggleModulesPopover(false);" data-i18n="pill_foundry">🏭 PDK · PRISM · WDM</button>
+            <button class="stage-pill" id="pill-gds" onclick="setStageView('gds'); toggleModulesPopover(false);" data-i18n="pill_gds">📐 GDS Inspector</button>
+            <button class="stage-pill" id="pill-fit" onclick="setStageView('fit'); toggleModulesPopover(false);" data-i18n="pill_fit">📈 Lab Spectrum Fit</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="stage-content">
 
-      <!-- ==================== STAGE 1: OVERVIEW & LIVE BLUEPRINT ==================== -->
+      <!-- ==================== STAGE 1: CLEAN SOLVER CANVAS & LIVE SESSION BLUEPRINT ==================== -->
       <div class="stage-view active" id="view-overview">
-        <div class="workflow-grid">
-          <div class="wf-card" onclick="sendChatPrompt(currentLang==='zh'?'开始逐步设计微环':'Start step-by-step microring design')">
-            <div class="wf-icon">✨</div>
-            <div class="wf-title" data-i18n="wf1_title">1. Design a New Ring Step-by-Step</div>
-            <div class="wf-desc" data-i18n-html="wf1_desc">Answer one simple question at a time — waveband, material, wafer stack, propagation loss (<code>dB/cm</code>), and target FSR.</div>
+        <div class="solver-hero" id="overview-empty-state">
+          <div class="solver-hero-kicker">
+            <span class="solver-proof-dot"></span>
+            <span data-i18n="hero_kicker">First-Principles Local PDE Engine · Zero Lookup Tables</span>
           </div>
-          <div class="wf-card" onclick="openSpectrumFitterDirect()">
-            <div class="wf-icon">📈</div>
-            <div class="wf-title" data-i18n-html="wf2_title">2. Extract Loss (<code>dB/cm</code>) from Spectrum</div>
-            <div class="wf-desc" data-i18n-html="wf2_desc">Upload your measured <code>.CSV</code> trace (linear or <code>dB</code>) to fit <code>Q_int</code>, propagation loss <code>α [dB/cm]</code>, mode splitting &amp; <code>n_g</code>.</div>
+          <h1 data-i18n="hero_title">Describe any photonic device in chat, solved live from Maxwell, Laplace, Poisson-Boltzmann &amp; Fourier PDEs.</h1>
+          <p data-i18n="hero_sub">No pre-cooked device templates required. Specify any wavelength (400 nm – 14 µm), geometry, sidewall angle, 29 dispersive materials, or your own arbitrary refractive indices (n_core, n_clad), and the exact solver view appears here automatically.</p>
+
+          <div class="engine-grid">
+            <div class="engine-card">
+              <div class="engine-card-title" data-i18n="eng1_t">🔬 Conformal 2D Vector Maxwell FEM</div>
+              <div class="engine-card-desc" data-i18n="eng1_d">2nd-order Nedelec1×P2 curl-curl eigenmodes for straight &amp; bent waveguides, angled sidewalls, uniaxial crystals, or custom (n_core, n_clad).</div>
+            </div>
+            <div class="engine-card">
+              <div class="engine-card-title" data-i18n="eng2_t">📊 Rings, MZIs &amp; 2D-FDFD Chip I/O</div>
+              <div class="engine-card-desc" data-i18n="eng2_d">7 microring topologies (Q = 10⁴–10⁸+), DC/MMI/Y-Branch EME, inverse-taper butt couplers &amp; UPML 2D-FDFD surface grating couplers.</div>
+            </div>
+            <div class="engine-card">
+              <div class="engine-card-title" data-i18n="eng3_t">📡 Sub-THz RF, Si PN TCAD &amp; Thermal FEM</div>
+              <div class="engine-card-desc" data-i18n="eng3_d">10–300+ GHz GSG/T-Rail quasi-TEM RF electrodes, 2D Poisson-Boltzmann PN junctions, and Crank-Nicolson transient thermal FEM.</div>
+            </div>
+            <div class="engine-card">
+              <div class="engine-card-title" data-i18n="eng4_t">📐 Bidirectional .GDS, DRC/LVS &amp; Lab .CSV</div>
+              <div class="engine-card-desc" data-i18n="eng4_d">Upload any .GDS/.OAS mask for polygon caliper extraction &amp; cutline 2D-FEM, or fit measured .CSV transmission spectra for Q_int &amp; dB/cm loss.</div>
+            </div>
           </div>
-          <div class="wf-card" onclick="document.getElementById('gds-file-input').click()">
-            <div class="wf-icon">📐</div>
-            <div class="wf-title" data-i18n-html="wf3_title">3. Upload &amp; Analyze a <code>.GDS</code> Mask</div>
-            <div class="wf-desc" data-i18n-html="wf3_desc">Inspect existing <code>.GDS</code> / <code>.OAS</code> layouts with automatic polygon gap calipers and simulate their optical spectrum.</div>
+
+          <div class="dropzone-hint">
+            <span data-i18n="drop_hint">Drag &amp; drop any .gds, .oas, or lab .csv onto the chat panel, use the upload buttons below the chat, or open an inspector from 🧩 Solver Views.</span>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" id="bp-card" style="display:none;">
           <div class="card-head">
-            <span class="card-title" data-i18n="bp_card_title">Live Design Blueprint (Updates as You Chat)</span>
-            <span class="card-sub" id="bp-stage-badge" data-i18n="bp_badge">Guided Setup</span>
+            <span class="card-title" data-i18n="bp_card_title">Active Session Geometry (Updates as You Chat)</span>
+            <span class="card-sub" id="bp-stage-badge" data-i18n="bp_badge">Live Config</span>
           </div>
           <div class="blueprint-grid">
             <div class="spec-list">
-              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_wl">Wavelength &amp; Pol</div><div class="spec-val" id="bp-wl">1550 nm · TE0</div></div>
-              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_mat">Core Platform</div><div class="spec-val" id="bp-mat">Si3N4</div></div>
-              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_stack">Wafer Stack</div><div class="spec-val" id="bp-stack">H=400 nm, Strip</div></div>
-              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_loss">Propagation Loss α</div><div class="spec-val" id="bp-loss">Foundry Default</div></div>
-              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_top">Topology</div><div class="spec-val" id="bp-top">Point Circular</div></div>
-              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_geom">Radius &amp; Gap</div><div class="spec-val" id="bp-geom">R=40 µm · g=250 nm</div></div>
+              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_wl">Wavelength &amp; Pol</div><div class="spec-val" id="bp-wl">--</div></div>
+              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_mat">Core Platform</div><div class="spec-val" id="bp-mat">--</div></div>
+              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_stack">Wafer Stack</div><div class="spec-val" id="bp-stack">--</div></div>
+              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_loss">Propagation Loss α</div><div class="spec-val" id="bp-loss">--</div></div>
+              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_top">Topology</div><div class="spec-val" id="bp-top">--</div></div>
+              <div class="spec-box"><div class="spec-lbl" data-i18n="bp_lbl_geom">Radius &amp; Gap</div><div class="spec-val" id="bp-geom">--</div></div>
             </div>
             <div id="svg-xsec-overview" style="display:flex;justify-content:center;"></div>
           </div>
@@ -517,19 +609,19 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
       <div class="stage-view" id="view-mode">
         <div class="kpi-row four">
           <div class="kpi-card">
-            <div class="kpi-lbl" data-i18n="mode_lbl_sm">Single-Mode Max Width</div>
+            <div class="kpi-lbl" id="mode-lbl-1" data-i18n="mode_lbl_sm">Single-Mode Max Width</div>
             <div class="kpi-val green" id="mode-kpi-sm">--</div>
-            <div class="kpi-sub">TE1 / TM1 Cutoff</div>
+            <div class="kpi-sub" id="mode-sub-1" data-i18n="mode_sub_sm">TE1 / TM1 Cutoff</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-lbl" data-i18n="mode_lbl_wbus">Recommended Bus W</div>
+            <div class="kpi-lbl" id="mode-lbl-2" data-i18n="mode_lbl_wbus">Recommended Bus W</div>
             <div class="kpi-val cyan" id="mode-kpi-wbus">--</div>
-            <div class="kpi-sub">Strictly Single-Mode</div>
+            <div class="kpi-sub" id="mode-sub-2" data-i18n="mode_sub_wbus">Strictly Single-Mode</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-lbl" data-i18n="mode_lbl_wring">Recommended Ring W</div>
+            <div class="kpi-lbl" id="mode-lbl-3" data-i18n="mode_lbl_wring">Recommended Ring W</div>
             <div class="kpi-val" id="mode-kpi-wring">--</div>
-            <div class="kpi-sub">Low Sidewall Loss</div>
+            <div class="kpi-sub" id="mode-sub-3" data-i18n="mode_sub_wring">Low Sidewall Loss</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-lbl" data-i18n="mode_lbl_neff">Fundamental Mode</div>
@@ -542,26 +634,26 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
           <div class="card">
             <div class="card-head">
               <span class="card-title" data-i18n="mode_card_field">2D Vector Eigenmode Field</span>
-              <div style="display:flex;gap:6px;align-items:center;">
-                <select id="mode-comp" onchange="renderSelectedMode()" style="background:#0d1424;color:#e2e8f0;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11.5px;">
-                  <option value="E_abs">|E| Total</option>
-                  <option value="Ex_abs">|E_x| Radial (TE)</option>
-                  <option value="Ey_abs">|E_y| Vertical (TM)</option>
+              <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+                <select id="mode-comp" onchange="renderSelectedMode()" style="background:#0d1424;color:#e2e8f0;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11.5px;width:auto;min-width:118px;white-space:nowrap;">
+                  <option value="E_abs" data-i18n="mode_opt_etot">|E| Total</option>
+                  <option value="Ex_abs" data-i18n="mode_opt_ex">|E_x| Radial (TE)</option>
+                  <option value="Ey_abs" data-i18n="mode_opt_ey">|E_y| Vertical (TM)</option>
                 </select>
-                <span class="card-sub" id="mode-meta"></span>
+                <span class="card-sub" id="mode-meta" style="white-space:nowrap;"></span>
               </div>
             </div>
             <canvas class="plot-cv" id="cv-mode"></canvas>
             <table class="clean-tbl" id="mode-table" style="margin-top:8px;">
-              <thead><tr><th>Mode</th><th>n_eff</th><th>TE %</th><th>Core Γ</th><th>A_eff [µm²]</th></tr></thead>
+              <thead><tr><th style="white-space:nowrap;" data-i18n="mode_th_mode">Mode</th><th style="white-space:nowrap;">n_eff</th><th style="white-space:nowrap;">TE %</th><th style="white-space:nowrap;" data-i18n="mode_th_gamma">Core Γ</th><th style="white-space:nowrap;">A_eff [µm²]</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
 
           <div class="card">
             <div class="card-head">
-              <span class="card-title" data-i18n="mode_card_cutoff">Waveguide Width Dispersion &amp; Cutoff</span>
-              <span class="card-sub" id="width-cutoff-badge">2D FEM Sweep</span>
+              <span class="card-title" id="mode-card-cutoff-title" data-i18n="mode_card_cutoff">Waveguide Width Dispersion &amp; Cutoff</span>
+              <span class="card-sub" id="width-cutoff-badge" data-i18n="mode_badge_sweep">2D FEM Sweep</span>
             </div>
             <canvas class="plot-cv tall" id="cv-width-sweep"></canvas>
           </div>
@@ -674,9 +766,12 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <input type="file" id="csv-fit-input" accept=".csv,.txt,.tsv" style="display:none" onchange="loadLabCsvFile(this.files[0])"/>
               <button class="btn primary sm" onclick="document.getElementById('csv-fit-input').click()" data-i18n="fit_btn_up">📂 Upload Lab .CSV / .TXT</button>
-              <button class="btn sm" onclick="loadDemoSpectrum('split_doublet')" data-i18n="fit_demo_doublet">Demo: Split Doublet</button>
-              <button class="btn sm" onclick="loadDemoSpectrum('lorentzian')" data-i18n="fit_demo_single">Demo: Single Dip</button>
-              <button class="btn sm" onclick="loadDemoSpectrum('multi_fsr')" data-i18n="fit_demo_mfsr">Demo: Multi-FSR (Auto n_g + Loss)</button>
+              <select id="fit-synth-sel" onchange="if(this.value){loadDemoSpectrum(this.value); this.value='';}" style="background:#0d1424;color:var(--text-muted);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:11.5px;">
+                <option value="">Test Signal (Optional)...</option>
+                <option value="split_doublet">Synthetic Split Doublet</option>
+                <option value="lorentzian">Synthetic Single Dip</option>
+                <option value="multi_fsr">Synthetic Multi-FSR</option>
+              </select>
             </div>
           </div>
 
@@ -1247,7 +1342,6 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
           <div class="card-head">
             <span class="card-title" data-i18n="eom_card_title">2D-FEM RF Electrode Layout + Si PN Doping TCAD + Steady/Transient Thermal FEM (Zero COMSOL / CHARGE / HEAT)</span>
             <div class="action-bar" style="margin:0;">
-              <button class="btn sm" onclick="apply300GHzLnTRailPreset()" title="Populate editable 300 GHz Quartz X-Cut TFLN Slow-Wave T-Rail parameters and solve">⚡ 300 GHz LN T-Rail</button>
               <button class="btn primary sm" onclick="runEomUI()" data-i18n="eom_btn_run">▶ Solve 2D-FEM Physics</button>
               <button class="btn green sm" onclick="exportEomGdsUI()" data-i18n="eom_btn_gds">💾 Export Cleanroom .GDS</button>
               <button class="btn amber sm" onclick="exportEomBundleUI()" data-i18n="eom_btn_ic">📦 Export .S2P / TCAD (.ZIP)</button>
@@ -1872,6 +1966,8 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         <div class="field"><label>Heater ΔT [K]</label><input id="cfg-dt" type="number" step="1" value="0"/></div>
         <div class="field"><label>Bias V [V]</label><input id="cfg-volt" type="number" step="1" value="0"/></div>
         <div class="field"><label>Ring-2 R_2 [µm]</label><input id="cfg-r2" type="number" step="0.5" value="42.5"/></div>
+        <div class="field"><label>Custom n_core</label><input id="cfg-custom-n" type="number" step="0.01" placeholder="Catalog"/></div>
+        <div class="field"><label>Custom n_clad</label><input id="cfg-custom-clad-n" type="number" step="0.01" placeholder="Catalog"/></div>
       </div>
       <!-- Hidden helper inputs for 2D mode & sweep array compatibility -->
       <input type="hidden" id="mode-w" value="1.20"/>
@@ -1935,19 +2031,33 @@ let aiBackendStatus = { offline: true, ollama_available: false, claude_cli_avail
 const UI_I18N = {
   en: {
     step1: 'Goal', step2: 'Waveband', step3: 'Material', step4: 'Stack & Mode', step5: 'Loss & Ring', step6: 'Optimize & GDS',
-    btn_reset: '↻ Start Over', btn_expert: '⚙ Expert Controls',
-    choices_caption: 'Suggested Next Step (Click or type below)',
-    btn_up_gds_short: '📐 Upload .GDS', btn_ext_loss_short: '📈 Extract Loss (.CSV)', lbl_ollama: 'Local LLM Tip',
+    btn_reset: '↻ New Session', btn_expert: '⚙ Parameters', btn_modules: '🧩 Solver Views ▾',
+    modules_menu_hdr: 'Manual Solver Inspector (Optional · Chat Routes Automatically)',
+    stage_idle_title: 'Live Solver Canvas',
+    hero_kicker: 'First-Principles Local PDE Engine · Zero Lookup Tables',
+    hero_title: 'Describe any photonic device in chat, solved live from Maxwell, Laplace, Poisson-Boltzmann & Fourier PDEs.',
+    hero_sub: 'No pre-cooked device templates required. Specify any wavelength (400 nm – 14 µm), geometry, sidewall angle, 29 dispersive materials, or your own arbitrary refractive indices (n_core, n_clad), and the exact solver view appears here automatically.',
+    eng1_t: '🔬 Conformal 2D Vector Maxwell FEM',
+    eng1_d: '2nd-order Nedelec1×P2 curl-curl eigenmodes for straight & bent waveguides, angled sidewalls, uniaxial crystals, or custom (n_core, n_clad).',
+    eng2_t: '📊 Rings, MZIs & 2D-FDFD Chip I/O',
+    eng2_d: '7 microring topologies (Q = 10⁴–10⁸+), DC/MMI/Y-Branch EME, inverse-taper butt couplers & UPML 2D-FDFD surface grating couplers.',
+    eng3_t: '📡 Sub-THz RF, Si PN TCAD & Thermal FEM',
+    eng3_d: '10–300+ GHz GSG/T-Rail quasi-TEM RF electrodes, 2D Poisson-Boltzmann PN junctions, and Crank-Nicolson transient thermal FEM.',
+    eng4_t: '📐 Bidirectional .GDS, DRC/LVS & Lab .CSV',
+    eng4_d: 'Upload any .GDS/.OAS mask for polygon caliper extraction & cutline 2D-FEM, or fit measured .CSV transmission spectra for Q_int & dB/cm loss.',
+    drop_hint: 'Drag & drop any .gds, .oas, or lab .csv onto the chat panel, use the upload buttons below the chat, or open an inspector from 🧩 Solver Views.',
+    choices_caption: 'Quick Actions (Or describe any custom device below)',
+    btn_up_gds_short: '📐 Upload .GDS', btn_ext_loss_short: '📈 Upload .CSV', lbl_ollama: 'Local LLM Tip',
     ai_opt_offline: '⚡ Offline · Built-in Copilot',
     ai_opt_ollama: '🖥 Offline · Local Ollama / MLX',
     ai_opt_claude: '🟣 Online · Claude (CLI / API)',
     ai_opt_codex: '🟢 Online · Codex / OpenAI (CLI / API)',
-    chat_placeholder: "Type an answer or spec (e.g. 'loss = 0.8 dB/cm, FSR 150 GHz, pulley')...",
-    btn_send: 'Send →',
-    pill_overview: '📋 Blueprint', pill_mode: '🔬 2D Mode', pill_mrr: '📊 Ring Spectrum', pill_gds: '📐 GDS Mask', pill_fit: '📈 Loss & Q Fit', pill_fab: '🧪 Fab & Dose', pill_tuning: '⚡ Tuning & IC', pill_io: '🔌 Butt/GC & High-Q', pill_mzi: '🔀 MZI', pill_eom: '📡 EOM · PN · Thermal', pill_foundry: '🏭 PDK · PRISM · WDM',
+    chat_placeholder: "Describe any device or PDE solve (e.g. 'Solve a custom polymer waveguide W=900nm H=500nm n_core=1.68 n_clad=1.38 at 850nm')...",
+    btn_send: 'Solve →',
+    pill_overview: '🏠 Solver Home', pill_mode: '🔬 2D Vector Mode', pill_mrr: '📊 Ring Resonator', pill_gds: '📐 GDS Inspector', pill_fit: '📈 Lab Spectrum Fit', pill_fab: '🧪 Fab & PR Dose', pill_tuning: '⚡ Active Tuning & IC', pill_io: '🔌 Butt / GC & High-Q', pill_mzi: '🔀 MZI & Splitters', pill_eom: '📡 RF EOM · PN · Thermal', pill_foundry: '🏭 PDK · PRISM · WDM',
     status_ready: 'Ready · 400 nm – 14 µm',
     wf1_title: '1. Design a New Ring Step-by-Step',
-    wf1_desc: 'Answer one simple question at a time — waveband, material, wafer stack, propagation loss (<code>dB/cm</code>), and target FSR.',
+    wf1_desc: 'Answer one simple question at a time: waveband, material, wafer stack, propagation loss (<code>dB/cm</code>), and target FSR.',
     wf2_title: '2. Extract Loss (<code>dB/cm</code>) from Spectrum',
     wf2_desc: 'Upload your measured <code>.CSV</code> trace (linear or <code>dB</code>) to fit <code>Q_int</code>, propagation loss <code>α [dB/cm]</code>, mode splitting &amp; <code>n_g</code>.',
     wf3_title: '3. Upload &amp; Analyze a <code>.GDS</code> Mask',
@@ -1956,7 +2066,14 @@ const UI_I18N = {
     bp_lbl_wl: 'Wavelength & Pol', bp_lbl_mat: 'Core Platform', bp_lbl_stack: 'Wafer Stack',
     bp_lbl_loss: 'Propagation Loss α', bp_lbl_top: 'Topology', bp_lbl_geom: 'Radius & Gap',
     mode_lbl_sm: 'Single-Mode Max Width', mode_lbl_wbus: 'Recommended Bus W', mode_lbl_wring: 'Recommended Ring W', mode_lbl_neff: 'Fundamental Mode',
+    mode_sub_sm: 'TE1 / TM1 Cutoff', mode_sub_wbus: 'Strictly Single-Mode', mode_sub_wring: 'Low Sidewall Loss',
+    mode_lbl_gamma: 'Core Confinement Γ', mode_sub_gamma: 'Optical Power in Core',
+    mode_lbl_aeff: 'Effective Area A_eff', mode_sub_aeff: 'Modal Footprint',
+    mode_lbl_te: 'TE Polarization', mode_sub_te: 'Fundamental Mode M0',
+    mode_opt_etot: '|E| Total', mode_opt_ex: '|E_x| Radial (TE)', mode_opt_ey: '|E_y| Vertical (TM)',
+    mode_th_mode: 'Mode', mode_th_gamma: 'Core Γ',
     mode_card_field: '2D Vector Eigenmode Field', mode_card_cutoff: 'Waveguide Width Dispersion & Cutoff',
+    mode_card_spectrum: 'Guided Mode Spectrum (n_eff)', mode_badge_sweep: '2D FEM Sweep', mode_badge_spec: 'Click Row to Inspect',
     mrr_lbl_fsr: 'Free Spectral Range', mrr_lbl_loss: 'Prop. Loss α & Q_int', mrr_lbl_ql: 'Loaded Q Factor', mrr_lbl_er: 'Extinction Ratio', mrr_lbl_cc: 'Critical Coupling',
     mrr_btn_cc: '⚡ Apply Critical Coupling', mrr_btn_io: '🔌 Butt / GC & High-Q', mrr_btn_tune: '🎛️ Active Tuning & INTERCONNECT', mrr_btn_fab: '🧪 Fab / PR Dose Error', mrr_btn_sw_gap: '📏 Sweep Gap', mrr_btn_sw_loss: '📉 Sweep Loss (dB/cm)',
     mrr_btn_gds: '💾 Export .GDS Mask', mrr_btn_csv: '📥 Download Spectrum .CSV',
@@ -2030,8 +2147,6 @@ const UI_I18N = {
     eom_btn_run: '▶ Solve 2D-FEM Physics', eom_btn_gds: '💾 Export Cleanroom .GDS', eom_btn_ic: '📦 Export .S2P / TCAD (.ZIP)',
     eom_lbl_mode: 'Multiphysics Solver & Cleanroom Mask Mode',
     eom_opt_rf: '📡 EOM RF Traveling-Wave / Slow-Wave T-Rail / GSG Electrode + .S2P',
-    eom_opt_pn: '🔋 Silicon PN / L-Shaped / U-Shaped / PIN Doping TCAD (2D Poisson-Boltzmann)',
-    eom_opt_rf: '📡 EOM RF Traveling-Wave / Slow-Wave T-Rail / GSG Electrode + .S2P',
     eom_opt_wo: '🧭 EO Wafer Orientation & Crystal Azimuth Finder (0°–360° Polar Rosette + SEMI Flat)',
     eom_opt_pn: '🔋 Silicon PN / L-Shaped / U-Shaped / PIN Doping TCAD (2D Poisson-Boltzmann)',
     eom_opt_th: '🔥 Steady + Crank-Nicolson Transient Thermal FEM (Top / Trench / Undercut / Doped-Si)',
@@ -2045,19 +2160,33 @@ const UI_I18N = {
   },
   zh: {
     step1: '选择目标', step2: '工作波段', step3: '芯层材料', step4: '叠层与模式', step5: '损耗与微环', step6: '耦合优化与版图',
-    btn_reset: '↻ 重新开始', btn_expert: '⚙ 专家参数',
-    choices_caption: '下一步引导选项（点击按钮或在下方输入）',
-    btn_up_gds_short: '📐 上传 .GDS', btn_ext_loss_short: '📈 提取损耗 (.CSV)', lbl_ollama: '本地大模型建议',
+    btn_reset: '↻ 新对话', btn_expert: '⚙ 参数面板', btn_modules: '🧩 求解器视图 ▾',
+    modules_menu_hdr: '手动切换求解器视图（可选，对话会自动路由至对应画布）',
+    stage_idle_title: '实时物理求解画布',
+    hero_kicker: '本机第一性原理 PDE 独立求解器 · 零预制查表',
+    hero_title: '在左侧直接描述任意光子器件，本机实时联立麦克斯韦 / 拉普拉斯 / 泊松-玻尔兹曼 / 热传导方程求解。',
+    hero_sub: '无需从预制模板里挑选：支持任意波长（400 nm – 14 µm）、任意截面尺寸与侧壁倾角、29 种色散材料，或直接指定自定义折射率（n_core, n_clad），求解结果与场图将在此实时呈现。',
+    eng1_t: '🔬 保形 2D 全矢量麦克斯韦有限元',
+    eng1_d: '二阶 Nedelec1×P2 旋度本征模求解，支持直/弯波导、倾斜侧壁、单轴晶体及任意自定义 (n_core, n_clad)。',
+    eng2_t: '📊 微环、MZI 与 2D-FDFD 芯片耦合',
+    eng2_d: '7 类微环拓扑（Q = 10⁴–10⁸+ 瞬时收敛）、DC/MMI/Y 分支 EME、端面倒锥与 UPML 二维全波 FDFD 表面光栅。',
+    eng3_t: '📡 亚太赫兹射频电极、硅 PN TCAD 与热有限元',
+    eng3_d: '10–300+ GHz GSG/T-Rail 准 TEM 射频电极、二维泊松-玻尔兹曼 PN 结与 Crank-Nicolson 瞬态热场。',
+    eng4_t: '📐 双向 .GDS 版图、DRC/3D-LVS 与实验拟合',
+    eng4_d: '拖入任意 .GDS/.OAS 自动测量并切线 2D-FEM 求解，或上传实测 .CSV 透射谱提取 Q_int 与传播损耗 dB/cm。',
+    drop_hint: '可直接将 .gds、.oas 或实测 .csv 拖入左侧对话区，点击输入框上方上传按钮，或在右上角「🧩 求解器视图」打开手动参数面板。',
+    choices_caption: '快捷入口（或直接在下方输入任意器件参数求解）',
+    btn_up_gds_short: '📐 上传 .GDS', btn_ext_loss_short: '📈 上传 .CSV', lbl_ollama: '本地大模型建议',
     ai_opt_offline: '⚡ 离线模式 · 内置物理引擎',
     ai_opt_ollama: '🖥 离线模式 · 本地 Ollama / MLX',
     ai_opt_claude: '🟣 在线模式 · Claude (CLI / API)',
     ai_opt_codex: '🟢 在线模式 · Codex / OpenAI (CLI / API)',
-    chat_placeholder: '输入您的需求或参数（例如：损耗 0.8 dB/cm, FSR 150 GHz, 滑轮耦合）...',
-    btn_send: '发送 →',
-    pill_overview: '📋 设计蓝图', pill_mode: '🔬 二维模式', pill_mrr: '📊 微环光谱', pill_gds: '📐 GDS 版图', pill_fit: '📈 损耗与Q拟合', pill_fab: '🧪 工艺与剂量', pill_tuning: '⚡ 调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 调制', pill_eom: '📡 电极·掺杂·热场', pill_foundry: '🏭 代工厂·闭环·WDM',
+    chat_placeholder: '描述任意器件或求解任务（如：n=1.68, 包层 n_clad=1.38, W=900 nm, H=500 nm, 波长 850 nm, 求二维本征模）...',
+    btn_send: '求解 →',
+    pill_overview: '🏠 求解器首页', pill_mode: '🔬 二维本征模', pill_mrr: '📊 微环谐振器', pill_gds: '📐 GDS 版图检查', pill_fit: '📈 实测光谱拟合', pill_fab: '🧪 光刻工艺容差', pill_tuning: '⚡ 有源调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 与分束器', pill_eom: '📡 电极·掺杂·热场', pill_foundry: '🏭 代工厂·闭环·WDM',
     status_ready: '就绪 · 400 nm – 14 µm',
     wf1_title: '1. 逐步引导设计新微环',
-    wf1_desc: '每次只问一个清晰问题——工作波段、波导材料、晶圆叠层、传播损耗 (<code>dB/cm</code>) 与目标 FSR。',
+    wf1_desc: '每次只问一个清晰问题：工作波段、波导材料、晶圆叠层、传播损耗 (<code>dB/cm</code>) 与目标 FSR。',
     wf2_title: '2. 从实测光谱提取损耗 (<code>dB/cm</code>)',
     wf2_desc: '上传实验 <code>.CSV</code> 透射谱（支持线性功率或 <code>dB</code>/<code>dBm</code>），自动拟合 <code>Q_int</code>、传播损耗 <code>α [dB/cm]</code>、背向散射双峰劈裂与 <code>n_g</code>。',
     wf3_title: '3. 上传并解析 <code>.GDS</code> 版图',
@@ -2066,7 +2195,14 @@ const UI_I18N = {
     bp_lbl_wl: '工作波长与偏振', bp_lbl_mat: '波导芯层平台', bp_lbl_stack: '晶圆垂直叠层',
     bp_lbl_loss: '波导传播损耗 α', bp_lbl_top: '微环拓扑结构', bp_lbl_geom: '半径与耦合间距',
     mode_lbl_sm: '单模最大截止宽度', mode_lbl_wbus: '推荐直波导宽 W_bus', mode_lbl_wring: '推荐微环宽 W_ring', mode_lbl_neff: '基模有效折射率',
+    mode_sub_sm: 'TE1 / TM1 高阶模截止', mode_sub_wbus: '严格单模区', mode_sub_wring: '低侧壁散射损耗',
+    mode_lbl_gamma: '芯层限制因子 Γ', mode_sub_gamma: '波导芯层光功率占比',
+    mode_lbl_aeff: '有效模场面积 A_eff', mode_sub_aeff: '二维模式横向面积',
+    mode_lbl_te: 'TE 偏振占比', mode_sub_te: '基模 M0 偏振纯度',
+    mode_opt_etot: '|E| 总场强', mode_opt_ex: '|E_x| 水平分量 (TE)', mode_opt_ey: '|E_y| 垂直分量 (TM)',
+    mode_th_mode: '模式', mode_th_gamma: '限制因子 Γ',
     mode_card_field: '二维全矢量本征模场分布', mode_card_cutoff: '波导宽度色散与单模截止曲线',
+    mode_card_spectrum: '导模有效折射率谱 (n_eff)', mode_badge_sweep: '二维有限元扫描', mode_badge_spec: '点击左侧列表切换模式',
     mrr_lbl_fsr: '自由光谱范围 FSR', mrr_lbl_loss: '传播损耗 α 与本征 Q', mrr_lbl_ql: '有载品质因数 Q_L', mrr_lbl_er: '谐振消光比 ER', mrr_lbl_cc: '临界耦合目标参数',
     mrr_btn_cc: '⚡ 一键应用临界耦合', mrr_btn_io: '🔌 端面/光栅耦合与高Q', mrr_btn_tune: '🎛️ 有源调谐与 INTERCONNECT', mrr_btn_fab: '🧪 正/负胶曝光容差', mrr_btn_sw_gap: '📏 扫描耦合间距', mrr_btn_sw_loss: '📉 扫描传播损耗 (dB/cm)',
     mrr_btn_gds: '💾 导出 .GDS 掩膜版图', mrr_btn_csv: '📥 下载光谱 .CSV',
@@ -2153,6 +2289,50 @@ const UI_I18N = {
   }
 };
 
+let lastSolverProofObj = null;
+let modeViewSinglePoint = false;
+
+function setModeViewKpiMode(isSingle) {
+  modeViewSinglePoint = !!isSingle;
+  const dict = UI_I18N[currentLang] || UI_I18N.en;
+  const setT = (id, key) => { const el = document.getElementById(id); if (el && dict[key]) el.textContent = dict[key]; };
+  if (modeViewSinglePoint) {
+    setT('mode-lbl-1', 'mode_lbl_gamma'); setT('mode-sub-1', 'mode_sub_gamma');
+    setT('mode-lbl-2', 'mode_lbl_aeff'); setT('mode-sub-2', 'mode_sub_aeff');
+    setT('mode-lbl-3', 'mode_lbl_te'); setT('mode-sub-3', 'mode_sub_te');
+    setT('mode-card-cutoff-title', 'mode_card_spectrum');
+    setT('width-cutoff-badge', 'mode_badge_spec');
+  } else {
+    setT('mode-lbl-1', 'mode_lbl_sm'); setT('mode-sub-1', 'mode_sub_sm');
+    setT('mode-lbl-2', 'mode_lbl_wbus'); setT('mode-sub-2', 'mode_sub_wbus');
+    setT('mode-lbl-3', 'mode_lbl_wring'); setT('mode-sub-3', 'mode_sub_wring');
+    setT('mode-card-cutoff-title', 'mode_card_cutoff');
+    if (!lastWidthSweep) setT('width-cutoff-badge', 'mode_badge_sweep');
+  }
+}
+
+function renderSolverProofPill() {
+  const pill = document.getElementById('solver-proof-badge');
+  const span = document.getElementById('solver-proof-text');
+  const stEl = document.getElementById('spec-status');
+  if (!pill || !span) return;
+  if (!lastSolverProofObj) {
+    span.textContent = '';
+    pill.title = '';
+    pill.classList.remove('live');
+    if (stEl) stEl.style.display = '';
+    return;
+  }
+  const p = lastSolverProofObj;
+  const sec = p.elapsed_ms >= 1000 ? `${(p.elapsed_ms / 1000).toFixed(1)} s` : `${Math.round(p.elapsed_ms)} ms`;
+  const prefix = currentLang === 'zh' ? '实时 PDE' : 'Live PDE';
+  const eng = (currentLang === 'zh' && p.engine_zh) ? p.engine_zh : p.engine;
+  span.textContent = `${prefix} · ${eng} · ${sec}`;
+  pill.title = p.tooltip || `${p.engine_full || p.engine}${p.material ? ' · ' + p.material : ''}${p.geometry ? ' · ' + p.geometry : ''} (${p.elapsed_ms} ms)`;
+  pill.classList.add('live');
+  if (stEl) stEl.style.display = 'none';
+}
+
 function applyUiTranslations() {
   const dict = UI_I18N[currentLang] || UI_I18N.en;
   document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
@@ -2160,9 +2340,25 @@ function applyUiTranslations() {
   document.getElementById('lang-zh').classList.toggle('active', currentLang === 'zh');
 
   document.querySelectorAll('[data-i18n]').forEach(el => {
+    if (el.id === 'stage-active-name') return;
     const k = el.getAttribute('data-i18n');
     if (dict[k]) el.textContent = dict[k];
   });
+  // Preserve currently active stage title in translated language
+  const activePill = document.querySelector('.stage-pill.active');
+  const stageLbl = document.getElementById('stage-active-name');
+  if (stageLbl) {
+    if (activePill && activePill.id !== 'pill-overview') {
+      stageLbl.textContent = activePill.textContent;
+    } else if (dict.stage_idle_title) {
+      stageLbl.textContent = dict.stage_idle_title;
+    }
+  }
+  setModeViewKpiMode(modeViewSinglePoint);
+  renderSolverProofPill();
+  if (modeViewSinglePoint && lastModesData && document.getElementById('view-mode').classList.contains('active')) {
+    drawGuidedModeSpectrum(lastModesData);
+  }
   document.querySelectorAll('[data-i18n-html]').forEach(el => {
     const k = el.getAttribute('data-i18n-html');
     if (dict[k] && !(el.id === 'fit-results-box' && lastExtractedLossDbCm !== null) && !(el.id === 'gds-extracted-box' && currentGdsView)) {
@@ -2185,6 +2381,8 @@ function applyUiTranslations() {
 }
 
 async function setLanguage(lang) {
+  const chatBox = document.getElementById('chat-messages');
+  const prevScroll = chatBox ? chatBox.scrollTop : 0;
   currentLang = (lang === 'zh') ? 'zh' : 'en';
   try { localStorage.setItem('microring_lang', currentLang); } catch (_) {}
   applyUiTranslations();
@@ -2206,6 +2404,7 @@ async function setLanguage(lang) {
       renderChips(data.chips);
     }
   } catch (_) {}
+  if (chatBox) chatBox.scrollTop = prevScroll;
 }
 
 let gdsCam = { scale: 1.0, offsetX: 0, offsetY: 0, dragging: false, lastX: 0, lastY: 0, hiddenLayers: {} };
@@ -2215,20 +2414,61 @@ const LAYER_COLORS = {
   '12/0': '#22d3ee', '13/0': '#fde047', '40/0': '#fb7185', '65/0': '#34d399', '66/0': '#cbd5e1', '68/0': '#475569'
 };
 
-// ==================== UI NAVIGATION & STEPPER ====================
+// ==================== UI NAVIGATION, MODULES POPOVER & LIVE PDE PROOF ====================
+function toggleModulesPopover(forceOpen) {
+  const pop = document.getElementById('modules-popover');
+  if (!pop) return;
+  const open = (typeof forceOpen === 'boolean') ? forceOpen : !pop.classList.contains('open');
+  pop.classList.toggle('open', open);
+}
+document.addEventListener('click', e => {
+  const pop = document.getElementById('modules-popover');
+  const btn = document.getElementById('btn-modules-menu');
+  if (pop && pop.classList.contains('open') && !pop.contains(e.target) && (!btn || !btn.contains(e.target))) {
+    pop.classList.remove('open');
+  }
+});
+
+function updateSolverProof(proofOrText) {
+  if (!proofOrText) {
+    lastSolverProofObj = null;
+    renderSolverProofPill();
+    return;
+  }
+  if (typeof proofOrText === 'string') {
+    lastSolverProofObj = { engine: proofOrText, elapsed_ms: 0, tooltip: proofOrText };
+    const pill = document.getElementById('solver-proof-badge');
+    const span = document.getElementById('solver-proof-text');
+    const stEl = document.getElementById('spec-status');
+    if (pill && span) { span.textContent = proofOrText; pill.title = proofOrText; pill.classList.add('live'); }
+    if (stEl) stEl.style.display = 'none';
+    return;
+  }
+  lastSolverProofObj = proofOrText;
+  renderSolverProofPill();
+}
+
 function setStageView(viewName) {
   document.querySelectorAll('.stage-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.stage-pill').forEach(p => p.classList.remove('active'));
   const vEl = document.getElementById('view-' + viewName);
   const pEl = document.getElementById('pill-' + viewName);
   if (vEl) vEl.classList.add('active');
-  if (pEl) pEl.classList.add('active');
+  if (pEl) {
+    pEl.classList.add('active');
+    const lbl = document.getElementById('stage-active-name');
+    if (lbl) {
+      const dict = UI_I18N[currentLang] || UI_I18N.en;
+      lbl.textContent = (viewName === 'overview' && dict.stage_idle_title) ? dict.stage_idle_title : pEl.textContent;
+    }
+  }
 
   setTimeout(() => {
     if (viewName === 'mrr' && lastMrrResult) renderMrrResult(lastMrrResult);
     if (viewName === 'mode') {
       if (lastModesData) renderSelectedMode();
       if (lastWidthSweep) drawWidthSweepPlot(lastWidthSweep);
+      else if (lastModesData) drawGuidedModeSpectrum(lastModesData);
     }
     if (viewName === 'gds' && currentGdsView) drawGdsCanvas();
     if (viewName === 'fit' && labSpectrumData) runCmtFitUI();
@@ -2238,25 +2478,21 @@ function setStageView(viewName) {
       const m = document.getElementById('io-mode').value;
       if (m === 'high_q_fdtd' && lastHighQResult) renderHighQResult(lastHighQResult);
       else if (m !== 'high_q_fdtd' && lastIoResult) renderIoResult(lastIoResult);
-      else if (!ioBusy) runIoCouplerUI();
     }
-    if (viewName === 'mzi') {
-      if (lastMziResult) renderMziResult(lastMziResult);
-      else if (!mziBusy) runMziUI();
-    }
-    if (viewName === 'eom') {
-      if (lastEomResult) renderEomResult(lastEomResult);
-      else if (!eomBusy) runEomUI();
-    }
-    if (viewName === 'foundry') {
-      if (lastFoundryResult) renderFoundrySuiteDispatch(lastFoundryKind, lastFoundryResult);
-      else if (!foundryBusy) runFoundrySuiteUI();
-    }
+    if (viewName === 'mzi' && lastMziResult) renderMziResult(lastMziResult);
+    if (viewName === 'eom' && lastEomResult) renderEomResult(lastEomResult);
+    if (viewName === 'foundry' && lastFoundryResult) renderFoundrySuiteDispatch(lastFoundryKind, lastFoundryResult);
   }, 25);
 }
 
 function updateStepper(stepNum) {
   const s = Number(stepNum) || 1;
+  const stEl = document.getElementById('wizard-stepper');
+  if (stEl) {
+    const stage = (copilotSession && copilotSession.stage) || '';
+    const showGuided = s >= 2 && (stage.startsWith('ask_') || stage === 'mode_confirmed' || stage === 'loss_confirmed');
+    stEl.classList.toggle('visible', showGuided);
+  }
   document.querySelectorAll('#wizard-stepper .step-item').forEach(el => {
     const n = Number(el.dataset.step);
     const badge = el.querySelector('.step-num');
@@ -2281,7 +2517,6 @@ function toggleExpertDrawer(open) {
 
 function openSpectrumFitterDirect() {
   setStageView('fit');
-  if (!labSpectrumData) loadDemoSpectrum('split_doublet');
 }
 
 // ==================== CLEAN MARKDOWN RENDERER ====================
@@ -2372,11 +2607,21 @@ function syncFormFromConfig(cfg) {
   setVal('mode-w', cfg.ring_width_um);
   setVal('mode-r', cfg.ring_radius_um);
 
-  // Update Blueprint Summary Cards
+  // Update Blueprint Summary Cards (revealed once user starts configuring a device)
   const hNm = Math.round((cfg.film_height_um || 0.4) * 1000);
   const sNm = Math.round((cfg.slab_height_um || 0) * 1000);
+  const customNEl = document.getElementById('cfg-custom-n');
+  const customCladEl = document.getElementById('cfg-custom-clad-n');
+  if (customNEl) customNEl.value = (cfg.custom_n !== null && cfg.custom_n !== undefined) ? cfg.custom_n : '';
+  if (customCladEl) customCladEl.value = (cfg.custom_clad_n !== null && cfg.custom_clad_n !== undefined) ? cfg.custom_clad_n : '';
+  const matLabel = (cfg.custom_n !== null && cfg.custom_n !== undefined)
+    ? `Custom n=${cfg.custom_n}`
+    : cfg.core_material;
+  const cladLabel = (cfg.custom_clad_n !== null && cfg.custom_clad_n !== undefined)
+    ? `n=${cfg.custom_clad_n}`
+    : (cfg.clad_material || 'SiO2');
   document.getElementById('bp-wl').textContent = `${cfg.wavelength_nm} nm · ${cfg.polarization}`;
-  document.getElementById('bp-mat').textContent = `${cfg.core_material} (${cfg.top_clad_material}/${cfg.clad_material||'SiO2'})`;
+  document.getElementById('bp-mat').textContent = `${matLabel} (${cfg.top_clad_material}/${cladLabel})`;
   document.getElementById('bp-stack').textContent = sNm > 0
     ? (currentLang === 'zh' ? `H=${hNm} nm, 平板=${sNm} nm` : `H=${hNm} nm, Slab=${sNm} nm`)
     : (currentLang === 'zh' ? `H=${hNm} nm, 条形波导` : `H=${hNm} nm, Strip`);
@@ -2385,6 +2630,12 @@ function syncFormFromConfig(cfg) {
     : (currentLang === 'zh' ? '工艺默认损耗' : 'Foundry Typical');
   document.getElementById('bp-top').textContent = (catalogTopologies[cfg.topology] && catalogTopologies[cfg.topology].name) || cfg.topology;
   document.getElementById('bp-geom').textContent = `R=${cfg.ring_radius_um} µm · g=${Math.round((cfg.gap_thru_um||0.25)*1000)} nm`;
+
+  const bpCard = document.getElementById('bp-card');
+  if (bpCard) {
+    const hasActiveSpec = copilotSession && ((copilotSession.confirmed && copilotSession.confirmed.length > 0) || (copilotSession.wizard_step || 1) >= 2);
+    bpCard.style.display = hasActiveSpec ? 'block' : 'none';
+  }
 
   // Also keep Fitter L_rt synced to current ring circumference!
   const lRt = 2 * Math.PI * (cfg.ring_radius_um || 40) + (cfg.topology && cfg.topology.startsWith('racetrack') ? 2 * (cfg.straight_length_um || 0) : 0);
@@ -2396,11 +2647,17 @@ function syncFormFromConfig(cfg) {
 function readConfigFromForm() {
   const num = (id, fb) => { const v = parseFloat(document.getElementById(id).value); return Number.isFinite(v) ? v : fb; };
   const lossRaw = document.getElementById('cfg-loss').value;
+  const cnEl = document.getElementById('cfg-custom-n');
+  const ccEl = document.getElementById('cfg-custom-clad-n');
+  const customN = (cnEl && cnEl.value.trim() !== '') ? parseFloat(cnEl.value) : null;
+  const customCladN = (ccEl && ccEl.value.trim() !== '') ? parseFloat(ccEl.value) : null;
   return {
     topology: document.getElementById('cfg-topology').value || 'point_circular_ap',
-    core_material: document.getElementById('cfg-material').value || 'Si3N4',
-    clad_material: document.getElementById('cfg-clad').value || 'SiO2',
+    core_material: Number.isFinite(customN) ? 'Custom' : (document.getElementById('cfg-material').value || 'Si3N4'),
+    clad_material: Number.isFinite(customCladN) ? 'Custom' : (document.getElementById('cfg-clad').value || 'SiO2'),
     top_clad_material: document.getElementById('cfg-topclad').value || 'SiO2',
+    custom_n: Number.isFinite(customN) ? customN : null,
+    custom_clad_n: Number.isFinite(customCladN) ? customCladN : null,
     polarization: document.getElementById('cfg-pol').value || 'TE0',
     wavelength_nm: num('cfg-wl', 1550),
     film_height_um: num('cfg-hfilm', 0.40),
@@ -2570,16 +2827,62 @@ async function sendChatPrompt(promptText) {
     updateStepper(data.wizard_step || copilotSession.wizard_step || 1);
 
     if (data.ui_view) setStageView(data.ui_view);
-    if (data.auto_demo_fit && !labSpectrumData) loadDemoSpectrum('split_doublet');
+    if (promptText.toLowerCase() === 'reset') updateSolverProof('');
+
+    if (data.solver_proof) {
+      const sp = data.solver_proof;
+      updateSolverProof({
+        engine: sp.engine || '2D Vector FEM',
+        engine_zh: '二维矢量 FEM',
+        engine_full: sp.engine_full || sp.engine,
+        material: sp.material || '',
+        geometry: sp.geometry || '',
+        elapsed_ms: sp.elapsed_ms || 0
+      });
+    }
+    if (data.mode_result) {
+      lastModesData = data.mode_result;
+      lastWidthSweep = null;
+      selectedModeIdx = 0;
+      setModeViewKpiMode(true);
+      const tbody = document.querySelector('#mode-table tbody');
+      tbody.innerHTML = '';
+      (data.mode_result.modes || []).forEach((m, i) => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.onclick = () => { selectedModeIdx = i; renderSelectedMode(); if (modeViewSinglePoint) drawGuidedModeSpectrum(lastModesData); };
+        tr.innerHTML = `<td>M${i}</td><td>${m.n_eff_real.toFixed(5)}</td><td>${(m.te_fraction*100).toFixed(1)}%</td><td>${(m.core_confinement*100).toFixed(1)}%</td><td>${m.a_eff_um2.toFixed(3)}</td>`;
+        tbody.appendChild(tr);
+      });
+      if ((data.mode_result.modes || []).length) {
+        const m0 = data.mode_result.modes[0];
+        document.getElementById('mode-kpi-neff').textContent = `n_eff ${m0.n_eff_real.toFixed(5)}`;
+        document.getElementById('mode-kpi-ng').textContent = data.mode_result.ng_fundamental ? `n_g = ${data.mode_result.ng_fundamental.toFixed(4)}` : `TE ${(m0.te_fraction*100).toFixed(1)}%`;
+        document.getElementById('mode-kpi-sm').textContent = `${(m0.core_confinement*100).toFixed(1)}%`;
+        document.getElementById('mode-kpi-wbus').textContent = `${m0.a_eff_um2.toFixed(3)} µm²`;
+        document.getElementById('mode-kpi-wring').textContent = `${(m0.te_fraction*100).toFixed(1)}%`;
+      }
+      renderSelectedMode();
+      drawGuidedModeSpectrum(data.mode_result);
+      document.getElementById('spec-status').textContent = currentLang === 'zh'
+        ? `实时求解 (${data.mode_result.elapsed_ms} ms)`
+        : `Solved live (${data.mode_result.elapsed_ms} ms)`;
+    }
 
     if (data.width_sweep_result) {
       lastWidthSweep = data.width_sweep_result;
+      setModeViewKpiMode(false);
       drawWidthSweepPlot(data.width_sweep_result);
       solve2DModesUI();
     }
     if (data.mrr_result) {
       lastMrrResult = data.mrr_result;
       renderMrrResult(data.mrr_result);
+      updateSolverProof({
+        engine: '2D FEM + CMT + TMM',
+        engine_zh: '二维 FEM + CMT + TMM',
+        elapsed_ms: data.mrr_result.elapsed_ms || 0
+      });
       document.getElementById('spec-status').textContent = currentLang === 'zh'
         ? `求解完成 (${data.mrr_result.elapsed_ms} ms)`
         : `Solved in ${data.mrr_result.elapsed_ms} ms`;
@@ -2928,6 +3231,8 @@ async function solve2DModesUI() {
     core_material: cfg.core_material,
     clad_material: cfg.clad_material,
     top_clad_material: cfg.top_clad_material,
+    custom_n: cfg.custom_n,
+    custom_clad_n: cfg.custom_clad_n,
     w_bottom_um: cfg.ring_width_um,
     h_film_um: cfg.film_height_um,
     h_slab_um: cfg.slab_height_um,
@@ -3010,7 +3315,106 @@ function renderSelectedMode() {
   });
 }
 
+function drawGuidedModeSpectrum(modeRes) {
+  const modes = (modeRes && modeRes.modes) || [];
+  if (!modes.length) return;
+  const { ctx, w, h } = setupCanvas('cv-width-sweep');
+  ctx.fillStyle = '#070b14';
+  ctx.fillRect(0, 0, w, h);
+  const pad = { l: 56, r: 22, t: 30, b: 44 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+  const nVals = modes.map(m => m.n_eff_real);
+  const nClad = (modeRes.n_clad && Number.isFinite(modeRes.n_clad)) ? modeRes.n_clad : Math.min(...nVals) - 0.05;
+  const ymin = Math.min(nClad, ...nVals) - 0.03;
+  const ymax = Math.max(...nVals) + Math.max(0.04, 0.14 * (Math.max(...nVals) - ymin));
+  const sy = y => pad.t + ph - ((y - ymin) / (ymax - ymin || 1)) * ph;
+
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1.1;
+  ctx.strokeRect(pad.l, pad.t, pw, ph);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10.5px Arial, sans-serif';
+  for (let i = 0; i <= 4; i++) {
+    const ty = pad.t + ph - (i / 4) * ph;
+    const vy = ymin + (i / 4) * (ymax - ymin);
+    ctx.beginPath(); ctx.moveTo(pad.l, ty); ctx.lineTo(pad.l + 5, ty); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l + pw, ty); ctx.lineTo(pad.l + pw - 5, ty); ctx.stroke();
+    ctx.textAlign = 'right';
+    ctx.fillText(vy.toFixed(3), pad.l - 7, ty + 3.5);
+  }
+
+  // Cladding cutoff line
+  if (nClad >= ymin && nClad <= ymax) {
+    const yc = sy(nClad);
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = '#f87171';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(pad.l, yc); ctx.lineTo(pad.l + pw, yc); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#fca5a5';
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 10px Arial, sans-serif';
+    ctx.fillText(`${currentLang === 'zh' ? '包层截止' : 'Clad Cutoff'} n=${nClad.toFixed(3)}`, pad.l + pw - 6, yc - 5);
+  }
+
+  // Color-coded bars per guided mode
+  const slotW = pw / modes.length;
+  const barW = Math.min(48, slotW * 0.54);
+  modes.forEach((m, i) => {
+    const cx = pad.l + (i + 0.5) * slotW;
+    const isTe = m.te_fraction >= 0.5;
+    const baseColor = isTe ? '#38bdf8' : '#f59e0b';
+    const topY = sy(m.n_eff_real);
+    const botY = pad.t + ph;
+    const barH = Math.max(4, botY - topY);
+
+    ctx.fillStyle = baseColor;
+    ctx.globalAlpha = (i === selectedModeIdx) ? 0.96 : 0.62;
+    ctx.fillRect(cx - barW / 2, topY, barW, barH);
+    ctx.globalAlpha = 1.0;
+
+    if (i === selectedModeIdx) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.8;
+      ctx.strokeRect(cx - barW / 2, topY, barW, barH);
+    }
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 10.5px Arial, sans-serif';
+    ctx.fillText(m.n_eff_real.toFixed(4), cx, Math.max(pad.t + 12, topY - 6));
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 11px Arial, sans-serif';
+    ctx.fillText(`M${i}`, cx, botY + 15);
+    ctx.fillStyle = baseColor;
+    ctx.font = '10px Arial, sans-serif';
+    ctx.fillText(isTe ? `TE ${(m.te_fraction * 100).toFixed(0)}%` : `TM ${((1 - m.te_fraction) * 100).toFixed(0)}%`, cx, botY + 29);
+  });
+
+  // Legend
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 10.5px Arial, sans-serif';
+  ctx.fillStyle = '#38bdf8';
+  ctx.fillText('■ TE', pad.l + 8, pad.t + 14);
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillText('■ TM', pad.l + 52, pad.t + 14);
+
+  ctx.save();
+  ctx.fillStyle = '#cbd5e1';
+  ctx.translate(14, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.font = '11px Arial, sans-serif';
+  ctx.fillText(currentLang === 'zh' ? '有效折射率 n_eff' : 'Effective Index n_eff', 0, 0);
+  ctx.restore();
+}
+
 function drawWidthSweepPlot(sw) {
+  setModeViewKpiMode(false);
   document.getElementById('width-cutoff-badge').textContent = `Cutoff W_max = ${sw.single_mode_max_width_um} µm`;
   document.getElementById('mode-kpi-sm').textContent = `${sw.single_mode_max_width_um} µm`;
   document.getElementById('mode-kpi-wbus').textContent = `${sw.recommended_bus_width_um} µm`;
@@ -6204,6 +6608,24 @@ function renderCornersResult(d) {
     });
   });
   document.getElementById('mat-browser-sel').value = '4H-SiC';
+
+  // Drag & drop .gds / .oas / .csv directly onto the conversation panel
+  const chatCol = document.querySelector('.chat-col');
+  if (chatCol) {
+    ['dragenter', 'dragover'].forEach(ev => chatCol.addEventListener(ev, e => {
+      e.preventDefault(); chatCol.classList.add('drag-over');
+    }));
+    ['dragleave', 'drop'].forEach(ev => chatCol.addEventListener(ev, e => {
+      e.preventDefault(); chatCol.classList.remove('drag-over');
+    }));
+    chatCol.addEventListener('drop', e => {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      const nm = f.name.toLowerCase();
+      if (nm.endsWith('.gds') || nm.endsWith('.gds2') || nm.endsWith('.oas')) handleGdsFileSelect(f);
+      else if (nm.endsWith('.csv') || nm.endsWith('.txt') || nm.endsWith('.tsv')) loadLabCsvFile(f);
+    });
+  }
 
   await initChat();
 })();

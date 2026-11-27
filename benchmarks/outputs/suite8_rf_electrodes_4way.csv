@@ -1,0 +1,6 @@
+# Solvers: MicroRing Studio v3.9.0 (Phase-2 Complete Physical Engine Suite) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + RF emw + AC/DC es + GeneralFormPDE g + 2D/3D Heat ht) | Ansys HFSS 2026.1.0 (3D Driven Modal Full-Wave FEM, Open PMC Half-GSG + Bloch-Floquet ABCD)
+case_id,Z0_ohm_microring,Z0_ohm_comsol,Z0_ohm_hfss_3d_40G,n_RF_microring,n_RF_comsol,n_RF_hfss_3d_40G,alpha_40G_dB_per_cm_microring,alpha_40G_dB_per_cm_comsol_emw,alpha_40G_dB_per_cm_hfss_3d,V_pi_L_Vcm_microring,f_3dBe_GHz_microring
+TFLN_GSG_CPW_HRSi,41.22,40.3568,40.822,2.2681,2.2563,2.2553,4.881,4.115,4.023,2.1849,98.09
+TFLN_GSG_CPW_Quartz,45.56,45.0718,45.926,1.8364,1.8332,1.8293,3.393,3.1057,2.908,2.1222,43.12
+TFLN_SlowWave_TRail_Quartz,50.15,49.236,42.654,2.2628,2.2917,2.2301,1.24,0.4974,1.371,2.397,393.21
+TFLN_GSG_CPW_UndercutSi,56.3,55.3055,56.747,1.6605,1.6239,1.6296,3.567,2.7578,2.882,2.0873,38.5

@@ -60,6 +60,7 @@ from .active_tuning import (
     STATIC_PERMITTIVITY_DC,
     _pockels_dn_xyz,
     _rectilinear_mesh_tri,
+    _rectilinear_p1_neg_grad_evaluators,
     soref_bennett_si_dn_dk,
 )
 from .eigenmode_solver import (
@@ -343,6 +344,7 @@ class EOMElectrodeConfig:
     custom_eps_rf_perp: float | None = None # perpendicular RF relative permittivity eps_11 = eps_22
     custom_eps_rf_c: float | None = None    # c-axis RF relative permittivity eps_33
     custom_tan_delta_rf: float | None = None  # microwave loss tangent tan(delta)
+    metal_rms_roughness_nm: float | None = None  # unit: nm (None -> catalog electroplated RMS roughness; 0 -> smooth conductor)
 
 
 # ==============================================================================
@@ -1489,17 +1491,14 @@ def _solve_single_cpw_cross_section(
     h_ms_tot = (hbox - min(hbox, 0.60) + h_film_um + max(float(v_buf_um), 0.20)) if elec_top == "vertical_microstrip" else 2.0
     dl_dn_h_per_m2 = _cpw_holloway_kuester_dl_dn(elec_top, ws, g, tm, h_ms_um=h_ms_tot)
 
-    # Potential & Electric field on rectilinear grid
+    # Exact element-local Galerkin electric field E = -grad(phi) [V/um] per 1 V applied
+    # (preserves exact dielectric interface discontinuities & Galerkin energy conservation)
     phi_2d = phi_diel.reshape(len(y_axis_um), len(x_axis_um))
-    ey_2d, ex_2d = np.gradient(-phi_2d, y_axis_um, x_axis_um)  # [V/um] per 1 V
-
-    interp_ex = RegularGridInterpolator((y_axis_um, x_axis_um), ex_2d, bounds_error=False, fill_value=0.0)
-    interp_ey = RegularGridInterpolator((y_axis_um, x_axis_um), ey_2d, bounds_error=False, fill_value=0.0)
+    ex_el, ey_el, interp_ex, interp_ey = _rectilinear_p1_neg_grad_evaluators(
+        mesh, phi_diel, x_axis_um, y_axis_um
+    )
 
     # Energy-weighted RF loss tangent & semiconducting substrate filling factor
-    pts_elem = np.column_stack([yc_um, xc_um])
-    ex_el = interp_ex(pts_elem)
-    ey_el = interp_ey(pts_elem)
     # Element areas in um^2
     p0 = mesh.p[:, mesh.t[0]] * 1e6
     p1 = mesh.p[:, mesh.t[1]] * 1e6
@@ -2223,7 +2222,11 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
     wg_eff_m = min(cfg.ground_width_um, 3.0 * (0.5 * ws_opt + g_trunk_um)) * 1e-6
     n_gnd = 2.0 if elec_top in ("gsg_cpw", "t_rail_cpw", "lumped_ring_gsg") else 1.0
     r_dc_ohm_m = rho_m * (1.0 / (ws_m * tm_m) + 1.0 / (n_gnd * wg_eff_m * tm_m))
-    rq_rough_m = float(metal_spec.get("rq_roughness_m", 65.0e-9))
+    rq_rough_m = (
+        max(float(cfg.metal_rms_roughness_nm), 0.0) * 1e-9
+        if cfg.metal_rms_roughness_nm is not None
+        else float(metal_spec.get("rq_roughness_m", 65.0e-9))
+    )
     tan_d_used = float(cfg.custom_tan_delta_rf) if cfg.custom_tan_delta_rf is not None else float(rf_cs["eff_tan_delta"])
     tan_d_slope_used = 0.0 if cfg.custom_tan_delta_rf is not None else float(rf_cs.get("eff_tan_delta_slope", 0.0))
     c_trunk_slope = 0.0 if cfg.custom_tan_delta_rf is not None else 0.55 * tan_d_slope_used

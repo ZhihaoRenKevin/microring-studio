@@ -30,19 +30,52 @@ This benchmark solves the **exact same 2D cylindrical bent waveguide cross-secti
 
 ---
 
-## 2. Commercial Ansys Lumerical (`MODE FDE` + `3D FDTD`) Validation Runner
+## 2. Independent 4-Way Commercial Solver Validation (`Ansys Lumerical 2026 R1`, `COMSOL Multiphysics 6.4` & `Ansys HFSS 2026 R1`)
 
-On a workstation equipped with Ansys Lumerical (`lumapi`), execute a head-to-head validation of both 2D bent eigenmodes (`MODE FDE`) and 3D bus-to-ring coupler S-parameters (`3D FDTD`, `auto shutoff min = 1e-5`) across point, racetrack, and $C^1$-smooth concentric pulley couplers:
+- **Full Validation Report & Figures**: [**`docs/COMMERCIAL_SOLVER_VALIDATION_REPORT.md`**](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) (**`10/10` automated physics audits `PASS`** across all **11 physical test suites**, two 6-panel overview figures [`commercial_validation_overview.png`](./images/commercial_validation_overview.png) and [`commercial_validation_p2_overview.png`](./images/commercial_validation_p2_overview.png), and 12 unit-labeled CSV plus 9 JSON archives in `benchmarks/outputs/`).
+
+All four solvers (`MicroRing Studio v3.9.0`, `Ansys Lumerical 2026 R1`, `COMSOL Multiphysics 6.4`, and `Ansys HFSS 2026 R1`) execute independently from neutral specification JSONs (`commercial_validation_specs.json` and `commercial_validation_specs_p2.json`, zero solver outputs) with no post-hoc parameter fitting:
+
+| Suite | Physical Engine Validated | Commercial Reference(s) | Measured Agreement |
+| :--- | :--- | :--- | :--- |
+| **Suite 1** | 2D Bent & Straight Vector Maxwell FEM (`532–4200 nm`, angled walls, uniaxial, rib) | Lumerical `MODE FDE` & COMSOL `ewfd` | Max $\|\Delta n_{\mathrm{eff}}\| = 1.6\times 10^{-5}$ (COMSOL) / $5.35\times 10^{-4}$ (Lumerical); $n_g$ within `0.01%–0.05%` |
+| **Suite 2** | 3D Bus-to-Ring Evanescent Couplers (5 wavebands + `100–250 nm` SOI gap sweep) | Lumerical `3D FDTD` (RTX 5090 GPU) | `9/9` GPU runs converged (`passivity <= 1.0034`); SOI `100–250 nm` within `0.4%–3.1%`; `4H-SiC` pulley `0.97%`, `Ge` racetrack `2.1%`, `532 nm` `3.5%`, `780 nm` `5.9%` |
+| **Suite 3** | MZI `2x2` DC Supermodes, `1x2` MMI / Y-Branch & 26-Tooth Uniform Surface GC | Lumerical `MODE`/`3D FDTD`/`2D FDTD` & COMSOL `ewfd` | DC $L_\pi$ within `0.16%` (COMSOL) / `0.36%`; `1x2` MMI `0.22 vs 0.24 dB`, Y-Branch `1.02 vs 1.07 dB`, uniform GC `3.30 / 3.33 / 3.26 dB` |
+| **Suite 4** | 2D Steady & Transient Thermo-Optic Microheaters (`Top TiN`, `Deep Trench`, `BOX` scaling) | Lumerical `HEAT` & COMSOL `ht` + `ewfd` | $R_{\mathrm{th}}$ within `0.23%–0.38%` (COMSOL) / `0.51%–1.16%` (`HEAT`); exact `t_rise == t_fall`; `20 µm` crosstalk `< 0.01%` |
+| **Suite 5** | 2D Anisotropic Electrostatic Pockels EO (`X-cut TFLN`, `ScAlN_20`) | COMSOL `es` + `ewfd` & Lumerical `MODE` | Single-arm $V_\pi L$ within `0.20%–0.87%` across all 3 devices (incl. `ScAlN_20` `0.87%`); `X-cut TFLN` $C_{\mathrm{line}}$ within `0.26%` |
+| **Suite 6** | Chip I/O: Butt/Edge Inverse Tapers (SOI & Si3N4 DFB) + Apodized Focusing GC | Lumerical `MODE`/`EME`/`2D FDTD` & COMSOL `ewfd` | Facet IL within `0.005–0.057 dB`, `1-dB` alignment tol exact (`0.50 / 0.32 µm`); Apodized GC peak `1553.2 vs 1553.4 nm`, IL `2.95 vs 2.91 dB` |
+| **Suite 7** | `2x2` MMI Self-Imaging, Full Ring (`R=5 µm`) & Native `INTERCONNECT` SPAR Load | Lumerical `3D FDTD` GPU & `INTERCONNECT ONA` | Full-ring (`R=5 µm`) FSR `17.83 vs 18.19 nm` & $Q_L$ `7626 vs 8174` (`6.7%`); `INTERCONNECT` MZI FSR `7.000 vs 7.012 nm`, ER `33.35 vs 33.33 dB` |
+| **Suite 8** | Sub-THz EOM RF Electrodes (`GSG CPW` on HR-Si/Quartz/Undercut-Si + `10–300 GHz` 3D Periodic Slow-Wave `T-Rail`) | **Ansys HFSS 3D** (`2026 R1`) & COMSOL `es`/`emw`/3D Periodic | CPW $Z_0$ within `0.8%–2.1%`, $n_{\mathrm{RF}}$ within `0.2%–2.2%`; `T-Rail` `10–300 GHz` $n_{\mathrm{RF}}$ within `0.12%–1.4%` (`2.250 vs 2.247` @ `200 GHz`) vs HFSS 3D |
+| **Suite 9** | 2D Nonlinear Poisson-Boltzmann Silicon PN TCAD (`Lateral`, `L-Shaped`, `U-Shaped`) | Lumerical `CHARGE`+`MODE` & COMSOL `g`+`ewfd` | $C_j(0/-3\text{ V})$ within `0.17%–3.2%` across all 3 solvers; Soref-Bennett FCA `10.76 vs 10.78 dB/cm` (`0.19%`), $V_\pi L$ `1.48 vs 1.56 V·cm` |
+| **Suite 10** | Advanced Microheaters (`XeF2 Undercut`, `Doped-Rib`, `Co-Int PN+TiN`) + 3D Thermal Check | COMSOL `ht` (2D & 3D `L=200 µm`) | 2D $R_{\mathrm{th}}$ within `0.54%–0.78%` (`34.47 vs 34.67 K/mW` Undercut); confirms `+54.4%` PN contact heat-sinking; 3D end-loss `-2.0%` |
+| **Suite 11** | Cleanroom Lithography CD Bias Sensitivity (`±20 nm` SOI `220 nm`) | Lumerical `MODE`+`3D FDTD` GPU & COMSOL `ewfd` | $\mathrm{d}\lambda/\mathrm{dCD} = 775.79 / 775.97 / 776.36\text{ pm/nm}$ (**`0.07%`** 3-way spread); $\kappa^2$ within `1.7%–6.1%` of 3D FDTD |
+
+Reproduce the complete 4-way validation locally on a workstation with Ansys Lumerical, COMSOL Multiphysics, and Ansys HFSS:
 
 ```bash
-# Step 1: Export canonical benchmark specifications & .gds masks
-python benchmarks/generate_and_audit_benchmarks.py
+# Phase 1 (Suites 1-5): neutral spec + independent solver runs
+python benchmarks/commercial_validation_specs.py
+python benchmarks/run_microring_independent.py
+python benchmarks/run_lumerical_independent.py
+python benchmarks/run_comsol_independent.py
 
-# Step 2: Run head-to-head Ansys Lumerical MODE FDE + 3D FDTD comparison
-python benchmarks/run_lumapi_validation.py
+# Phase 2 (Suites 6-11): neutral spec + independent 4-way solver runs
+python benchmarks/commercial_validation_specs_p2.py
+python benchmarks/run_microring_independent_p2.py
+python benchmarks/run_lumerical_independent_p2.py
+python benchmarks/run_comsol_independent_p2.py
+python benchmarks/run_hfss_independent_p2.py
+
+# Unified audit: 10/10 physics checks, 12 CSVs, two 6-panel figures, and Markdown report
+python benchmarks/compile_commercial_validation_report.py
 ```
 
-This generates `benchmarks/outputs/lumerical_vs_microring_validation.csv` and `LUMERICAL_VALIDATION_REPORT.md` with matched diagonal refractive index tensors `(nx, ny, nz)`, sidewall angles, slab heights, and fundamental-mode port expansions (`|S21|^2`).
+For a standalone Lumerical-only eigenmode and 3D coupler check (`MODE FDE` + `3D FDTD`), the legacy script remains available:
+
+```bash
+python benchmarks/generate_and_audit_benchmarks.py
+python benchmarks/run_lumapi_validation.py
+```
 
 ---
 

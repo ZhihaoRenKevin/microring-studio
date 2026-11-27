@@ -1,0 +1,533 @@
+{
+  "solver": "Ansys HFSS 2026.1.0 (3D Driven Modal Full-Wave FEM, Open PMC Half-GSG + Bloch-Floquet ABCD)",
+  "host": "Windows-AMD64",
+  "total_wall_time_s": 887.58,
+  "suite8_rf_electrodes": [
+    {
+      "case_id": "TFLN_GSG_CPW_HRSi",
+      "is_periodic_3d_trail": false,
+      "simulated_length_um": 300.0,
+      "Z0_40G_ohm": 40.822,
+      "n_RF_40G": 2.2553,
+      "alpha_40G_dB_per_cm": 4.023,
+      "Z0_40G_3d_abcd_ohm": 40.563,
+      "n_RF_40G_3d_abcd": 2.2818,
+      "alpha_40G_3d_abcd_dB_per_cm": 4.189,
+      "Z0_40G_port_ohm": 40.822,
+      "n_RF_40G_port": 2.2553,
+      "alpha_40G_port_dB_per_cm": 4.023,
+      "freq_sweep": [
+        {
+          "freq_GHz": 10.0,
+          "Z0_3d_abcd_ohm": 41.084,
+          "n_RF_3d_abcd": 2.3147,
+          "alpha_3d_abcd_dB_per_cm": 2.998,
+          "Z0_port_ohm": 41.335,
+          "n_RF_port": 2.2873,
+          "alpha_port_dB_per_cm": 2.943,
+          "S21_mag_dB": -0.0787,
+          "S11_mag_dB": -30.5
+        },
+        {
+          "freq_GHz": 40.0,
+          "Z0_3d_abcd_ohm": 40.563,
+          "n_RF_3d_abcd": 2.2818,
+          "alpha_3d_abcd_dB_per_cm": 4.189,
+          "Z0_port_ohm": 40.822,
+          "n_RF_port": 2.2553,
+          "alpha_port_dB_per_cm": 4.023,
+          "S21_mag_dB": -0.1653,
+          "S11_mag_dB": -18.96
+        },
+        {
+          "freq_GHz": 70.0,
+          "Z0_3d_abcd_ohm": 40.436,
+          "n_RF_3d_abcd": 2.2756,
+          "alpha_3d_abcd_dB_per_cm": 5.733,
+          "Z0_port_ohm": 40.692,
+          "n_RF_port": 2.2496,
+          "alpha_port_dB_per_cm": 5.357,
+          "S21_mag_dB": -0.2957,
+          "S11_mag_dB": -15.16
+        },
+        {
+          "freq_GHz": 100.0,
+          "Z0_3d_abcd_ohm": 40.319,
+          "n_RF_3d_abcd": 2.2712,
+          "alpha_3d_abcd_dB_per_cm": 7.475,
+          "Z0_port_ohm": 40.566,
+          "n_RF_port": 2.2457,
+          "alpha_port_dB_per_cm": 6.786,
+          "S21_mag_dB": -0.4109,
+          "S11_mag_dB": -13.76
+        }
+      ]
+    },
+    {
+      "case_id": "TFLN_GSG_CPW_Quartz",
+      "is_periodic_3d_trail": false,
+      "simulated_length_um": 300.0,
+      "Z0_40G_ohm": 45.926,
+      "n_RF_40G": 1.8293,
+      "alpha_40G_dB_per_cm": 2.908,
+      "Z0_40G_3d_abcd_ohm": 45.534,
+      "n_RF_40G_3d_abcd": 1.8555,
+      "alpha_40G_3d_abcd_dB_per_cm": 3.038,
+      "Z0_40G_port_ohm": 45.926,
+      "n_RF_40G_port": 1.8293,
+      "alpha_40G_port_dB_per_cm": 2.908,
+      "freq_sweep": [
+        {
+          "freq_GHz": 10.0,
+          "Z0_3d_abcd_ohm": 45.975,
+          "n_RF_3d_abcd": 1.8756,
+          "alpha_3d_abcd_dB_per_cm": 1.76,
+          "Z0_port_ohm": 46.36,
+          "n_RF_port": 1.8487,
+          "alpha_port_dB_per_cm": 1.716,
+          "S21_mag_dB": -0.0492,
+          "S11_mag_dB": -37.2
+        },
+        {
+          "freq_GHz": 40.0,
+          "Z0_3d_abcd_ohm": 45.534,
+          "n_RF_3d_abcd": 1.8555,
+          "alpha_3d_abcd_dB_per_cm": 3.038,
+          "Z0_port_ohm": 45.926,
+          "n_RF_port": 1.8293,
+          "alpha_port_dB_per_cm": 2.908,
+          "S21_mag_dB": -0.0924,
+          "S11_mag_dB": -27.25
+        },
+        {
+          "freq_GHz": 70.0,
+          "Z0_3d_abcd_ohm": 45.312,
+          "n_RF_3d_abcd": 1.846,
+          "alpha_3d_abcd_dB_per_cm": 4.527,
+          "Z0_port_ohm": 45.706,
+          "n_RF_port": 1.8203,
+          "alpha_port_dB_per_cm": 4.251,
+          "S21_mag_dB": -0.1506,
+          "S11_mag_dB": -22.9
+        },
+        {
+          "freq_GHz": 100.0,
+          "Z0_3d_abcd_ohm": 45.161,
+          "n_RF_3d_abcd": 1.8398,
+          "alpha_3d_abcd_dB_per_cm": 5.831,
+          "Z0_port_ohm": 45.557,
+          "n_RF_port": 1.8144,
+          "alpha_port_dB_per_cm": 5.362,
+          "S21_mag_dB": -0.2068,
+          "S11_mag_dB": -20.72
+        }
+      ]
+    },
+    {
+      "case_id": "TFLN_SlowWave_TRail_Quartz",
+      "is_periodic_3d_trail": true,
+      "simulated_length_um": 100.0,
+      "Z0_40G_ohm": 42.654,
+      "n_RF_40G": 2.2301,
+      "alpha_40G_dB_per_cm": 1.371,
+      "Z0_40G_3d_abcd_ohm": 42.654,
+      "n_RF_40G_3d_abcd": 2.2301,
+      "alpha_40G_3d_abcd_dB_per_cm": 1.371,
+      "Z0_40G_port_ohm": 62.001,
+      "n_RF_40G_port": 1.572,
+      "alpha_40G_port_dB_per_cm": 0.631,
+      "freq_sweep": [
+        {
+          "freq_GHz": 10.0,
+          "Z0_3d_abcd_ohm": 42.853,
+          "n_RF_3d_abcd": 2.2384,
+          "alpha_3d_abcd_dB_per_cm": 0.768,
+          "Z0_port_ohm": 62.147,
+          "n_RF_port": 1.5747,
+          "alpha_port_dB_per_cm": 0.382,
+          "S21_mag_dB": -0.0069,
+          "S11_mag_dB": -42.76
+        },
+        {
+          "freq_GHz": 20.0,
+          "Z0_3d_abcd_ohm": 42.748,
+          "n_RF_3d_abcd": 2.2331,
+          "alpha_3d_abcd_dB_per_cm": 0.94,
+          "Z0_port_ohm": 62.083,
+          "n_RF_port": 1.5731,
+          "alpha_port_dB_per_cm": 0.449,
+          "S21_mag_dB": -0.0091,
+          "S11_mag_dB": -36.65
+        },
+        {
+          "freq_GHz": 30.0,
+          "Z0_3d_abcd_ohm": 42.698,
+          "n_RF_3d_abcd": 2.2313,
+          "alpha_3d_abcd_dB_per_cm": 1.143,
+          "Z0_port_ohm": 62.042,
+          "n_RF_port": 1.5724,
+          "alpha_port_dB_per_cm": 0.535,
+          "S21_mag_dB": -0.0122,
+          "S11_mag_dB": -33.09
+        },
+        {
+          "freq_GHz": 40.0,
+          "Z0_3d_abcd_ohm": 42.654,
+          "n_RF_3d_abcd": 2.2301,
+          "alpha_3d_abcd_dB_per_cm": 1.371,
+          "Z0_port_ohm": 62.001,
+          "n_RF_port": 1.572,
+          "alpha_port_dB_per_cm": 0.631,
+          "S21_mag_dB": -0.0159,
+          "S11_mag_dB": -30.57
+        },
+        {
+          "freq_GHz": 50.0,
+          "Z0_3d_abcd_ohm": 42.61,
+          "n_RF_3d_abcd": 2.2293,
+          "alpha_3d_abcd_dB_per_cm": 1.608,
+          "Z0_port_ohm": 61.958,
+          "n_RF_port": 1.5717,
+          "alpha_port_dB_per_cm": 0.73,
+          "S21_mag_dB": -0.0202,
+          "S11_mag_dB": -28.61
+        },
+        {
+          "freq_GHz": 60.0,
+          "Z0_3d_abcd_ohm": 42.567,
+          "n_RF_3d_abcd": 2.2288,
+          "alpha_3d_abcd_dB_per_cm": 1.841,
+          "Z0_port_ohm": 61.914,
+          "n_RF_port": 1.5715,
+          "alpha_port_dB_per_cm": 0.825,
+          "S21_mag_dB": -0.025,
+          "S11_mag_dB": -27.01
+        },
+        {
+          "freq_GHz": 70.0,
+          "Z0_3d_abcd_ohm": 42.524,
+          "n_RF_3d_abcd": 2.2287,
+          "alpha_3d_abcd_dB_per_cm": 2.067,
+          "Z0_port_ohm": 61.871,
+          "n_RF_port": 1.5716,
+          "alpha_port_dB_per_cm": 0.914,
+          "S21_mag_dB": -0.0302,
+          "S11_mag_dB": -25.66
+        },
+        {
+          "freq_GHz": 80.0,
+          "Z0_3d_abcd_ohm": 42.483,
+          "n_RF_3d_abcd": 2.2288,
+          "alpha_3d_abcd_dB_per_cm": 2.283,
+          "Z0_port_ohm": 61.828,
+          "n_RF_port": 1.5718,
+          "alpha_port_dB_per_cm": 0.996,
+          "S21_mag_dB": -0.0358,
+          "S11_mag_dB": -24.51
+        },
+        {
+          "freq_GHz": 90.0,
+          "Z0_3d_abcd_ohm": 42.442,
+          "n_RF_3d_abcd": 2.2293,
+          "alpha_3d_abcd_dB_per_cm": 2.49,
+          "Z0_port_ohm": 61.785,
+          "n_RF_port": 1.5721,
+          "alpha_port_dB_per_cm": 1.072,
+          "S21_mag_dB": -0.0419,
+          "S11_mag_dB": -23.49
+        },
+        {
+          "freq_GHz": 100.0,
+          "Z0_3d_abcd_ohm": 42.402,
+          "n_RF_3d_abcd": 2.23,
+          "alpha_3d_abcd_dB_per_cm": 2.69,
+          "Z0_port_ohm": 61.743,
+          "n_RF_port": 1.5726,
+          "alpha_port_dB_per_cm": 1.143,
+          "S21_mag_dB": -0.0483,
+          "S11_mag_dB": -22.59
+        },
+        {
+          "freq_GHz": 110.0,
+          "Z0_3d_abcd_ohm": 42.364,
+          "n_RF_3d_abcd": 2.231,
+          "alpha_3d_abcd_dB_per_cm": 2.886,
+          "Z0_port_ohm": 61.701,
+          "n_RF_port": 1.5733,
+          "alpha_port_dB_per_cm": 1.21,
+          "S21_mag_dB": -0.0551,
+          "S11_mag_dB": -21.79
+        },
+        {
+          "freq_GHz": 120.0,
+          "Z0_3d_abcd_ohm": 42.326,
+          "n_RF_3d_abcd": 2.2322,
+          "alpha_3d_abcd_dB_per_cm": 3.078,
+          "Z0_port_ohm": 61.66,
+          "n_RF_port": 1.5741,
+          "alpha_port_dB_per_cm": 1.274,
+          "S21_mag_dB": -0.0623,
+          "S11_mag_dB": -21.06
+        },
+        {
+          "freq_GHz": 130.0,
+          "Z0_3d_abcd_ohm": 42.29,
+          "n_RF_3d_abcd": 2.2336,
+          "alpha_3d_abcd_dB_per_cm": 3.268,
+          "Z0_port_ohm": 61.619,
+          "n_RF_port": 1.575,
+          "alpha_port_dB_per_cm": 1.334,
+          "S21_mag_dB": -0.0698,
+          "S11_mag_dB": -20.4
+        },
+        {
+          "freq_GHz": 140.0,
+          "Z0_3d_abcd_ohm": 42.256,
+          "n_RF_3d_abcd": 2.2352,
+          "alpha_3d_abcd_dB_per_cm": 3.459,
+          "Z0_port_ohm": 61.579,
+          "n_RF_port": 1.5761,
+          "alpha_port_dB_per_cm": 1.392,
+          "S21_mag_dB": -0.0776,
+          "S11_mag_dB": -19.81
+        },
+        {
+          "freq_GHz": 150.0,
+          "Z0_3d_abcd_ohm": 42.223,
+          "n_RF_3d_abcd": 2.2369,
+          "alpha_3d_abcd_dB_per_cm": 3.651,
+          "Z0_port_ohm": 61.54,
+          "n_RF_port": 1.5772,
+          "alpha_port_dB_per_cm": 1.448,
+          "S21_mag_dB": -0.0857,
+          "S11_mag_dB": -19.27
+        },
+        {
+          "freq_GHz": 160.0,
+          "Z0_3d_abcd_ohm": 42.193,
+          "n_RF_3d_abcd": 2.2388,
+          "alpha_3d_abcd_dB_per_cm": 3.845,
+          "Z0_port_ohm": 61.504,
+          "n_RF_port": 1.5785,
+          "alpha_port_dB_per_cm": 1.503,
+          "S21_mag_dB": -0.094,
+          "S11_mag_dB": -18.77
+        },
+        {
+          "freq_GHz": 170.0,
+          "Z0_3d_abcd_ohm": 42.166,
+          "n_RF_3d_abcd": 2.2408,
+          "alpha_3d_abcd_dB_per_cm": 4.042,
+          "Z0_port_ohm": 61.469,
+          "n_RF_port": 1.5798,
+          "alpha_port_dB_per_cm": 1.556,
+          "S21_mag_dB": -0.1024,
+          "S11_mag_dB": -18.33
+        },
+        {
+          "freq_GHz": 180.0,
+          "Z0_3d_abcd_ohm": 42.143,
+          "n_RF_3d_abcd": 2.2429,
+          "alpha_3d_abcd_dB_per_cm": 4.244,
+          "Z0_port_ohm": 61.438,
+          "n_RF_port": 1.5813,
+          "alpha_port_dB_per_cm": 1.607,
+          "S21_mag_dB": -0.1109,
+          "S11_mag_dB": -17.92
+        },
+        {
+          "freq_GHz": 190.0,
+          "Z0_3d_abcd_ohm": 42.123,
+          "n_RF_3d_abcd": 2.245,
+          "alpha_3d_abcd_dB_per_cm": 4.451,
+          "Z0_port_ohm": 61.41,
+          "n_RF_port": 1.5829,
+          "alpha_port_dB_per_cm": 1.658,
+          "S21_mag_dB": -0.1194,
+          "S11_mag_dB": -17.56
+        },
+        {
+          "freq_GHz": 200.0,
+          "Z0_3d_abcd_ohm": 42.109,
+          "n_RF_3d_abcd": 2.2473,
+          "alpha_3d_abcd_dB_per_cm": 4.665,
+          "Z0_port_ohm": 61.387,
+          "n_RF_port": 1.5846,
+          "alpha_port_dB_per_cm": 1.707,
+          "S21_mag_dB": -0.1278,
+          "S11_mag_dB": -17.23
+        },
+        {
+          "freq_GHz": 210.0,
+          "Z0_3d_abcd_ohm": 42.1,
+          "n_RF_3d_abcd": 2.2496,
+          "alpha_3d_abcd_dB_per_cm": 4.887,
+          "Z0_port_ohm": 61.369,
+          "n_RF_port": 1.5863,
+          "alpha_port_dB_per_cm": 1.755,
+          "S21_mag_dB": -0.136,
+          "S11_mag_dB": -16.94
+        },
+        {
+          "freq_GHz": 220.0,
+          "Z0_3d_abcd_ohm": 42.098,
+          "n_RF_3d_abcd": 2.2519,
+          "alpha_3d_abcd_dB_per_cm": 5.117,
+          "Z0_port_ohm": 61.357,
+          "n_RF_port": 1.5882,
+          "alpha_port_dB_per_cm": 1.801,
+          "S21_mag_dB": -0.1439,
+          "S11_mag_dB": -16.68
+        },
+        {
+          "freq_GHz": 230.0,
+          "Z0_3d_abcd_ohm": 42.103,
+          "n_RF_3d_abcd": 2.2543,
+          "alpha_3d_abcd_dB_per_cm": 5.357,
+          "Z0_port_ohm": 61.352,
+          "n_RF_port": 1.5902,
+          "alpha_port_dB_per_cm": 1.847,
+          "S21_mag_dB": -0.1515,
+          "S11_mag_dB": -16.46
+        },
+        {
+          "freq_GHz": 240.0,
+          "Z0_3d_abcd_ohm": 42.115,
+          "n_RF_3d_abcd": 2.2567,
+          "alpha_3d_abcd_dB_per_cm": 5.609,
+          "Z0_port_ohm": 61.355,
+          "n_RF_port": 1.5922,
+          "alpha_port_dB_per_cm": 1.892,
+          "S21_mag_dB": -0.1586,
+          "S11_mag_dB": -16.28
+        },
+        {
+          "freq_GHz": 250.0,
+          "Z0_3d_abcd_ohm": 42.137,
+          "n_RF_3d_abcd": 2.259,
+          "alpha_3d_abcd_dB_per_cm": 5.874,
+          "Z0_port_ohm": 61.368,
+          "n_RF_port": 1.5944,
+          "alpha_port_dB_per_cm": 1.935,
+          "S21_mag_dB": -0.1652,
+          "S11_mag_dB": -16.13
+        },
+        {
+          "freq_GHz": 260.0,
+          "Z0_3d_abcd_ohm": 42.169,
+          "n_RF_3d_abcd": 2.2614,
+          "alpha_3d_abcd_dB_per_cm": 6.153,
+          "Z0_port_ohm": 61.39,
+          "n_RF_port": 1.5966,
+          "alpha_port_dB_per_cm": 1.977,
+          "S21_mag_dB": -0.1712,
+          "S11_mag_dB": -16.01
+        },
+        {
+          "freq_GHz": 270.0,
+          "Z0_3d_abcd_ohm": 42.212,
+          "n_RF_3d_abcd": 2.2637,
+          "alpha_3d_abcd_dB_per_cm": 6.45,
+          "Z0_port_ohm": 61.425,
+          "n_RF_port": 1.5989,
+          "alpha_port_dB_per_cm": 2.017,
+          "S21_mag_dB": -0.1764,
+          "S11_mag_dB": -15.93
+        },
+        {
+          "freq_GHz": 280.0,
+          "Z0_3d_abcd_ohm": 42.267,
+          "n_RF_3d_abcd": 2.2659,
+          "alpha_3d_abcd_dB_per_cm": 6.765,
+          "Z0_port_ohm": 61.472,
+          "n_RF_port": 1.6014,
+          "alpha_port_dB_per_cm": 2.057,
+          "S21_mag_dB": -0.1809,
+          "S11_mag_dB": -15.89
+        },
+        {
+          "freq_GHz": 290.0,
+          "Z0_3d_abcd_ohm": 42.335,
+          "n_RF_3d_abcd": 2.268,
+          "alpha_3d_abcd_dB_per_cm": 7.101,
+          "Z0_port_ohm": 61.534,
+          "n_RF_port": 1.6039,
+          "alpha_port_dB_per_cm": 2.094,
+          "S21_mag_dB": -0.1847,
+          "S11_mag_dB": -15.88
+        },
+        {
+          "freq_GHz": 300.0,
+          "Z0_3d_abcd_ohm": 42.417,
+          "n_RF_3d_abcd": 2.2701,
+          "alpha_3d_abcd_dB_per_cm": 7.46,
+          "Z0_port_ohm": 61.613,
+          "n_RF_port": 1.6065,
+          "alpha_port_dB_per_cm": 2.13,
+          "S21_mag_dB": -0.1876,
+          "S11_mag_dB": -15.92
+        }
+      ]
+    },
+    {
+      "case_id": "TFLN_GSG_CPW_UndercutSi",
+      "is_periodic_3d_trail": false,
+      "simulated_length_um": 300.0,
+      "Z0_40G_ohm": 56.747,
+      "n_RF_40G": 1.6296,
+      "alpha_40G_dB_per_cm": 2.882,
+      "Z0_40G_3d_abcd_ohm": 56.67,
+      "n_RF_40G_3d_abcd": 1.6547,
+      "alpha_40G_3d_abcd_dB_per_cm": 3.004,
+      "Z0_40G_port_ohm": 56.747,
+      "n_RF_40G_port": 1.6296,
+      "alpha_40G_port_dB_per_cm": 2.882,
+      "freq_sweep": [
+        {
+          "freq_GHz": 10.0,
+          "Z0_3d_abcd_ohm": 57.426,
+          "n_RF_3d_abcd": 1.6788,
+          "alpha_3d_abcd_dB_per_cm": 2.165,
+          "Z0_port_ohm": 57.498,
+          "n_RF_port": 1.6527,
+          "alpha_port_dB_per_cm": 2.107,
+          "S21_mag_dB": -0.0746,
+          "S11_mag_dB": -37.16
+        },
+        {
+          "freq_GHz": 40.0,
+          "Z0_3d_abcd_ohm": 56.67,
+          "n_RF_3d_abcd": 1.6547,
+          "alpha_3d_abcd_dB_per_cm": 3.004,
+          "Z0_port_ohm": 56.747,
+          "n_RF_port": 1.6296,
+          "alpha_port_dB_per_cm": 2.882,
+          "S21_mag_dB": -0.11,
+          "S11_mag_dB": -26.04
+        },
+        {
+          "freq_GHz": 70.0,
+          "Z0_3d_abcd_ohm": 56.427,
+          "n_RF_3d_abcd": 1.6499,
+          "alpha_3d_abcd_dB_per_cm": 4.066,
+          "Z0_port_ohm": 56.505,
+          "n_RF_port": 1.625,
+          "alpha_port_dB_per_cm": 3.844,
+          "S21_mag_dB": -0.1579,
+          "S11_mag_dB": -22.04
+        },
+        {
+          "freq_GHz": 100.0,
+          "Z0_3d_abcd_ohm": 56.158,
+          "n_RF_3d_abcd": 1.646,
+          "alpha_3d_abcd_dB_per_cm": 5.235,
+          "Z0_port_ohm": 56.235,
+          "n_RF_port": 1.6213,
+          "alpha_port_dB_per_cm": 4.876,
+          "S21_mag_dB": -0.2053,
+          "S11_mag_dB": -20.18
+        }
+      ]
+    }
+  ]
+}

@@ -105,8 +105,9 @@ class WaveguideCrossSectionSpec:
     cap_h_um: float = 0.0                   # unit: um
     cap_w_um: float | None = None           # unit: um
     cap_material_fn: MaterialFn | None = None
-    # Optional symmetric twin-core coupler cross-section (for 2x2 DC & Y-branch supermodes; 0 = single core)
-    twin_core_gap_um: float = 0.0           # unit: um (edge-to-edge bottom gap between symmetric twin cores)
+    # Optional twin-core coupler cross-section (symmetric or asymmetric W2; 0 = single core)
+    twin_core_gap_um: float = 0.0           # unit: um (edge-to-edge bottom gap between twin cores)
+    twin_core_w2_bottom_um: float | None = None  # unit: um (right-core bottom width; defaults to w_bottom_um)
     # Simulation box extents
     domain_width_um: float = DEFAULT_DOMAIN_WIDTH_UM
     x_min_um: float | None = None           # unit: um (overrides -domain_width_um/2 if asymmetric)
@@ -165,18 +166,24 @@ class WaveguideCrossSectionSpec:
         h_f = self.h_film_um
         if h_f > h_s:
             if self.twin_core_gap_um > 0.0:
-                xc = 0.5 * self.twin_core_gap_um + 0.5 * self.w_bottom_um
+                w1_b = self.w_bottom_um
+                w2_b = float(self.twin_core_w2_bottom_um) if self.twin_core_w2_bottom_um is not None else w1_b
+                inv_tan_c = 0.0 if self.sidewall_deg == 90.0 else 1.0 / math.tan(math.radians(self.sidewall_deg))
+                w2_t = max(w2_b - 2.0 * (h_f - h_s) * inv_tan_c, 0.02)
+                g_half = 0.5 * self.twin_core_gap_um
+                x1_c = -(g_half + 0.5 * w1_b)
+                x2_c = +(g_half + 0.5 * w2_b)
                 left_c = Polygon([
-                    (-xc - 0.5 * self.w_bottom_um, h_s),
-                    (-xc + 0.5 * self.w_bottom_um, h_s),
-                    (-xc + 0.5 * w_top, h_f),
-                    (-xc - 0.5 * w_top, h_f),
+                    (x1_c - 0.5 * w1_b, h_s),
+                    (x1_c + 0.5 * w1_b, h_s),
+                    (x1_c + 0.5 * w_top, h_f),
+                    (x1_c - 0.5 * w_top, h_f),
                 ])
                 right_c = Polygon([
-                    (xc - 0.5 * self.w_bottom_um, h_s),
-                    (xc + 0.5 * self.w_bottom_um, h_s),
-                    (xc + 0.5 * w_top, h_f),
-                    (xc - 0.5 * w_top, h_f),
+                    (x2_c - 0.5 * w2_b, h_s),
+                    (x2_c + 0.5 * w2_b, h_s),
+                    (x2_c + 0.5 * w2_t, h_f),
+                    (x2_c - 0.5 * w2_t, h_f),
                 ])
                 polys["core"] = MultiPolygon([left_c, right_c])
             else:
@@ -1093,9 +1100,19 @@ def solve_perturbed_neff_sweep_fem(
     max_eps_re = 1.0
     for reg_name, mat_tensor in region_mats.items():
         if reg_name in mesh.subdomains:
-            idx = np.asarray(dg1.get_dofs(elements=reg_name), dtype=np.int64)
-            x_um = dg1.doflocs[0, idx] * 1e6
-            y_um = dg1.doflocs[1, idx] * 1e6
+            elems = np.asarray(mesh.subdomains[reg_name], dtype=np.int64)
+            edofs = dg1.element_dofs[:, elems]  # shape (3, n_elems)
+            x_tri = dg1.doflocs[0, edofs] * 1e6
+            y_tri = dg1.doflocs[1, edofs] * 1e6
+            # Evaluate discontinuous physical fields (E_n across dielectric jumps, PN doping edges)
+            # at the mathematical one-sided interior trace lim_{eps->0+} ((1-eps)*v_i + eps*centroid_K)
+            # so vertices on material interfaces never sample the exterior cladding subdomain.
+            cx_tri = np.mean(x_tri, axis=0, keepdims=True)
+            cy_tri = np.mean(y_tri, axis=0, keepdims=True)
+            eps_trace = 1.0e-3
+            x_um = ((1.0 - eps_trace) * x_tri + eps_trace * cx_tri).ravel()
+            y_um = ((1.0 - eps_trace) * y_tri + eps_trace * cy_tri).ravel()
+            idx = edofs.ravel()
             reg_cache.append((reg_name, mat_tensor, idx, x_um, y_um))
             ex_c, ey_c, _ = mat_tensor.complex_eps_diag()
             max_eps_re = max(max_eps_re, float(np.real(ex_c)), float(np.real(ey_c)))

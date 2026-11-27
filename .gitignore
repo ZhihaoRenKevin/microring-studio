@@ -11,16 +11,46 @@ packaging/microring.iconset/
 packaging/*.icns
 packaging/*.ico
 packaging/*.png
-benchmarks/outputs/
+benchmarks/outputs/*
+!benchmarks/outputs/commercial_validation_specs.json
+!benchmarks/outputs/microring_independent_results.json
+!benchmarks/outputs/lumerical_independent_results.json
+!benchmarks/outputs/comsol_independent_results.json
+!benchmarks/outputs/commercial_validation_specs_p2.json
+!benchmarks/outputs/microring_independent_results_p2.json
+!benchmarks/outputs/lumerical_independent_results_p2.json
+!benchmarks/outputs/comsol_independent_results_p2.json
+!benchmarks/outputs/hfss_independent_results_p2.json
+!benchmarks/outputs/suite1_eigenmode_3way.csv
+!benchmarks/outputs/suite2_coupler_3dfdtd_gpu.csv
+!benchmarks/outputs/suite3a_dc_supermodes_3way.csv
+!benchmarks/outputs/suite4_thermal_3way.csv
+!benchmarks/outputs/suite5_eo_pockels_3way.csv
+!benchmarks/outputs/suite6a_butt_couplers_3way.csv
+!benchmarks/outputs/suite6b_apodized_gc_3way.csv
+!benchmarks/outputs/suite7_mmi_ring_interconnect.csv
+!benchmarks/outputs/suite8_rf_electrodes_4way.csv
+!benchmarks/outputs/suite9_si_pn_tcad_3way.csv
+!benchmarks/outputs/suite10_thermal_adv_3way.csv
+!benchmarks/outputs/suite11_fab_cd_bias_3way.csv
 docs/images/*.svg
+!docs/images/commercial_validation_overview.svg
+!docs/images/commercial_validation_p2_overview.svg
 .venv/
 venv/
 
 # Generated simulation & layout outputs
-outputs/
+/outputs/
 *.mph
 *.fsp
 *.lms
+*.ldev
+*.aedt
+*.aedt.lock
+*.aedtresults/
+*.mat
+*.ich
+uv.lock
 
 # Strict privacy lock: never track personal skills, vaults, or local agent folders
 skills/

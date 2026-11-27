@@ -2,7 +2,7 @@
 
 **无需 Ansys Lumerical MODE/FDTD/CHARGE/HEAT、HFSS、Synopsys RSoft 或 COMSOL 商业许可证 —— 通过中英双语 AI 光子设计助手（Copilot）、亚太赫兹（`100–300+ GHz`）行波与慢波 `T-Rail` 电光电极设计、三维晶体张量晶圆切向寻优、二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD`、稳态+瞬态热有限元、零 3D-FDTD 马赫-曾德尔干涉仪（`MZI`：`Y 分支` / `DC` / `MMI`）、2D-FEM 端面耦合器与 2D 全波 `FDFD` 表面光栅耦合器、超高 Q（`10^4`–`10^8+`）瞬时稳态收敛引擎、Lumerical INTERCONNECT 导出及双向 GDSII 版图桥，一站式打通光子集成电路（PIC）从物理仿真到流片掩膜的全流程。**
 
-[English](../README.md) | [简体中文](./README_zh-CN.md) | [求解器交叉验证与基准](./VERIFICATION_AND_BENCHMARKS.md) | [369 篇实验论文核验总账](./PUBLICATION_VALIDATION_LEDGER.md) | [对话与 GDS 进阶教程](./tutorials/chatbot_and_gds_guide.md) | [Codex 与 Claude 极省 Token 接入指南](./tutorials/ai_agents_codex_claude.md) | [llms.txt](./llms.txt) | [更新日志](../CHANGELOG.md)
+[English](../README.md) | [简体中文](./README_zh-CN.md) | [求解器交叉验证与基准](./VERIFICATION_AND_BENCHMARKS.md) | [Lumerical / COMSOL / HFSS 独立验证报告](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) | [369 篇实验论文核验总账](./PUBLICATION_VALIDATION_LEDGER.md) | [对话与 GDS 进阶教程](./tutorials/chatbot_and_gds_guide.md) | [Codex 与 Claude 极省 Token 接入指南](./tutorials/ai_agents_codex_claude.md) | [llms.txt](./llms.txt) | [更新日志](../CHANGELOG.md)
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
@@ -19,7 +19,7 @@
 
 ## 核心亮点
 
-1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（`v3.8.0` 对标 [369 篇独立 DOI 同行评审实验论文 `369/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
+1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（对标 [Ansys Lumerical 2026 R1、COMSOL 6.4 与 Ansys HFSS 2026 R1 全 11 套件四方独立验证报告 `10/10 PASS`](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) 及 [369 篇独立 DOI 同行评审实验论文 `369/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
    - **行波与慢波 `T-Rail` 电极自动综合（`design_eom_electrode`）**：二维各向异性 Laplace 有限元 + Ghione/Heinrich 保角趋肤损耗 + Hammerstad-Jensen 粗糙度 + 对称 ABCD Bloch-Floquet 周期单元色散（`f_Bragg`）+ Frankel-Rutledge Cherenkov 衬底辐射诊断，连续二维反解 `50 Ω` 线宽 $W_S$ 与速度匹配悬臂 $L_{\mathrm{rail}}$（石英衬底 `X切 TFLN` 达 **`f_3dBe > 300 GHz`**，`S21_EO(300 GHz) = -2.30 dBe`），一键导出零短路双层金属跨桥（`METAL_2 13/0 + VIA 12/0`）`.GDS` 掩膜、IEEE Touchstone `.s2p` 与 INTERCONNECT `TWMOD` 模型包。
    - **三维晶体张量晶圆切向与 `0°–360°` 方位角寻优 + 5 种新铁电材料（`LT` / `BTO` / `PZT`）**：精确计算 `TFLN`、`超低双折射钽酸锂 TFLT`、`硅基外延钛酸钡 BTO`（$r_{42}^S = 360\text{ pm/V}$）、`面内自极化 PZT`（$r_{\mathrm{eff}} = 67\text{ pm/V}$）、`ScAlN` 与 `3C/4H-SiC` 的最佳传输角、SEMI 参考边对准及圆环微环劈裂推挽效率。
    - **二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD` 与稳态 + Crank-Nicolson 瞬态热有限元**：自研阻尼牛顿迭代提取 `横向 / L型 / U型 / PIN` 结二维载流子分布、$C_j(V)$、$R_s$、$V_\pi L(V)$ 与多层离子注入 `.GDS`；热有限元完整求解 `顶层 TiN`、`深空气隔离槽`、`XeF2 掏空悬臂`（$P_\pi < 1\text{ mW}$）与 `重掺杂硅脊` 的瞬态升降温波形 $t_{10\text{--}90\%}$ 与邻臂热串扰。

@@ -1,0 +1,5 @@
+# Solvers: MicroRing Studio v3.9.0 (Phase-2 Complete Physical Engine Suite) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + RF emw + AC/DC es + GeneralFormPDE g + 2D/3D Heat ht) | Ansys Lumerical 2026R1.0 (MODE FDE/EME + 3D FDTD RTX 5090 GPU + 2D FDTD + CHARGE + HEAT + INTERCONNECT)
+case_id,V_pi_L_m3V_Vcm_microring,V_pi_L_m3V_Vcm_comsol,V_pi_L_m3V_Vcm_lumerical_charge,Cj_0V_fF_per_um_microring,Cj_0V_fF_per_um_comsol,Cj_0V_fF_per_um_lumerical_charge,Cj_m3V_fF_per_um_microring,Cj_m3V_fF_per_um_comsol,Cj_m3V_fF_per_um_lumerical_charge,FCA_m3V_dB_per_cm_microring,FCA_m3V_dB_per_cm_comsol,FCA_m3V_dB_per_cm_lumerical_charge
+SOI_220nm_Lateral_PN,1.48,1.657,1.563,0.4046,0.4081,0.4172,0.2399,0.247,0.2477,10.762,9.993,10.778
+SOI_220nm_LShaped_PN,1.184,1.371,,0.5838,0.5848,,0.2652,0.2722,,7.55,7.034,
+SOI_220nm_UShaped_PN,0.962,1.09,,0.8768,0.8648,,0.3669,0.3729,,4.829,4.379,

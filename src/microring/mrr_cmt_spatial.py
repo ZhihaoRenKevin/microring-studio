@@ -96,6 +96,7 @@ def coupling_coefficient_cylindrical(
     quad_step_m: float,
     ring_azimuthal_m: float,
     bus_neff: float,
+    n_top_clad: float | None = None,
 ) -> dict:
     """Full-vector cylindrical tensor dielectric perturbation integral for pulley / point coupling.
 
@@ -104,7 +105,8 @@ def coupling_coefficient_cylindrical(
     coupling rate `k_per_m` [1/m] and phase mismatch `delta_beta_per_m` [1/m].
     """
     n_r, n_v, n_a = [float(v) for v in n_core_xyz]
-    pos_vals = [wavelength_m, ring_radius_m, bus_radius_m, bus_bottom_width_m, film_height_m, n_r, n_v, n_a, n_clad, quad_step_m]
+    n_bg = float(n_top_clad) if n_top_clad is not None else float(n_clad)
+    pos_vals = [wavelength_m, ring_radius_m, bus_radius_m, bus_bottom_width_m, film_height_m, n_r, n_v, n_a, n_bg, quad_step_m]
     if not all(math.isfinite(v) and v > 0 for v in pos_vals):
         raise ValueError("All geometric/wavelength/index parameters must be positive and finite")
     if not (0.0 <= slab_height_m < film_height_m and 0.0 < sidewall_deg <= 90.0):
@@ -133,7 +135,7 @@ def coupling_coefficient_cylindrical(
     if np.any(metric <= 0):
         raise ValueError("Non-positive cylindrical radial metric")
 
-    delta_eps = np.array([n_r ** 2 - n_clad ** 2, n_v ** 2 - n_clad ** 2, n_a ** 2 - n_clad ** 2], dtype=float)
+    delta_eps = np.array([n_r ** 2 - n_bg ** 2, n_v ** 2 - n_bg ** 2, n_a ** 2 - n_bg ** 2], dtype=float)
     overlap_int = sum(de * np.vdot(eb, er * metric) for de, eb, er in zip(delta_eps, e_bus, e_ring)) * (quad_step_m ** 2)
 
     omega = 2.0 * math.pi * C0_M_PER_S / wavelength_m

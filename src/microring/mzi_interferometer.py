@@ -450,18 +450,21 @@ def design_mmi_coupler_eme(
     dn2 = max(n_core ** 2 - n_clad ** 2, 0.15)
     w_eff = w_mmi + (wl_um / math.pi) * ((n_clad / n_core) ** (2.0 * sigma_gh)) / math.sqrt(dn2)
 
-    # Port positions & adiabatic access taper width
-    x_port_um = (w_eff / 6.0) if not is_1x2 else (0.26 * w_eff)
+    # Port positions (Soldano & Pennings IEEE JLT 13, 615, 1995: +/- W_e/6 for 2x2 paired, +/- W_e/4 for 1x2 symmetric)
+    x_port_um = (w_eff / 6.0) if not is_1x2 else (0.25 * w_eff)
     if cfg.mmi_taper_width_um is not None and cfg.mmi_taper_width_um > 0:
         w_taper = float(cfg.mmi_taper_width_um)
     else:
         max_tap = (2.0 * x_port_um - 0.26 * wl_scale) if not is_1x2 else (0.38 * w_mmi)
         w_taper = round(float(np.clip(2.3 * cfg.arm1_width_um, 0.85 * wl_scale, max(max_tap, 0.65 * wl_scale))), 3)
 
-    mesh_mmi = round(float(np.clip(0.068 * wl_scale, 0.026, 0.180)), 4)
+    # 2nd-order conformal Nedelec1xP2 FEM: resolve core thickness (>=2.3 elements vertically)
+    # while keeping outer cladding coarse so beat-length L_pi stays exact to O(h^4) at ~3x speed.
+    mesh_mmi = round(float(np.clip(min(0.095 * wl_scale, max(0.42 * float(cfg.film_height_um), 0.032)), 0.032, 0.210)), 4)
+    clad_mmi = round(max(mesh_mmi * 5.0, 0.48 * wl_scale), 4)
     grid_step = round(float(np.clip(0.036 * wl_scale, 0.016, 0.100)), 4)
-    box_pad = round(max(1.9, 1.30 * wl_um), 3)
-    dom_w = w_mmi + 3.0 * wl_scale
+    box_pad = round(max(1.8, 1.20 * wl_um), 3)
+    dom_w = w_mmi + 2.8 * wl_scale
 
     mmi_spec = WaveguideCrossSectionSpec(
         w_bottom_um=w_mmi,
@@ -483,21 +486,22 @@ def design_mmi_coupler_eme(
         core_material_fn=core_fn,
         clad_material_fn=clad_fn,
         top_clad_material_fn=top_fn,
-        domain_width_um=max(4.2 * wl_scale, w_taper + 2.6 * wl_scale),
+        domain_width_um=max(4.0 * wl_scale, w_taper + 2.4 * wl_scale),
         h_box_um=box_pad,
         h_top_clad_um=box_pad,
     )
 
-    n_req_modes = 11 if not is_1x2 else 9
+    n_req_modes = 14 if not is_1x2 else 11
+    n_eig_req = min(22, 2 * n_req_modes - 4)
     modes_0_raw = solve_modes_fem(
         mmi_spec,
         wl0_nm * 1e-9,
-        num_modes=n_req_modes + 4,
+        num_modes=n_eig_req,
         n_guess=n_core * 0.96,
         core_mesh_res_um=mesh_mmi,
-        clad_mesh_res_um=max(mesh_mmi * 4.5, 0.24),
+        clad_mesh_res_um=clad_mmi,
         eval_grid_step_um=grid_step,
-        element_order=1,
+        element_order=2,
         export_grid=True,
     )
     guided_0 = _pick_pol_modes(modes_0_raw, cfg.polarization, n_clad)[:n_req_modes]
@@ -513,11 +517,11 @@ def design_mmi_coupler_eme(
     ms_p = solve_modes_fem(
         mmi_spec,
         (wl0_nm + dwl) * 1e-9,
-        num_modes=m_cnt + 4,
+        num_modes=n_eig_req,
         n_guess=float(neff_m[1, 0]) + 0.02,
         core_mesh_res_um=mesh_mmi,
-        clad_mesh_res_um=max(mesh_mmi * 4.5, 0.24),
-        element_order=1,
+        clad_mesh_res_um=clad_mmi,
+        element_order=2,
         export_grid=False,
     )
     g_p = _pick_pol_modes(ms_p, cfg.polarization, n_clad)
@@ -530,12 +534,12 @@ def design_mmi_coupler_eme(
     tap_modes = solve_modes_fem(
         taper_spec,
         wl0_nm * 1e-9,
-        num_modes=2,
+        num_modes=3,
         n_guess=n_core * 0.92,
-        core_mesh_res_um=round(mesh_mmi * 0.78, 4),
-        clad_mesh_res_um=max(mesh_mmi * 4.5, 0.24),
+        core_mesh_res_um=round(mesh_mmi * 0.55, 4),
+        clad_mesh_res_um=clad_mmi,
         eval_grid_step_um=grid_step,
-        element_order=1,
+        element_order=2,
         export_grid=True,
     )
     tap_0 = _pick_pol_modes(tap_modes, cfg.polarization, n_clad)[0]
@@ -698,8 +702,8 @@ def design_y_branch_eme(
 
     w_br = float(cfg.arm1_width_um)
     g_apex = max(float(cfg.y_apex_gap_um), 0.05)
-    # Foundry low-loss Y-junction (Zhang et al., Opt. Express 2013): waist-narrowed bifurcation delocalizes TE0 across g_apex
-    w_apex_br = round(max(0.72 * w_br, 0.24 * wl_scale), 4)
+    # Match actual bifurcating GDS branch width w_br so stem width = 2*w_br + g_apex has zero mask discontinuity
+    w_apex_br = round(w_br, 4)
     w_stem = round(2.0 * w_apex_br + g_apex, 4)
     dom_w = max(5.2 * wl_scale, w_stem + 3.0 * wl_scale)
 
@@ -729,21 +733,23 @@ def design_y_branch_eme(
         h_top_clad_um=box_pad,
     )
 
-    # Full 2D-FEM vector field overlap at wl0_nm + fast eigenvalue dispersion at wl0 + dwl
+    # Full 2D-FEM vector field overlap at wl0_nm (2nd-order Nedelec1xP2) + eigenvalue dispersion at wl0 + dwl
+    y_core_mesh = round(max(mesh_res * 1.75, 0.066 * wl_scale), 4)
+    y_clad_mesh = round(max(mesh_res * 9.0, 0.44 * wl_scale), 4)
     m_stem_0 = _pick_pol_modes(
         solve_modes_fem(
-            stem_spec, wl0_nm * 1e-9, num_modes=2, n_guess=n_core * 0.94,
-            core_mesh_res_um=mesh_res, clad_mesh_res_um=max(mesh_res * 4.8, 0.22),
-            eval_grid_step_um=round(grid_step * 1.25, 4), element_order=1, export_grid=True,
+            stem_spec, wl0_nm * 1e-9, num_modes=3, n_guess=n_core * 0.94,
+            core_mesh_res_um=y_core_mesh, clad_mesh_res_um=y_clad_mesh,
+            eval_grid_step_um=round(grid_step * 1.15, 4), element_order=2, export_grid=True,
         ),
         cfg.polarization,
         n_clad,
     )[0]
     m_twin_0 = _pick_pol_modes(
         solve_modes_fem(
-            twin_apex_spec, wl0_nm * 1e-9, num_modes=2, n_guess=float(np.real(m_stem_0.n_eff)),
-            core_mesh_res_um=mesh_res, clad_mesh_res_um=max(mesh_res * 4.8, 0.22),
-            eval_grid_step_um=round(grid_step * 1.25, 4), element_order=1, export_grid=True,
+            twin_apex_spec, wl0_nm * 1e-9, num_modes=3, n_guess=float(np.real(m_stem_0.n_eff)),
+            core_mesh_res_um=y_core_mesh, clad_mesh_res_um=y_clad_mesh,
+            eval_grid_step_um=round(grid_step * 1.15, 4), element_order=2, export_grid=True,
         ),
         cfg.polarization,
         n_clad,
@@ -754,9 +760,9 @@ def design_y_branch_eme(
     dwl = max(15.0 * wl_scale, min(0.40 * float(cfg.span_nm), 40.0 * wl_scale))
     m_stem_p = _pick_pol_modes(
         solve_modes_fem(
-            stem_spec, (wl0_nm + dwl) * 1e-9, num_modes=2, n_guess=n_core * 0.94,
-            core_mesh_res_um=mesh_res, clad_mesh_res_um=max(mesh_res * 4.8, 0.22),
-            element_order=1, export_grid=False,
+            stem_spec, (wl0_nm + dwl) * 1e-9, num_modes=3, n_guess=n_core * 0.94,
+            core_mesh_res_um=y_core_mesh, clad_mesh_res_um=y_clad_mesh,
+            element_order=2, export_grid=False,
         ),
         cfg.polarization,
         n_clad,

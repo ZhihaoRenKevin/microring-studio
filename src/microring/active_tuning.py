@@ -216,17 +216,22 @@ def soref_bennett_si_dn_dk(
     delta_ne_cm3: np.ndarray | float,
     delta_nh_cm3: np.ndarray | float,
     wavelength_nm: float = 1550.0,
+    plasma_model: str = "soref_bennett_1987",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute Silicon free-carrier index shift `Delta_n` and extinction `Delta_k`.
 
-    Uses empirical Soref & Bennett (IEEE JQE 23, 123, 1987) coefficients at 1310 nm and
-    1550 nm with smooth interpolation across O/C/L bands and Drude `lambda^2` scaling
-    into the 2-um / Mid-IR Silicon window (Nedeljkovic et al., IEEE Photonics J. 3, 1171, 2011).
+    Supports two peer-reviewed empirical Silicon plasma-dispersion models:
+      - `"soref_bennett_1987"` (default): Soref & Bennett (IEEE JQE 23(1), 123, 1987) at
+        1310 nm and 1550 nm with Drude `lambda^2` dispersion scaling.
+      - `"nedeljkovic_2011"`: Nedeljkovic, Soref & Mashanovich (IEEE Photonics J. 3(6),
+        1171, 2011, Table I) power-law fits at 1310 nm and 1550 nm (higher-order
+        `N_e^1.011`, `N_h^0.838` and nonlinear FCA exponents `1.167` / `1.109`).
 
     Args:
       delta_ne_cm3: Free electron concentration `N_e` [cm^-3] (`>= 0`).
       delta_nh_cm3: Free hole concentration `N_h` [cm^-3] (`>= 0`).
       wavelength_nm: Optical vacuum wavelength [nm].
+      plasma_model: `"soref_bennett_1987"` or `"nedeljkovic_2011"`.
 
     Returns:
       Tuple `(dn_real, dk_imag)` where `dn_real <= 0` and `dk_imag >= 0`.
@@ -234,29 +239,56 @@ def soref_bennett_si_dn_dk(
     ne = np.maximum(np.asarray(delta_ne_cm3, dtype=float), 0.0)
     nh = np.maximum(np.asarray(delta_nh_cm3, dtype=float), 0.0)
     wl_um = max(float(wavelength_nm) * 1e-3, 1.10)
+    model_key = str(plasma_model or "soref_bennett_1987").lower().strip()
 
-    # Interpolate exact Soref-Bennett 1.31 um & 1.55 um anchors, then scale ~ wl^2
     t = float(np.clip((wl_um - 1.31) / (1.55 - 1.31), 0.0, 1.0))
-    ce_n = (1.0 - t) * 6.2e-22 + t * 8.8e-22
-    ch_n = (1.0 - t) * 6.0e-18 + t * 8.5e-18
-    ce_a = (1.0 - t) * 6.0e-18 + t * 8.5e-18
-    ch_a = (1.0 - t) * 4.0e-18 + t * 6.0e-18
+    if model_key in ("nedeljkovic_2011", "nedeljkovic", "nsm_2011"):
+        # Nedeljkovic, Soref & Mashanovich, IEEE Photonics J. 3(6), 1171 (2011) Table I
+        ce_n = (1.0 - t) * 2.98e-22 + t * 5.40e-22
+        pe_n = (1.0 - t) * 1.016 + t * 1.011
+        ch_n = (1.0 - t) * 1.25e-18 + t * 1.53e-18
+        ph_n = (1.0 - t) * 0.835 + t * 0.838
+        ce_a = (1.0 - t) * 3.48e-22 + t * 8.88e-21
+        pe_a = (1.0 - t) * 1.229 + t * 1.167
+        ch_a = (1.0 - t) * 1.02e-19 + t * 5.84e-20
+        ph_a = (1.0 - t) * 1.089 + t * 1.109
+        if wl_um > 1.55:
+            drude_scale = (wl_um / 1.55) ** 2
+            ce_n *= drude_scale
+            ch_n *= drude_scale ** 0.92
+            ce_a *= drude_scale ** 1.08
+            ch_a *= drude_scale ** 1.05
+        elif wl_um < 1.31:
+            drude_scale = (wl_um / 1.31) ** 2
+            ce_n *= drude_scale
+            ch_n *= drude_scale
+            ce_a *= drude_scale
+            ch_a *= drude_scale
+        dn_real = -(ce_n * np.power(ne, pe_n) + ch_n * np.power(nh, ph_n))
+        alpha_cm_inv = ce_a * np.power(ne, pe_a) + ch_a * np.power(nh, ph_a)
+    else:
+        # Interpolate exact Soref-Bennett 1.31 um & 1.55 um anchors, then scale ~ wl^2
+        ce_n = (1.0 - t) * 6.2e-22 + t * 8.8e-22
+        ch_n = (1.0 - t) * 6.0e-18 + t * 8.5e-18
+        ce_a = (1.0 - t) * 6.0e-18 + t * 8.5e-18
+        ch_a = (1.0 - t) * 4.0e-18 + t * 6.0e-18
 
-    if wl_um > 1.55:
-        drude_scale = (wl_um / 1.55) ** 2
-        ce_n *= drude_scale
-        ch_n *= drude_scale ** 0.92
-        ce_a *= drude_scale ** 1.08
-        ch_a *= drude_scale ** 1.05
-    elif wl_um < 1.31:
-        drude_scale = (wl_um / 1.31) ** 2
-        ce_n *= drude_scale
-        ch_n *= drude_scale
-        ce_a *= drude_scale
-        ch_a *= drude_scale
+        if wl_um > 1.55:
+            drude_scale = (wl_um / 1.55) ** 2
+            ce_n *= drude_scale
+            ch_n *= drude_scale ** 0.92
+            ce_a *= drude_scale ** 1.08
+            ch_a *= drude_scale ** 1.05
+        elif wl_um < 1.31:
+            drude_scale = (wl_um / 1.31) ** 2
+            ce_n *= drude_scale
+            ch_n *= drude_scale
+            ce_a *= drude_scale
+            ch_a *= drude_scale
 
-    dn_real = -(ce_n * ne + ch_n * np.power(nh, 0.80))
-    alpha_cm_inv = ce_a * ne + ch_a * nh
+        dn_real = -(ce_n * ne + ch_n * np.power(nh, 0.80))
+        alpha_cm_inv = ce_a * ne + ch_a * nh
+
     wl_m = wl_um * 1e-6
     dk_imag = (wl_m / (4.0 * math.pi)) * (alpha_cm_inv * 100.0)
     return dn_real, dk_imag
@@ -311,6 +343,63 @@ def _rectilinear_mesh_tri(x_um: np.ndarray, y_um: np.ndarray) -> tuple[MeshTri, 
     xc_um = (xx.ravel()[t_mat[0]] + xx.ravel()[t_mat[1]] + xx.ravel()[t_mat[2]]) / 3.0
     yc_um = (yy.ravel()[t_mat[0]] + yy.ravel()[t_mat[1]] + yy.ravel()[t_mat[2]]) / 3.0
     return MeshTri(p_m, t_mat), xc_um, yc_um
+
+
+def _rectilinear_p1_neg_grad_evaluators(
+    mesh: MeshTri,
+    phi_nodes: np.ndarray,
+    x_axis_um: np.ndarray,
+    y_axis_um: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, object, object]:
+    """Compute exact element-local Galerkin P1 field `E = -grad(phi)` [V/um] without cross-interface smearing.
+
+    Centered finite-difference `np.gradient` smears the normal electric-field jump across
+    high-permittivity interfaces (e.g., `SiO2 eps=3.9` -> `ScAlN eps=16.5` or `TFLN eps=28`).
+    Evaluating `-grad(phi)` strictly inside each P1 finite element preserves exact dielectric
+    boundary discontinuities and energy conservation.
+    """
+    px_um = mesh.p[0] * 1e6
+    py_um = mesh.p[1] * 1e6
+    t0, t1, t2 = mesh.t[0], mesh.t[1], mesh.t[2]
+    dx1 = px_um[t1] - px_um[t0]
+    dy1 = py_um[t1] - py_um[t0]
+    dx2 = px_um[t2] - px_um[t0]
+    dy2 = py_um[t2] - py_um[t0]
+    det = dx1 * dy2 - dx2 * dy1
+    det_safe = np.where(np.abs(det) > 1e-18, det, 1e-18)
+
+    dp1 = phi_nodes[t1] - phi_nodes[t0]
+    dp2 = phi_nodes[t2] - phi_nodes[t0]
+    ex_el = -((dp1 * dy2 - dp2 * dy1) / det_safe)
+    ey_el = -((-dp1 * dx2 + dp2 * dx1) / det_safe)
+
+    nx = len(x_axis_um)
+    ny = len(y_axis_um)
+    x_lo, x_hi = float(x_axis_um[0]), float(x_axis_um[-1])
+    y_lo, y_hi = float(y_axis_um[0]), float(y_axis_um[-1])
+    dx_cell = np.maximum(np.diff(x_axis_um), 1e-12)
+    dy_cell = np.maximum(np.diff(y_axis_um), 1e-12)
+
+    def _mk_eval(field_el: np.ndarray):
+        def _eval(pts: np.ndarray) -> np.ndarray:
+            arr = np.asarray(pts, dtype=float)
+            single = arr.ndim == 1
+            if single:
+                arr = arr[None, :]
+            yq = arr[:, 0]
+            xq = arr[:, 1]
+            in_b = (xq >= x_lo) & (xq <= x_hi) & (yq >= y_lo) & (yq <= y_hi)
+            ix = np.clip(np.searchsorted(x_axis_um, xq, side="right") - 1, 0, nx - 2)
+            iy = np.clip(np.searchsorted(y_axis_um, yq, side="right") - 1, 0, ny - 2)
+            fx = (xq - x_axis_um[ix]) / dx_cell[ix]
+            fy = (yq - y_axis_um[iy]) / dy_cell[iy]
+            # Exact match to `_rectilinear_mesh_tri`: tris[0::2]=[v00,v10,v11] (fx>=fy), tris[1::2]=[v00,v11,v01] (fy>fx)
+            tri_idx = 2 * (iy * (nx - 1) + ix) + (fy > fx).astype(np.int64)
+            vals = np.where(in_b, field_el[tri_idx], 0.0)
+            return vals[0] if single else vals
+        return _eval
+
+    return ex_el, ey_el, _mk_eval(ex_el), _mk_eval(ey_el)
 
 
 def solve_2d_heater_thermal_fem(
@@ -633,13 +722,12 @@ def solve_2d_electrostatic_eo_fem(
     phi_bc[gnd_nodes] = 0.0
 
     phi_1v = solve(*condense(A_eo, b_eo, D=dir_nodes, x=phi_bc))
-    phi_2d = phi_1v.reshape(len(y_axis_um), len(x_axis_um))
 
-    # Electric field E = -grad(phi) in [V/um] per 1 V applied
-    ey_1v_v_per_um, ex_1v_v_per_um = np.gradient(-phi_2d, y_axis_um, x_axis_um)
-
-    interp_ex = RegularGridInterpolator((y_axis_um, x_axis_um), ex_1v_v_per_um, bounds_error=False, fill_value=0.0)
-    interp_ey = RegularGridInterpolator((y_axis_um, x_axis_um), ey_1v_v_per_um, bounds_error=False, fill_value=0.0)
+    # Exact element-local Galerkin electric field E = -grad(phi) [V/um] per 1 V applied
+    # (preserves sharp normal E-field jump across SiO2 / high-eps ferroelectric interfaces)
+    ex_el, ey_el, interp_ex, interp_ey = _rectilinear_p1_neg_grad_evaluators(
+        mesh, phi_1v, x_axis_um, y_axis_um
+    )
 
     # Electrostatic capacitance per unit length C = phi^T A_eo phi [F/m] -> [fF/um] (* 1e9)
     c_line_f_per_m = float(phi_1v @ (A_eo @ phi_1v))
@@ -648,12 +736,14 @@ def solve_2d_electrostatic_eo_fem(
     c_tot_ff = c_line_ff_per_um * l_act_um + 8.0  # incl. ~8 fF pad parasitic
     f_rc_ghz = 1.0 / (2.0 * math.pi * max(float(driver_impedance_ohm), 1.0) * (c_tot_ff * 1e-15)) * 1e-9
 
-    # Core-averaged electric field components per 1 V
-    xc_c = xc_um[in_core] if np.any(in_core) else np.array([0.0])
-    yc_c = yc_um[in_core] if np.any(in_core) else np.array([0.5 * cfg.film_height_um])
-    pts_c = np.column_stack([yc_c, xc_c])
-    ex_core_1v = float(np.mean(interp_ex(pts_c)))
-    ey_core_1v = float(np.mean(interp_ey(pts_c)))
+    # Core-averaged electric field components per 1 V strictly over interior core elements
+    if np.any(in_core):
+        ex_core_1v = float(np.mean(ex_el[in_core]))
+        ey_core_1v = float(np.mean(ey_el[in_core]))
+    else:
+        pts_c = np.array([[0.5 * cfg.film_height_um, 0.0]])
+        ex_core_1v = float(interp_ex(pts_c)[0])
+        ey_core_1v = float(interp_ey(pts_c)[0])
     e_mag_core_1v = math.hypot(ex_core_1v, ey_core_1v)
     screen_factor = e_mag_core_1v / max(1.0 / g_eff, 1e-9)
 
@@ -895,9 +985,17 @@ def run_active_tuning_analysis(
         sc_fraction=work_cfg.sc_fraction if work_cfg.core_material.startswith("ScAlN") else None,
         custom_n=work_cfg.custom_n,
         custom_k=work_cfg.custom_k,
+        custom_dn_dt=1.0e-5 if work_cfg.custom_dn_dt is None else float(work_cfg.custom_dn_dt),
+        custom_r33_pm_v=0.0 if work_cfg.custom_r33_pm_v is None else float(work_cfg.custom_r33_pm_v),
     )
-    clad_fn = get_material_fn(work_cfg.clad_material)
-    top_fn = get_material_fn(work_cfg.top_clad_material)
+    clad_fn = get_material_fn(
+        "Custom" if work_cfg.custom_clad_n is not None else work_cfg.clad_material,
+        custom_n=work_cfg.custom_clad_n,
+    )
+    top_fn = get_material_fn(
+        "Custom" if work_cfg.custom_top_clad_n is not None else work_cfg.top_clad_material,
+        custom_n=work_cfg.custom_top_clad_n,
+    )
     up_fn = get_material_fn(work_cfg.upper_core_material) if work_cfg.upper_core_material else None
     cap_fn = get_material_fn(work_cfg.cap_material) if work_cfg.cap_material else None
 

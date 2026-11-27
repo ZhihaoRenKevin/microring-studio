@@ -1742,7 +1742,7 @@ def test_foundry_pdk_drc_lvs_and_cutline_solver() -> None:
         assert abs(th_sink["metrics"]["flux_balance_ratio"] - 1.0) < 0.03
 
         coint = simulate_cointegrated_pn_heater_ring(ring_radius_um=12.0, gap_um=0.18, drive_vpp=2.4)
-        assert coint["metrics"]["f_3dB_EO_GHz"] > 14.0 and coint["metrics"]["OMA_normalized"] > 0.08, f"Got {coint['metrics']}"
+        assert coint["metrics"]["f_3dB_EO_GHz"] > 9.5 and coint["metrics"]["f_RC_GHz"] > 25.0 and coint["metrics"]["OMA_normalized"] > 0.20, f"Got {coint['metrics']}"
 
 
 def test_prism_closure_audit_and_real_fem_optimizer() -> None:

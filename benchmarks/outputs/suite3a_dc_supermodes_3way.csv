@@ -1,0 +1,5 @@
+# Solvers: MicroRing Studio v3.9.0 (scikit-fem Conformal 2D-FEM / Spatial CMT / 2D-FDFD) | Ansys Lumerical 2026R1.0 (Build 4413) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + Heat Transfer ht + AC/DC Electrostatics es)
+case_id,gap_nm,n_even_microring,n_even_lumerical,n_even_comsol,n_odd_microring,n_odd_lumerical,n_odd_comsol,L_pi_um_microring,L_pi_um_lumerical,L_pi_um_comsol,rel_diff_Lpi_mr_vs_comsol_pct,rel_diff_Lpi_mr_vs_lumerical_pct
+SOI_1550nm_DC_Gap150nm,150.0,2.38424,2.383745,2.384124,2.335004,2.334342,2.334962,15.7406,15.6875,15.7645,0.152,0.338
+SOI_1550nm_DC_Gap200nm,200.0,2.372851,2.372319,2.372755,2.340902,2.340255,2.340852,24.2568,24.1701,24.2926,0.147,0.359
+SOI_1550nm_DC_Gap250nm,250.0,2.366322,2.36576,2.366229,2.345318,2.344681,2.34526,36.8982,36.7663,36.9588,0.164,0.359

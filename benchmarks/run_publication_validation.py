@@ -23,7 +23,7 @@ Strict Publication Hygiene Assertions:
   - 100% live PDE solver execution from physical cross-section parameters (zero hardcoded outputs)
 
 Usage:
-    /Users/kevin/venvs/photonics/bin/python benchmarks/run_publication_validation.py --save-csv --write-ledger
+    python benchmarks/run_publication_validation.py --save-csv --write-ledger
 """
 from __future__ import annotations
 

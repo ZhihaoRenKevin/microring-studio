@@ -1,0 +1,216 @@
+{
+  "solver": "COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + RF emw + AC/DC es + GeneralFormPDE g + 2D/3D Heat ht)",
+  "host": "Windows-AMD64",
+  "total_wall_time_s": 47.46,
+  "suite6a_butt_couplers": [
+    {
+      "case_id": "SOI_220nm_Butt_Lensed2p5um",
+      "w_tip_nominal_um": 0.2,
+      "n_eff_tip_nom": 1.478674,
+      "mode_overlap_nom_pct": 91.93,
+      "facet_il_nom_db": 0.376,
+      "tol_1db_x_um": 0.544,
+      "tol_1db_y_um": 0.542,
+      "tip_sweep": [
+        {
+          "w_tip_um": 0.12,
+          "n_eff_tip": 1.427978,
+          "mode_overlap_pct": 0.0,
+          "facet_il_db": 60.0
+        },
+        {
+          "w_tip_um": 0.16,
+          "n_eff_tip": 1.449003,
+          "mode_overlap_pct": 87.54,
+          "facet_il_db": 0.591
+        },
+        {
+          "w_tip_um": 0.2,
+          "n_eff_tip": 1.478674,
+          "mode_overlap_pct": 91.93,
+          "facet_il_db": 0.376
+        },
+        {
+          "w_tip_um": 0.24,
+          "n_eff_tip": 1.567766,
+          "mode_overlap_pct": 61.23,
+          "facet_il_db": 2.141
+        },
+        {
+          "w_tip_um": 0.3,
+          "n_eff_tip": 1.828222,
+          "mode_overlap_pct": 32.45,
+          "facet_il_db": 4.899
+        }
+      ]
+    },
+    {
+      "case_id": "Si3N4_400nm_Butt_DFB1310nm",
+      "w_tip_nominal_um": 0.3,
+      "n_eff_tip_nom": 1.479239,
+      "mode_overlap_nom_pct": 86.66,
+      "facet_il_nom_db": 0.633,
+      "tol_1db_x_um": 0.502,
+      "tol_1db_y_um": 0.322,
+      "tip_sweep": [
+        {
+          "w_tip_um": 0.2,
+          "n_eff_tip": 1.451382,
+          "mode_overlap_pct": 70.37,
+          "facet_il_db": 1.537
+        },
+        {
+          "w_tip_um": 0.3,
+          "n_eff_tip": 1.479239,
+          "mode_overlap_pct": 86.66,
+          "facet_il_db": 0.633
+        },
+        {
+          "w_tip_um": 0.4,
+          "n_eff_tip": 1.525587,
+          "mode_overlap_pct": 66.19,
+          "facet_il_db": 1.803
+        }
+      ]
+    }
+  ],
+  "suite11_fab_bias": {
+    "case_id": "SOI_1550nm_PR_CD_Bias_Sweep",
+    "ng_nominal": 4.29092,
+    "dlambda_dCD_pm_per_nm": 775.965,
+    "corners": [
+      {
+        "delta_cd_nm": -20.0,
+        "neff_bent": 2.309538,
+        "delta_lambda_nm": -16.4898
+      },
+      {
+        "delta_cd_nm": 0.0,
+        "neff_bent": 2.355187,
+        "delta_lambda_nm": 0.0
+      },
+      {
+        "delta_cd_nm": 20.0,
+        "neff_bent": 2.395463,
+        "delta_lambda_nm": 14.5488
+      }
+    ]
+  },
+  "suite6b_apodized_gc": {
+    "case_id": "SOI_220nm_Apodized_GC_70nmEtch",
+    "eta_up_at_1550_pct": 57.42,
+    "eta_down_at_1550_pct": 38.46,
+    "mode_match_2d_pct": 92.71,
+    "il_at_1550_db": 2.897,
+    "s11_at_1550_db": -18.57,
+    "wall_time_s": 20.18
+  },
+  "suite8_rf_electrodes": [
+    {
+      "case_id": "TFLN_GSG_CPW_HRSi",
+      "Z0_2d_es": 40.3568,
+      "n_RF_2d_es": 2.1909,
+      "C_diel_pF_m": 181.0827,
+      "L_ext_nH_m": 294.9237,
+      "alpha_10G_emw": 0.1197,
+      "alpha_40G_emw": 4.115,
+      "alpha_100G_emw": 6.8787,
+      "n_RF_40G_emw": 2.2563
+    },
+    {
+      "case_id": "TFLN_GSG_CPW_Quartz",
+      "Z0_2d_es": 45.0718,
+      "n_RF_2d_es": 1.7842,
+      "C_diel_pF_m": 132.0445,
+      "L_ext_nH_m": 268.2444,
+      "alpha_10G_emw": 0.0002,
+      "alpha_40G_emw": 3.1057,
+      "alpha_100G_emw": 5.3179,
+      "n_RF_40G_emw": 1.8332
+    },
+    {
+      "case_id": "TFLN_SlowWave_TRail_Quartz",
+      "Z0_2d_es": 50.6173,
+      "n_RF_2d_es": 2.2292,
+      "C_diel_pF_m": 146.9023,
+      "L_ext_nH_m": 376.3807,
+      "alpha_10G_emw": 0.0644,
+      "alpha_40G_emw": 0.4974,
+      "alpha_100G_emw": 0.9774,
+      "n_RF_40G_emw": 1.5618,
+      "C_3d_diel_pF_m": 155.26,
+      "Z0_3d_unitcell_ohm": 49.236,
+      "n_RF_3d_unitcell": 2.2917
+    },
+    {
+      "case_id": "TFLN_GSG_CPW_UndercutSi",
+      "Z0_2d_es": 55.3055,
+      "n_RF_2d_es": 1.5987,
+      "C_diel_pF_m": 96.4211,
+      "L_ext_nH_m": 294.9226,
+      "alpha_10G_emw": 0.386,
+      "alpha_40G_emw": 2.7578,
+      "alpha_100G_emw": 4.7683,
+      "n_RF_40G_emw": 1.6239
+    }
+  ],
+  "suite10_thermal_adv": [
+    {
+      "case_id": "SOI_220nm_Undercut_Suspended",
+      "R_th_core_K_per_mW": 34.6711,
+      "crosstalk_20um_pct": 0.0443
+    },
+    {
+      "case_id": "SOI_220nm_Doped_Si_Rib",
+      "R_th_core_K_per_mW": 0.7411,
+      "crosstalk_20um_pct": 0.1657
+    },
+    {
+      "case_id": "SOI_220nm_CoInt_PN_TiN_Heater",
+      "R_th_core_K_per_mW": 0.587,
+      "R_th_bare_K_per_mW": 0.9062,
+      "pn_sinking_penalty_pct": 54.3956,
+      "crosstalk_20um_pct": 2.9885
+    }
+  ],
+  "suite10_thermal_3d_check": {
+    "case_id": "SOI_220nm_Top_TiN_3D_L200um",
+    "R_th_eff_integrated_K_per_mW": 1.1357,
+    "R_th_center_z0_K_per_mW": 1.1425
+  },
+  "suite9_si_pn_tcad": [
+    {
+      "case_id": "SOI_220nm_Lateral_PN",
+      "neff_0V": 2.521975,
+      "neff_m3V": 2.522115,
+      "delta_neff_m3V": 0.000140342,
+      "V_pi_L_at_m3V_Vcm": 1.657,
+      "alpha_FCA_0V_dB_per_cm": 12.608,
+      "alpha_FCA_m3V_dB_per_cm": 9.993,
+      "Cj_0V_fF_per_um": 0.4081,
+      "Cj_m3V_fF_per_um": 0.247
+    },
+    {
+      "case_id": "SOI_220nm_LShaped_PN",
+      "neff_0V": 2.522061,
+      "neff_m3V": 2.522231,
+      "delta_neff_m3V": 0.000169629,
+      "V_pi_L_at_m3V_Vcm": 1.371,
+      "alpha_FCA_0V_dB_per_cm": 10.291,
+      "alpha_FCA_m3V_dB_per_cm": 7.034,
+      "Cj_0V_fF_per_um": 0.5848,
+      "Cj_m3V_fF_per_um": 0.2722
+    },
+    {
+      "case_id": "SOI_220nm_UShaped_PN",
+      "neff_0V": 2.522118,
+      "neff_m3V": 2.522331,
+      "delta_neff_m3V": 0.000213306,
+      "V_pi_L_at_m3V_Vcm": 1.09,
+      "alpha_FCA_0V_dB_per_cm": 8.821,
+      "alpha_FCA_m3V_dB_per_cm": 4.379,
+      "Cj_0V_fF_per_um": 0.8648,
+      "Cj_m3V_fF_per_um": 0.3729
+    }
+  ]
+}

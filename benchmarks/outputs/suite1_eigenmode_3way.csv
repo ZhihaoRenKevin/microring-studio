@@ -1,0 +1,7 @@
+# Solvers: MicroRing Studio v3.9.0 (scikit-fem Conformal 2D-FEM / Spatial CMT / 2D-FDFD) | Ansys Lumerical 2026R1.0 (Build 4413) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + Heat Transfer ht + AC/DC Electrostatics es)
+case_id,wavelength_nm,ring_radius_um,sidewall_deg,neff_microring,neff_lumerical_mode,neff_comsol_ewfd,abs_diff_mr_lum,abs_diff_mr_comsol,abs_diff_lum_comsol,ng_microring,ng_lumerical_mode,ng_comsol_ewfd,delta_neff_bend_microring,delta_neff_bend_lumerical,delta_neff_bend_comsol
+Vis_532nm_Si3N4_Strip,532.0,25.0,88.0,1.76685,1.76671,1.766849,0.00014,1e-06,0.000139,2.25188,2.25219,2.25189,0.000144,0.000144,0.000144
+VNIR_780nm_TiO2_Strip,780.0,30.0,86.0,1.877503,1.878038,1.877501,0.000535,2e-06,0.000537,2.69117,2.69273,2.69118,7.6e-05,7.6e-05,7.6e-05
+OBand_1310nm_SOI_220nm,1310.0,15.0,90.0,2.56214,2.562033,2.562136,0.000107,4e-06,0.000103,4.35972,4.3576,4.35977,9.5e-05,9.6e-05,9.5e-05
+CBand_1550nm_4HSiC_Pulley,1550.0,40.0,82.0,2.275336,2.275258,2.275336,7.8e-05,0.0,7.8e-05,2.79784,2.79775,2.79784,0.000305,0.000305,0.000305
+MidIR_4200nm_Ge_CaF2,4200.0,65.0,90.0,3.704086,3.704067,3.70407,1.9e-05,1.6e-05,3e-06,4.32986,4.32958,4.32985,0.000973,0.000976,0.000973

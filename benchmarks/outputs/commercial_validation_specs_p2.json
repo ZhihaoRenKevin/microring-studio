@@ -1,0 +1,1906 @@
+{
+  "schema_version": "2.0.0",
+  "description": "Phase-2 neutral physical benchmark specifications (Suites 6-11) completing 100% physical engine coverage",
+  "suite6a_butt_couplers": [
+    {
+      "case_id": "SOI_220nm_Butt_Lensed2p5um",
+      "core_material": "Si",
+      "clad_material": "SiO2",
+      "top_clad_material": "SiO2",
+      "wavelength_nm": 1550.0,
+      "polarization": "TE0",
+      "film_height_um": 0.22,
+      "slab_height_um": 0.0,
+      "sidewall_deg": 90.0,
+      "w_bus_um": 0.48,
+      "w_tip_sweep_um": [
+        0.12,
+        0.16,
+        0.2,
+        0.24,
+        0.3
+      ],
+      "w_tip_nominal_um": 0.2,
+      "taper_length_um": 160.0,
+      "taper_profile": "adiabatic",
+      "box_thickness_um": 3.0,
+      "fiber_preset": "Lensed_2p5um",
+      "mfd_x_um": 2.5,
+      "mfd_y_um": 2.5,
+      "n_env": 1.0,
+      "ar_coating": true,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 3.47872377,
+          "ny": 3.47872377,
+          "nz": 3.47872377,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 3.47772376,
+          "ny": 3.47772376,
+          "nz": 3.47772376,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 3.47674819,
+          "ny": 3.47674819,
+          "nz": 3.47674819,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 0.000186,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      },
+      "top_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    },
+    {
+      "case_id": "Si3N4_400nm_Butt_DFB1310nm",
+      "core_material": "Si3N4",
+      "clad_material": "SiO2",
+      "top_clad_material": "SiO2",
+      "wavelength_nm": 1310.0,
+      "polarization": "TE0",
+      "film_height_um": 0.4,
+      "slab_height_um": 0.0,
+      "sidewall_deg": 90.0,
+      "w_bus_um": 0.85,
+      "w_tip_sweep_um": [
+        0.2,
+        0.3,
+        0.4
+      ],
+      "w_tip_nominal_um": 0.3,
+      "taper_length_um": 150.0,
+      "taper_profile": "adiabatic",
+      "box_thickness_um": 3.0,
+      "fiber_preset": "DFB_Laser_Butt",
+      "mfd_x_um": 2.4,
+      "mfd_y_um": 1.2,
+      "n_env": 1.45,
+      "ar_coating": true,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1300.0,
+          "nx": 2.00342795,
+          "ny": 2.00342795,
+          "nz": 2.00342795,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1310.0,
+          "nx": 2.00312994,
+          "ny": 2.00312994,
+          "nz": 2.00312994,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1320.0,
+          "nx": 2.00283349,
+          "ny": 2.00283349,
+          "nz": 2.00283349,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 2.45e-05,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Luke et al. Opt. Lett. 2015 (LPCVD Si3N4) + Arbabi 2013 (dn/dT=2.45e-5 K^-1)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1300.0,
+          "nx": 1.44691047,
+          "ny": 1.44691047,
+          "nz": 1.44691047,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1310.0,
+          "nx": 1.44679737,
+          "ny": 1.44679737,
+          "nz": 1.44679737,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1320.0,
+          "nx": 1.44668418,
+          "ny": 1.44668418,
+          "nz": 1.44668418,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      },
+      "top_index": {
+        "minus": {
+          "wavelength_nm": 1300.0,
+          "nx": 1.44691047,
+          "ny": 1.44691047,
+          "nz": 1.44691047,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1310.0,
+          "nx": 1.44679737,
+          "ny": 1.44679737,
+          "nz": 1.44679737,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1320.0,
+          "nx": 1.44668418,
+          "ny": 1.44668418,
+          "nz": 1.44668418,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    }
+  ],
+  "suite6b_apodized_gc": {
+    "case_id": "SOI_220nm_Apodized_GC_70nmEtch",
+    "core_material": "Si",
+    "clad_material": "SiO2",
+    "top_clad_material": "SiO2",
+    "substrate_material": "Si",
+    "wavelength_nm": 1550.0,
+    "wavelength_sweep_nm": [
+      1500.0,
+      1525.0,
+      1540.0,
+      1550.0,
+      1560.0,
+      1575.0,
+      1600.0
+    ],
+    "polarization": "TE0",
+    "film_height_um": 0.22,
+    "etch_depth_um": 0.07,
+    "box_thickness_um": 2.0,
+    "top_clad_thickness_um": 1.5,
+    "fiber_angle_deg": 10.0,
+    "mfd_um": 10.4,
+    "n_env": 1.0,
+    "grating_width_um": 12.0,
+    "num_periods": 26,
+    "pitch_mean_um": 0.602979,
+    "ff_start": 0.8638,
+    "ff_end": 0.48,
+    "grooves_um": [
+      [
+        0.0,
+        0.08005
+      ],
+      [
+        0.58789,
+        0.671678
+      ],
+      [
+        1.176188,
+        1.268679
+      ],
+      [
+        1.765433,
+        1.867537
+      ],
+      [
+        2.355725,
+        2.468148
+      ],
+      [
+        2.947143,
+        3.070481
+      ],
+      [
+        3.539754,
+        3.674533
+      ],
+      [
+        4.133615,
+        4.280315
+      ],
+      [
+        4.728783,
+        4.887847
+      ],
+      [
+        5.325308,
+        5.497154
+      ],
+      [
+        5.923241,
+        6.108264
+      ],
+      [
+        6.522628,
+        6.721208
+      ],
+      [
+        7.123516,
+        7.33602
+      ],
+      [
+        7.725952,
+        7.952736
+      ],
+      [
+        8.32998,
+        8.571392
+      ],
+      [
+        8.935647,
+        9.192027
+      ],
+      [
+        9.542998,
+        9.814681
+      ],
+      [
+        10.152079,
+        10.439395
+      ],
+      [
+        10.762935,
+        11.066213
+      ],
+      [
+        11.375614,
+        11.695179
+      ],
+      [
+        11.990162,
+        12.309727
+      ],
+      [
+        12.60471,
+        12.924276
+      ],
+      [
+        13.219259,
+        13.538824
+      ],
+      [
+        13.833807,
+        14.153372
+      ],
+      [
+        14.448355,
+        14.767921
+      ],
+      [
+        15.062904,
+        15.382469
+      ]
+    ],
+    "core_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 3.47872377,
+        "ny": 3.47872377,
+        "nz": 3.47872377,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 3.47772376,
+        "ny": 3.47772376,
+        "nz": 3.47772376,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 3.47674819,
+        "ny": 3.47674819,
+        "nz": 3.47674819,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 0.000186,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+    },
+    "clad_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    },
+    "top_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    }
+  },
+  "suite7a_mmi_2x2": {
+    "case_id": "SOI_1550nm_MMI_2x2",
+    "splitter_type": "mmi_2x2",
+    "core_material": "Si",
+    "clad_material": "SiO2",
+    "top_clad_material": "SiO2",
+    "wavelength_nm": 1550.0,
+    "film_height_um": 0.22,
+    "slab_height_um": 0.0,
+    "sidewall_deg": 90.0,
+    "arm_width_um": 0.48,
+    "mmi_width_um": 6.0,
+    "mmi_length_um": 40.1,
+    "mmi_taper_width_um": 1.1,
+    "mmi_taper_length_um": 12.0,
+    "port_offset_um": 1.026,
+    "core_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 3.47872377,
+        "ny": 3.47872377,
+        "nz": 3.47872377,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 3.47772376,
+        "ny": 3.47772376,
+        "nz": 3.47772376,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 3.47674819,
+        "ny": 3.47674819,
+        "nz": 3.47674819,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 0.000186,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+    },
+    "clad_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    },
+    "top_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    }
+  },
+  "suite7b_full_ring_lowq": {
+    "case_id": "SOI_1550nm_LowQ_FullRing_R5um",
+    "topology": "point_circular_ap",
+    "core_material": "Si",
+    "clad_material": "SiO2",
+    "top_clad_material": "SiO2",
+    "wavelength_nm": 1550.0,
+    "wl_min_nm": 1510.0,
+    "wl_max_nm": 1590.0,
+    "film_height_um": 0.22,
+    "slab_height_um": 0.0,
+    "sidewall_deg": 90.0,
+    "ring_width_um": 0.45,
+    "bus_width_um": 0.45,
+    "ring_radius_um": 5.0,
+    "gap_thru_um": 0.12,
+    "alpha_loss_db_per_cm": 3.0,
+    "core_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 3.47872377,
+        "ny": 3.47872377,
+        "nz": 3.47872377,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 3.47772376,
+        "ny": 3.47772376,
+        "nz": 3.47772376,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 3.47674819,
+        "ny": 3.47674819,
+        "nz": 3.47674819,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 0.000186,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+    },
+    "clad_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    },
+    "top_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    }
+  },
+  "suite7c_interconnect_circuit": {
+    "case_id": "SOI_1550nm_DC_MZI_dL80um_and_WDM4ch",
+    "mzi_delta_length_um": 80.0,
+    "mzi_arm1_length_um": 300.0,
+    "mzi_wavelength_nm": 1550.0,
+    "mzi_span_nm": 30.0,
+    "wdm_num_channels": 4,
+    "wdm_data_rate_gbps": 25.0,
+    "wdm_channel_spacing_ghz": 100.0,
+    "wdm_ring_radius_um": 10.0,
+    "wdm_gap_um": 0.18
+  },
+  "suite8_rf_electrodes": [
+    {
+      "case_id": "TFLN_GSG_CPW_HRSi",
+      "electrode_topology": "gsg_cpw",
+      "core_material": "LN_Xcut",
+      "substrate_type": "hr_si",
+      "metal_material": "Au",
+      "wavelength_nm": 1550.0,
+      "film_height_um": 0.6,
+      "slab_height_um": 0.3,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 1.1,
+      "box_thickness_um": 2.0,
+      "top_clad_thickness_um": 0.8,
+      "signal_width_um": 20.0,
+      "electrode_gap_um": 5.0,
+      "ground_width_um": 55.0,
+      "metal_thickness_um": 1.1,
+      "active_length_um": 5000.0,
+      "t_rail_length_um": 0.0,
+      "t_rail_period_um": 50.0,
+      "t_rail_duty": 1.0,
+      "t_rail_cap_width_um": 0.0,
+      "t_rail_stem_width_um": 0.0,
+      "slab_corridor_half_um": null,
+      "eps_core_rf": [
+        28.0,
+        44.0
+      ],
+      "eps_box_rf": [
+        3.9,
+        3.9
+      ],
+      "eps_sub_rf": 11.7,
+      "tan_d_core": 0.0038,
+      "tan_d_box": 0.0006,
+      "tan_d_sub": 0.0012,
+      "sigma_sub_s_per_m": 0.02,
+      "rho_metal_ohm_m": 2.44e-08,
+      "eval_freqs_ghz": [
+        10.0,
+        40.0,
+        100.0
+      ],
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1540.0,
+          "nx": 2.13784919,
+          "ny": 2.211451,
+          "nz": 2.211451,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 2.13755965,
+          "ny": 2.21111101,
+          "nz": 2.21111101,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1560.0,
+          "nx": 2.13727162,
+          "ny": 2.21077272,
+          "nz": 2.21077272,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 3.7e-05,
+        "r33_pm_per_v": 30.9,
+        "r13_pm_per_v": 9.6,
+        "source": "Zelmon et al. JOSA B 1997 (Congruent X-cut TFLN, TE sees r33 along straight Y-arm)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    },
+    {
+      "case_id": "TFLN_GSG_CPW_Quartz",
+      "electrode_topology": "gsg_cpw",
+      "core_material": "LN_Xcut",
+      "substrate_type": "quartz",
+      "metal_material": "Au",
+      "wavelength_nm": 1550.0,
+      "film_height_um": 0.6,
+      "slab_height_um": 0.3,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 1.1,
+      "box_thickness_um": 2.0,
+      "top_clad_thickness_um": 0.8,
+      "signal_width_um": 26.0,
+      "electrode_gap_um": 5.0,
+      "ground_width_um": 55.0,
+      "metal_thickness_um": 1.5,
+      "active_length_um": 5000.0,
+      "t_rail_length_um": 0.0,
+      "t_rail_period_um": 50.0,
+      "t_rail_duty": 1.0,
+      "t_rail_cap_width_um": 0.0,
+      "t_rail_stem_width_um": 0.0,
+      "slab_corridor_half_um": null,
+      "eps_core_rf": [
+        28.0,
+        44.0
+      ],
+      "eps_box_rf": [
+        3.9,
+        3.9
+      ],
+      "eps_sub_rf": 3.8,
+      "tan_d_core": 0.0038,
+      "tan_d_box": 0.0006,
+      "tan_d_sub": 0.0002,
+      "sigma_sub_s_per_m": 0.0,
+      "rho_metal_ohm_m": 2.44e-08,
+      "eval_freqs_ghz": [
+        10.0,
+        40.0,
+        100.0
+      ],
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1540.0,
+          "nx": 2.13784919,
+          "ny": 2.211451,
+          "nz": 2.211451,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 2.13755965,
+          "ny": 2.21111101,
+          "nz": 2.21111101,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1560.0,
+          "nx": 2.13727162,
+          "ny": 2.21077272,
+          "nz": 2.21077272,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 3.7e-05,
+        "r33_pm_per_v": 30.9,
+        "r13_pm_per_v": 9.6,
+        "source": "Zelmon et al. JOSA B 1997 (Congruent X-cut TFLN, TE sees r33 along straight Y-arm)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    },
+    {
+      "case_id": "TFLN_SlowWave_TRail_Quartz",
+      "electrode_topology": "t_rail_cpw",
+      "core_material": "LN_Xcut",
+      "substrate_type": "quartz",
+      "metal_material": "Au",
+      "wavelength_nm": 1550.0,
+      "film_height_um": 0.6,
+      "slab_height_um": 0.3,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 1.1,
+      "box_thickness_um": 2.0,
+      "top_clad_thickness_um": 0.8,
+      "signal_width_um": 82.0,
+      "electrode_gap_um": 5.0,
+      "ground_width_um": 55.0,
+      "metal_thickness_um": 1.5,
+      "active_length_um": 4500.0,
+      "t_rail_length_um": 10.8,
+      "t_rail_period_um": 25.0,
+      "t_rail_duty": 0.88,
+      "t_rail_cap_width_um": 3.888,
+      "t_rail_stem_width_um": 4.0,
+      "slab_corridor_half_um": 5.5,
+      "eps_core_rf": [
+        28.0,
+        44.0
+      ],
+      "eps_box_rf": [
+        3.9,
+        3.9
+      ],
+      "eps_sub_rf": 3.8,
+      "tan_d_core": 0.0038,
+      "tan_d_box": 0.0006,
+      "tan_d_sub": 0.0002,
+      "sigma_sub_s_per_m": 0.0,
+      "rho_metal_ohm_m": 2.44e-08,
+      "eval_freqs_ghz": [
+        10.0,
+        40.0,
+        100.0,
+        200.0,
+        300.0
+      ],
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1540.0,
+          "nx": 2.13784919,
+          "ny": 2.211451,
+          "nz": 2.211451,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 2.13755965,
+          "ny": 2.21111101,
+          "nz": 2.21111101,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1560.0,
+          "nx": 2.13727162,
+          "ny": 2.21077272,
+          "nz": 2.21077272,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 3.7e-05,
+        "r33_pm_per_v": 30.9,
+        "r13_pm_per_v": 9.6,
+        "source": "Zelmon et al. JOSA B 1997 (Congruent X-cut TFLN, TE sees r33 along straight Y-arm)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    },
+    {
+      "case_id": "TFLN_GSG_CPW_UndercutSi",
+      "electrode_topology": "gsg_cpw",
+      "core_material": "LN_Xcut",
+      "substrate_type": "undercut_si",
+      "metal_material": "Au",
+      "wavelength_nm": 1550.0,
+      "film_height_um": 0.6,
+      "slab_height_um": 0.3,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 1.1,
+      "box_thickness_um": 2.0,
+      "top_clad_thickness_um": 0.8,
+      "signal_width_um": 20.0,
+      "electrode_gap_um": 5.0,
+      "ground_width_um": 55.0,
+      "metal_thickness_um": 1.1,
+      "active_length_um": 5000.0,
+      "t_rail_length_um": 0.0,
+      "t_rail_period_um": 50.0,
+      "t_rail_duty": 1.0,
+      "t_rail_cap_width_um": 0.0,
+      "t_rail_stem_width_um": 0.0,
+      "slab_corridor_half_um": null,
+      "undercut_cavity_half_w_um": 18.5,
+      "undercut_cavity_depth_um": 26.0,
+      "eps_core_rf": [
+        28.0,
+        44.0
+      ],
+      "eps_box_rf": [
+        3.9,
+        3.9
+      ],
+      "eps_sub_rf": 11.7,
+      "tan_d_core": 0.0038,
+      "tan_d_box": 0.0006,
+      "tan_d_sub": 0.0008,
+      "sigma_sub_s_per_m": 0.01,
+      "rho_metal_ohm_m": 2.44e-08,
+      "eval_freqs_ghz": [
+        10.0,
+        40.0,
+        100.0
+      ],
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1540.0,
+          "nx": 2.13784919,
+          "ny": 2.211451,
+          "nz": 2.211451,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 2.13755965,
+          "ny": 2.21111101,
+          "nz": 2.21111101,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1560.0,
+          "nx": 2.13727162,
+          "ny": 2.21077272,
+          "nz": 2.21077272,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 3.7e-05,
+        "r33_pm_per_v": 30.9,
+        "r13_pm_per_v": 9.6,
+        "source": "Zelmon et al. JOSA B 1997 (Congruent X-cut TFLN, TE sees r33 along straight Y-arm)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    }
+  ],
+  "suite9_si_pn_tcad": [
+    {
+      "case_id": "SOI_220nm_Lateral_PN",
+      "junction_type": "lateral_pn",
+      "wavelength_nm": 1550.0,
+      "polarization": "TE0",
+      "film_height_um": 0.22,
+      "slab_height_um": 0.09,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 0.45,
+      "active_length_um": 1500.0,
+      "drive_scheme": "single_arm",
+      "na_core_cm3": 5e+17,
+      "nd_core_cm3": 5e+17,
+      "na_inter_cm3": 2e+18,
+      "nd_inter_cm3": 2e+18,
+      "n_heavy_contact_cm3": 1e+20,
+      "pn_offset_nm": 25.0,
+      "l_vertical_y_nm": 110.0,
+      "implant_straggle_nm": 18.0,
+      "inter_implant_offset_um": 0.35,
+      "heavy_contact_offset_um": 0.9,
+      "bias_voltages_v": [
+        0.0,
+        -1.0,
+        -2.0,
+        -3.0,
+        -4.0
+      ],
+      "map_bias_v": -3.0,
+      "eps_si_dc": 11.7,
+      "eps_ox_dc": 3.9,
+      "ni_si_cm3": 10000000000.0,
+      "temp_k": 300.0,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 3.47872377,
+          "ny": 3.47872377,
+          "nz": 3.47872377,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 3.47772376,
+          "ny": 3.47772376,
+          "nz": 3.47772376,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 3.47674819,
+          "ny": 3.47674819,
+          "nz": 3.47674819,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 0.000186,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    },
+    {
+      "case_id": "SOI_220nm_LShaped_PN",
+      "junction_type": "l_shaped_pn",
+      "wavelength_nm": 1550.0,
+      "polarization": "TE0",
+      "film_height_um": 0.22,
+      "slab_height_um": 0.09,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 0.45,
+      "active_length_um": 1500.0,
+      "drive_scheme": "single_arm",
+      "na_core_cm3": 5e+17,
+      "nd_core_cm3": 5e+17,
+      "na_inter_cm3": 2e+18,
+      "nd_inter_cm3": 2e+18,
+      "n_heavy_contact_cm3": 1e+20,
+      "pn_offset_nm": 25.0,
+      "l_vertical_y_nm": 110.0,
+      "implant_straggle_nm": 18.0,
+      "inter_implant_offset_um": 0.35,
+      "heavy_contact_offset_um": 0.9,
+      "bias_voltages_v": [
+        0.0,
+        -1.0,
+        -2.0,
+        -3.0,
+        -4.0
+      ],
+      "map_bias_v": -3.0,
+      "eps_si_dc": 11.7,
+      "eps_ox_dc": 3.9,
+      "ni_si_cm3": 10000000000.0,
+      "temp_k": 300.0,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 3.47872377,
+          "ny": 3.47872377,
+          "nz": 3.47872377,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 3.47772376,
+          "ny": 3.47772376,
+          "nz": 3.47772376,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 3.47674819,
+          "ny": 3.47674819,
+          "nz": 3.47674819,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 0.000186,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    },
+    {
+      "case_id": "SOI_220nm_UShaped_PN",
+      "junction_type": "u_shaped_pn",
+      "wavelength_nm": 1550.0,
+      "polarization": "TE0",
+      "film_height_um": 0.22,
+      "slab_height_um": 0.09,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 0.45,
+      "active_length_um": 1500.0,
+      "drive_scheme": "single_arm",
+      "na_core_cm3": 5e+17,
+      "nd_core_cm3": 5e+17,
+      "na_inter_cm3": 2e+18,
+      "nd_inter_cm3": 2e+18,
+      "n_heavy_contact_cm3": 1e+20,
+      "pn_offset_nm": 25.0,
+      "l_vertical_y_nm": 110.0,
+      "implant_straggle_nm": 18.0,
+      "inter_implant_offset_um": 0.35,
+      "heavy_contact_offset_um": 0.9,
+      "bias_voltages_v": [
+        0.0,
+        -1.0,
+        -2.0,
+        -3.0,
+        -4.0
+      ],
+      "map_bias_v": -3.0,
+      "eps_si_dc": 11.7,
+      "eps_ox_dc": 3.9,
+      "ni_si_cm3": 10000000000.0,
+      "temp_k": 300.0,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 3.47872377,
+          "ny": 3.47872377,
+          "nz": 3.47872377,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 3.47772376,
+          "ny": 3.47772376,
+          "nz": 3.47772376,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 3.47674819,
+          "ny": 3.47674819,
+          "nz": 3.47674819,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 0.000186,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      }
+    }
+  ],
+  "suite10_thermal_adv": [
+    {
+      "case_id": "SOI_220nm_Undercut_Suspended",
+      "thermal_structure": "undercut_suspended",
+      "core_material": "Si",
+      "wavelength_nm": 1550.0,
+      "film_height_um": 0.22,
+      "slab_height_um": 0.0,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 0.45,
+      "active_length_um": 200.0,
+      "box_thickness_um": 2.0,
+      "top_clad_thickness_um": 1.8,
+      "heater_material": "TiN",
+      "heater_width_um": 1.8,
+      "heater_thickness_um": 0.12,
+      "heater_gap_um": 0.95,
+      "trench_edge_offset_um": 2.8,
+      "trench_width_um": 6.0,
+      "trench_depth_um": 42.0,
+      "undercut_width_um": 16.0,
+      "undercut_depth_um": 8.0,
+      "neighbor_pitch_um": 20.0,
+      "include_pn_contact_sinking": false,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 3.47872377,
+          "ny": 3.47872377,
+          "nz": 3.47872377,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 3.47772376,
+          "ny": 3.47772376,
+          "nz": 3.47772376,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 3.47674819,
+          "ny": 3.47674819,
+          "nz": 3.47674819,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 0.000186,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      },
+      "k_core_w_mk": 148.0,
+      "k_slab_doped_w_mk": 62.0,
+      "k_ox_w_mk": 1.38,
+      "k_si_sub_w_mk": 148.0,
+      "k_tin_w_mk": 28.0,
+      "k_air_w_mk": 0.026,
+      "cv_core_j_m3k": 1630000.0,
+      "cv_ox_j_m3k": 1630000.0,
+      "cv_si_sub_j_m3k": 1630000.0,
+      "cv_tin_j_m3k": 2450000.0,
+      "cv_air_j_m3k": 1200.0
+    },
+    {
+      "case_id": "SOI_220nm_Doped_Si_Rib",
+      "thermal_structure": "doped_si_rib",
+      "core_material": "Si",
+      "wavelength_nm": 1550.0,
+      "film_height_um": 0.22,
+      "slab_height_um": 0.09,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 0.45,
+      "active_length_um": 200.0,
+      "box_thickness_um": 2.0,
+      "top_clad_thickness_um": 1.8,
+      "heater_material": "doped_Si",
+      "heater_width_um": 1.8,
+      "heater_thickness_um": 0.09,
+      "heater_gap_um": 0.0,
+      "neighbor_pitch_um": 20.0,
+      "include_pn_contact_sinking": false,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 3.47872377,
+          "ny": 3.47872377,
+          "nz": 3.47872377,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 3.47772376,
+          "ny": 3.47772376,
+          "nz": 3.47772376,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 3.47674819,
+          "ny": 3.47674819,
+          "nz": 3.47674819,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 0.000186,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      },
+      "k_core_w_mk": 148.0,
+      "k_slab_doped_w_mk": 62.0,
+      "k_ox_w_mk": 1.38,
+      "k_si_sub_w_mk": 148.0,
+      "k_tin_w_mk": 28.0,
+      "k_air_w_mk": 0.026,
+      "cv_core_j_m3k": 1630000.0,
+      "cv_ox_j_m3k": 1630000.0,
+      "cv_si_sub_j_m3k": 1630000.0,
+      "cv_tin_j_m3k": 2450000.0,
+      "cv_air_j_m3k": 1200.0
+    },
+    {
+      "case_id": "SOI_220nm_CoInt_PN_TiN_Heater",
+      "thermal_structure": "top_heater",
+      "core_material": "Si",
+      "wavelength_nm": 1550.0,
+      "film_height_um": 0.22,
+      "slab_height_um": 0.09,
+      "sidewall_deg": 90.0,
+      "waveguide_width_um": 0.45,
+      "active_length_um": 200.0,
+      "box_thickness_um": 2.0,
+      "top_clad_thickness_um": 1.8,
+      "heater_material": "TiN",
+      "heater_width_um": 1.8,
+      "heater_thickness_um": 0.12,
+      "heater_gap_um": 0.95,
+      "neighbor_pitch_um": 20.0,
+      "include_pn_contact_sinking": true,
+      "pn_contact_clearance_um": 0.85,
+      "pn_via_width_um": 0.45,
+      "pn_metal_width_um": 9.0,
+      "pn_metal_thickness_um": 0.45,
+      "pn_via_longitudinal_fill": 0.4,
+      "core_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 3.47872377,
+          "ny": 3.47872377,
+          "nz": 3.47872377,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 3.47772376,
+          "ny": 3.47772376,
+          "nz": 3.47772376,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 3.47674819,
+          "ny": 3.47674819,
+          "nz": 3.47674819,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 0.000186,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+      },
+      "clad_index": {
+        "minus": {
+          "wavelength_nm": 1538.0,
+          "nx": 1.44416207,
+          "ny": 1.44416207,
+          "nz": 1.44416207,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "center": {
+          "wavelength_nm": 1550.0,
+          "nx": 1.44401866,
+          "ny": 1.44401866,
+          "nz": 1.44401866,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "plus": {
+          "wavelength_nm": 1562.0,
+          "nx": 1.44387463,
+          "ny": 1.44387463,
+          "nz": 1.44387463,
+          "kx": 0.0,
+          "ky": 0.0,
+          "kz": 0.0
+        },
+        "dn_dt_per_k": 8.5e-06,
+        "r33_pm_per_v": 0.0,
+        "r13_pm_per_v": 0.0,
+        "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+      },
+      "k_core_w_mk": 148.0,
+      "k_slab_doped_w_mk": 62.0,
+      "k_ox_w_mk": 1.38,
+      "k_si_sub_w_mk": 148.0,
+      "k_tin_w_mk": 28.0,
+      "k_air_w_mk": 0.026,
+      "cv_core_j_m3k": 1630000.0,
+      "cv_ox_j_m3k": 1630000.0,
+      "cv_si_sub_j_m3k": 1630000.0,
+      "cv_tin_j_m3k": 2450000.0,
+      "cv_air_j_m3k": 1200.0
+    }
+  ],
+  "suite11_fab_bias": {
+    "case_id": "SOI_1550nm_PR_CD_Bias_Sweep",
+    "core_material": "Si",
+    "clad_material": "SiO2",
+    "top_clad_material": "SiO2",
+    "wavelength_nm": 1550.0,
+    "dwl_nm": 12.0,
+    "film_height_um": 0.22,
+    "slab_height_um": 0.0,
+    "sidewall_deg": 90.0,
+    "ring_radius_um": 15.0,
+    "ring_width_nom_um": 0.45,
+    "bus_width_nom_um": 0.45,
+    "gap_nom_um": 0.18,
+    "proximity_gap_factor": 1.05,
+    "delta_cd_nm_list": [
+      -20.0,
+      0.0,
+      20.0
+    ],
+    "core_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 3.47872377,
+        "ny": 3.47872377,
+        "nz": 3.47872377,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 3.47772376,
+        "ny": 3.47772376,
+        "nz": 3.47772376,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 3.47674819,
+        "ny": 3.47674819,
+        "nz": 3.47674819,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 0.000186,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Salzberg & Villa JOSA 1957 + Green 2008 + Cocorullo 1999 (transparent 1.15-8.5 um)"
+    },
+    "clad_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    },
+    "top_index": {
+      "minus": {
+        "wavelength_nm": 1538.0,
+        "nx": 1.44416207,
+        "ny": 1.44416207,
+        "nz": 1.44416207,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "center": {
+        "wavelength_nm": 1550.0,
+        "nx": 1.44401866,
+        "ny": 1.44401866,
+        "nz": 1.44401866,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "plus": {
+        "wavelength_nm": 1562.0,
+        "nx": 1.44387463,
+        "ny": 1.44387463,
+        "nz": 1.44387463,
+        "kx": 0.0,
+        "ky": 0.0,
+        "kz": 0.0
+      },
+      "dn_dt_per_k": 8.5e-06,
+      "r33_pm_per_v": 0.0,
+      "r13_pm_per_v": 0.0,
+      "source": "Malitson JOSA 1965 + Kitamura Appl. Opt. 2007 (transparent 0.21-3.65 um; absorbs in Mid-IR)"
+    }
+  }
+}

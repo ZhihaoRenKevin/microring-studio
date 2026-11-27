@@ -38,15 +38,27 @@ def run_waveguide_width_sweep(
     polarization: str = "TE0",
     sc_fraction: float = 0.20,
     core_mesh_res_um: float = 0.050,
+    custom_n: float | None = None,
+    custom_k: float = 0.0,
+    custom_clad_n: float | None = None,
+    custom_top_clad_n: float | None = None,
 ) -> dict:
     """Sweep waveguide width to map single-mode cutoff, n_eff(W), n_g(W) & confinement."""
     wl_m = float(wavelength_nm) * 1e-9
     core_fn = get_material_fn(
         core_material,
         sc_fraction=sc_fraction if core_material.startswith("ScAlN") else None,
+        custom_n=custom_n,
+        custom_k=custom_k,
     )
-    clad_fn = get_material_fn(clad_material)
-    top_fn = get_material_fn(top_clad_material)
+    clad_fn = get_material_fn(
+        "Custom" if custom_clad_n is not None else clad_material,
+        custom_n=custom_clad_n,
+    )
+    top_fn = get_material_fn(
+        "Custom" if custom_top_clad_n is not None else top_clad_material,
+        custom_n=custom_top_clad_n,
+    )
 
     n_clad_max = max(clad_fn(wl_m, T_REF_K).nx, top_fn(wl_m, T_REF_K).nx)
     guided_margin = n_clad_max + 0.012
@@ -111,9 +123,9 @@ def run_waveguide_width_sweep(
             neff_ho.append(None)
             single_mode_flags.append(True)
 
-        # Group index at this width
-        m_m = solve_modes_fem(spec, wl_m - dl_m, num_modes=2, core_mesh_res_um=eff_mesh_um, clad_mesh_res_um=max(eff_mesh_um * 5.0, 0.14 * wl_scale), export_grid=False)
-        m_p = solve_modes_fem(spec, wl_m + dl_m, num_modes=2, core_mesh_res_um=eff_mesh_um, clad_mesh_res_um=max(eff_mesh_um * 5.0, 0.14 * wl_scale), export_grid=False)
+        # Group index at this width (warm-started with n_guess=n0 for fast ARPACK convergence)
+        m_m = solve_modes_fem(spec, wl_m - dl_m, num_modes=2, n_guess=n0, core_mesh_res_um=eff_mesh_um, clad_mesh_res_um=max(eff_mesh_um * 5.0, 0.14 * wl_scale), export_grid=False)
+        m_p = solve_modes_fem(spec, wl_m + dl_m, num_modes=2, n_guess=n0, core_mesh_res_um=eff_mesh_um, clad_mesh_res_um=max(eff_mesh_um * 5.0, 0.14 * wl_scale), export_grid=False)
         pm = [x for x in m_m if (x.te_fraction >= 0.5) == want_te] or m_m
         pp = [x for x in m_p if (x.te_fraction >= 0.5) == want_te] or m_p
         dn_dl = (float(np.real(pp[0].n_eff)) - float(np.real(pm[0].n_eff))) / (2.0 * dl_m)

@@ -19,6 +19,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 import urllib.request
 
 import numpy as np
@@ -26,6 +27,10 @@ import numpy as np
 from .active_tuning import (
     export_lumerical_interconnect_bundle,
     run_active_tuning_analysis,
+)
+from .eigenmode_solver import (
+    WaveguideCrossSectionSpec,
+    solve_modes_fem,
 )
 from .eom_electrode import (
     EOMElectrodeConfig,
@@ -55,7 +60,7 @@ from .io_couplers import (
     export_io_coupler_gds,
     export_io_coupler_interconnect,
 )
-from .materials import C0_M_PER_S, MATERIAL_CATALOG
+from .materials import C0_M_PER_S, MATERIAL_CATALOG, T_REF_K, get_material_fn
 from .mrr_cmt_fit_predict import loss_db_per_cm_to_q_int, q_int_to_loss_db_per_cm
 from .mrr_topologies import (
     MRRDesignConfig,
@@ -529,16 +534,21 @@ def scale_preset_for_wavelength(cfg_dict: dict, new_wl_nm: float, explicit_keys:
 
 
 def create_initial_session(lang: str = "en") -> dict:
-    """Create a fresh Guided Conversational Photonics Copilot session (`en` or `zh`)."""
+    """Create a fresh conversation-first Photonics PDE Solver session (`en` or `zh`)."""
     zh = str(lang).lower().startswith("zh")
     cfg = asdict(MRRDesignConfig())
     welcome = (
-        "👋 **欢迎使用 MicroRing Studio 微环光子设计助手！**\n\n"
-        "请选择下方工作流，我将以**一问一答**方式逐步引导您完成微环设计（您也可以直接输入完整参数）："
+        "**MicroRing Studio · 独立第一性原理光子 PDE 求解器**\n\n"
+        "所有结果均在本机实时按物理方程现算（非预设查表）。直接用自然语言描述任意器件与参数即可开始求解：\n"
+        "- **任意自定义折射率波导**：例如 `n=1.68 包层 n_clad=1.38, W=900 nm, H=500 nm, 波长 850 nm, 求二维本征模`\n"
+        "- **微环 / MZI / 光栅或端面耦合器**：任意波段 (`400 nm–14 µm`)、任意尺寸、侧壁倾角与损耗 (`dB/cm`)\n"
+        "- **多物理场器件**：行波/慢波 `RF` 电极、硅 `PN/PIN` 掺杂 `TCAD`、稳态/瞬态热有限元，或直接拖入 `.GDS` / `.CSV`"
         if zh
-        else "👋 **Welcome to MicroRing Studio!**\n\n"
-        "How would you like to get started? Pick a workflow below and I will guide you **step by step** "
-        "(one question at a time), or type your full spec directly:"
+        else "**MicroRing Studio · Independent First-Principles Photonics PDE Solver**\n\n"
+        "Every geometry is meshed and solved live on your machine from Maxwell, Poisson-Boltzmann, Laplace, and Fourier PDEs (zero pre-computed lookup tables). Describe any device to start:\n"
+        "- **Any Custom Material / Waveguide**: e.g. `Solve a custom polymer waveguide W=900nm H=500nm n_core=1.68 n_clad=1.38 at 850nm`\n"
+        "- **Rings, MZIs & Chip I/O**: any wavelength (`400 nm–14 µm`), sidewall angle, loss (`dB/cm`), or target FSR\n"
+        "- **Multiphysics & Files**: RF EOM electrodes, Si PN TCAD, transient thermal FEM, or drop any `.GDS` / lab `.CSV`"
     )
     return {
         "stage": "welcome",
@@ -556,27 +566,15 @@ def create_initial_session(lang: str = "en") -> dict:
 
 
 def get_welcome_chips(lang: str = "en") -> list[dict[str, str]]:
-    """Clean Step-1 workflow choices + 1-click presets in English or Chinese."""
+    """Minimal, open-ended starting actions (zero pre-baked device menus; file upload lives in composer)."""
     if str(lang).lower().startswith("zh"):
         return [
-            {"label": "✨ 开始逐步引导设计新微环", "prompt": "开始逐步设计微环"},
-            {"label": "🔀 设计马赫-曾德尔调制器 MZI (DC / MMI / Y分支)", "prompt": "设计 220 nm SOI 2x2 MMI 马赫曾德尔推挽 PN 调制器"},
-            {"label": "🔌 设计光栅耦合器 (GC) / 端面耦合器 (Butt)", "prompt": "设计 220 nm SOI 聚焦光栅耦合器 @ 1550 nm"},
-            {"label": "🚀 超高 Q (Q > 10^6) 秒级收敛 vs FDTD 振铃诊断", "prompt": "分析超高 Q 氮化硅微环 FDTD 不收敛与振铃光谱"},
-            {"label": "🏭 Foundry PDK DRC/LVS · PRISM 寻优 · WDM 眼图", "prompt": "构建 GSIP 220nm SOI PN+TiN 双驱微环调制器并运行 DRC/LVS 与切线 2D-FEM"},
-            {"label": "📈 从实测光谱提取损耗 (dB/cm) 与 Q 值", "prompt": "从实测光谱提取波导损耗"},
-            {"label": "📐 上传已有 .GDS 版图提取并仿真", "prompt": "上传 GDS 版图", "ui_action": "open_gds_picker"},
-            {"label": "⚡ 快速体验：400nm 氮化硅 @ 1550nm", "prompt": "400 nm Si3N4 条形波导, SiO2包层, TE0 @ 1550 nm"},
+            {"label": "✨ 逐步问答设计微环", "prompt": "开始逐步设计微环"},
+            {"label": "🔬 求解任意自定义波导", "prompt": "n_core=1.68, n_clad=1.38, W=900 nm, H=500 nm, 波长 850 nm, 求二维本征模"},
         ]
     return [
-        {"label": "✨ Start Step-by-Step Ring Design", "prompt": "Start step-by-step microring design"},
-        {"label": "🔀 Design MZI Modulator / Switch (DC / MMI / Y-Branch)", "prompt": "Design a 220 nm SOI 2x2 MMI push-pull PN MZI modulator at 1550 nm"},
-        {"label": "🔌 Butt Coupler & 2D-FDFD Grating Coupler", "prompt": "Design a 220 nm SOI apodized focusing grating coupler at 1550 nm"},
-        {"label": "🚀 High-Q (10^6+) Convergence vs Slow FDTD", "prompt": "Analyze High-Q Si3N4 microring FDTD non-convergence and ring-down"},
-        {"label": "🏭 Foundry PDK DRC/LVS · PRISM · WDM Eye", "prompt": "Build GSIP 220nm SOI PN+TiN Heater Ring Modulator with Polygon DRC, 3D LVS & Cutline 2D-FEM"},
-        {"label": "📈 Extract Loss (dB/cm) & Q from Spectrum", "prompt": "Extract waveguide loss from measured spectrum"},
-        {"label": "📐 Upload & Analyze .GDS Layout", "prompt": "Upload GDS layout", "ui_action": "open_gds_picker"},
-        {"label": "⚡ Quick Try: 400nm Si3N4 @ 1550nm", "prompt": "400 nm Si3N4 strip waveguide, SiO2 clad, TE0 at 1550 nm"},
+        {"label": "✨ Guided Step-by-Step Ring", "prompt": "Start step-by-step microring design"},
+        {"label": "🔬 Solve Custom Waveguide", "prompt": "Solve a custom polymer waveguide W=900nm H=500nm n_core=1.68 n_clad=1.38 at 850nm"},
     ]
 
 
@@ -764,6 +762,40 @@ def parse_photonics_intent(message: str) -> dict:
 
     if mat:
         out["fields"]["core_material"] = mat
+
+    # 1B. Arbitrary User-Defined Refractive Indices (First-Principles General Solver)
+    m_ncore = re.search(
+        r"(?:n_?core|core[-_\s]*(?:refractive[-_\s]*)?index|(?<![a-z_])refractive[-_\s]*index|(?<![a-z_])n\s*[=:]|芯层折射率|折射率)\s*[=:]?\s*(\d+\.\d+)",
+        low,
+    )
+    if m_ncore:
+        nv = float(m_ncore.group(1))
+        if 1.05 <= nv <= 6.5:
+            out["fields"]["custom_n"] = round(nv, 5)
+            if not mat:
+                out["fields"]["core_material"] = "Custom"
+                mat = "Custom"
+    m_nclad = re.search(
+        r"(?:n_?clad|n_?sub|clad(?:ding)?[-_\s]*index|substrate[-_\s]*index|包层折射率|基底折射率)\s*[=:]?\s*(\d+\.\d+)",
+        low,
+    )
+    if m_nclad:
+        ncv = float(m_nclad.group(1))
+        if 1.0 <= ncv <= 5.0:
+            out["fields"]["custom_clad_n"] = round(ncv, 5)
+            out["fields"]["clad_material"] = "Custom"
+            if not re.search(r"air[-_\s]*(?:clad|top)|unclad|空气包层|n_?top|上包层折射率", low):
+                out["fields"]["custom_top_clad_n"] = round(ncv, 5)
+                out["fields"]["top_clad_material"] = "Custom"
+    m_ntop = re.search(r"(?:n_?top|top[-_\s]*clad[-_\s]*index|上包层折射率)\s*[=:]?\s*(\d+\.\d+)", low)
+    if m_ntop:
+        ntv = float(m_ntop.group(1))
+        if 1.0 <= ntv <= 5.0:
+            out["fields"]["custom_top_clad_n"] = round(ntv, 5)
+            out["fields"]["top_clad_material"] = "Custom"
+    m_kcore = re.search(r"(?:k_?core|extinction[-_\s]*k)\s*[=:]?\s*(\d+(?:\.\d+)?(?:e[+-]?\d+)?)", low)
+    if m_kcore:
+        out["fields"]["custom_k"] = float(m_kcore.group(1))
 
     # 2. Cladding & Substrate
     if re.search(r"air[-_\s]*(clad|top)|unclad|空气包层|无上包层", low):
@@ -1577,6 +1609,17 @@ def parse_photonics_intent(message: str) -> dict:
         }
     elif re.search(r"(?:export|create|save|generate|download)\b.*(?:\.?\bgds\b|layout|mask)|(?:生成|导出|创建).*(?:gds|版图)", low):
         out["action"] = "export_single_gds"
+    elif (
+        (
+            re.search(r"\b(?:solve|compute|calculate|find)\b.*(?:2d[-_\s]*mode|eigenmode|mode|n_?eff|effective[-_\s]*index|waveguide|cross[-_\s]*section)|(?:求解|计算|算).*(?:二维模式|本征模|模场|有效折射率|波导|截面)", low)
+            or (
+                ("custom_n" in out["fields"] or ("ring_width_um" in out["fields"] and "film_height_um" in out["fields"]))
+                and re.search(r"\b(?:solve|compute|calculate|find|waveguide|mode)\b|求解|计算|波导", low)
+            )
+        )
+        and not re.search(r"confirm\s+stack|确认叠层|sweep|scan|cutoff|单模|ring|mrr|fsr|pulley|racetrack|mzi|coupler|grating|heater|thermal|eom|electrode|\bpn\b|微环|干涉|光栅|耦合器|调制器|加热|扫描", low)
+    ):
+        out["action"] = "solve_mode"
     elif re.search(r"\b(simulate|calculate|compute|run\s+mrr|evaluate)\b|开始仿真|运行仿真|计算光谱|确认并仿真", low):
         out["action"] = "simulate_mrr"
     elif re.search(r"confirm\s+stack|check\s+mode|solve\s+2d\s+modes|确认叠层|求解模式", low):
@@ -2050,7 +2093,19 @@ def _process_chat_turn_core(
         wl_cur = float(cfg_cur.get("wavelength_nm") or 1550.0)
         mat_cur = str(cfg_cur.get("core_material") or "Si3N4")
         preset_cur = PLATFORM_PRESETS.get("ScAlN_20" if mat_cur.startswith("ScAlN") else mat_cur, PLATFORM_PRESETS["Si3N4"])
-        if session.get("stage") == "welcome" or w_step <= 1:
+        if session.get("stage") == "mode_solved":
+            chips_lang = (
+                [
+                    {"label": "📏 扫描波导宽度求单模截止", "prompt": "扫描波导宽度求单模截止"},
+                    {"label": "💍 用该截面构建微环谐振器", "prompt": "用当前波导构建圆微环 R=30 um gap=200 nm 开始仿真"},
+                ]
+                if zh
+                else [
+                    {"label": "📏 Sweep Width for Single-Mode Cutoff", "prompt": "Sweep waveguide width for single-mode cutoff"},
+                    {"label": "💍 Build Microring with This Stack", "prompt": "Simulate point circular ring R=30 um gap=200 nm"},
+                ]
+            )
+        elif session.get("stage") == "welcome" or w_step <= 1:
             fresh_welcome = create_initial_session(lang=eff_lang)["history"][-1]["content"]
             if len(session.get("history") or []) <= 1:
                 session["history"] = [{"role": "assistant", "content": fresh_welcome}]
@@ -3066,7 +3121,7 @@ def _process_chat_turn_core(
 
         if zh:
             msg = (
-                f"🚀 **已完成超高 Q 微环谐振腔精确收敛 vs Lumerical 3D-FDTD 截断振铃诊断**\n"
+                f"🚀 **已完成超高 Q 微环谐振腔精确收敛 vs 有限时间 3D-FDTD 截断振铃诊断**\n"
                 f"- **精确稳态解 ($M \\to \\infty$)**：**`Q_loaded = {hq_res['Q_loaded']:,.0f}`**（线宽 `FWHM = {hq_res['FWHM_pm']:.3f} pm`，光子寿命 `τ_ph = {hq_res['photon_lifetime_ps']:.1f} ps`，真实消光比 **`ER = {hq_res['true_converged_er_db']:.2f} dB`**）\n"
                 f"- **为何 3D-FDTD 无法收敛**：达到 `1e-5` 能量关断阈值需要仿真时间 **`{hq_res['required_fdtd_sim_time_1e5_ns']:.2f} ns`**（足足 **`{hq_res['required_fdtd_roundtrips_1e5']:,.0f}` 圈**往返！）；若在 `{sel_tr['fdtd_sim_time_ps']:.0f} ps` 截断，剩余能量高达 `{sel_tr['residual_energy_shutoff']:.3f}`，表观消光比坍塌至 **`{sel_tr['apparent_er_db']:.2f} dB`**（误差 `{sel_tr['er_error_db']:.1f} dB`！）\n"
                 f"- **混合加速方案**：仅对耦合区导出单程切片（仅需 **`{hq_res['coupler_only_fdtd_time_ps']} ps`**，提速 **`{hq_res['time_domain_speedup_factor']:,.0f}×`**），再由 MicroRing Studio 解析闭合无限圈谐振！"
@@ -3605,6 +3660,173 @@ def _process_chat_turn_core(
         return ret_eom
 
     # ------------------------------------------------------------------
+    # Direct Action 2H: Standalone 2D Full-Vector Waveguide Eigenmode Solve (Any Material / Custom Index)
+    # ------------------------------------------------------------------
+    if intent["action"] == "solve_mode":
+        t0_m = time.perf_counter()
+        wl_nm = float(cfg.wavelength_nm)
+        wl_m = wl_nm * 1e-9
+        wl_um = wl_nm * 1e-3
+        wl_scale = float(np.clip(wl_nm / 1550.0, 0.35, 4.50))
+        core_fn = get_material_fn(
+            cfg.core_material,
+            sc_fraction=cfg.sc_fraction if cfg.core_material.startswith("ScAlN") else None,
+            custom_n=cfg.custom_n,
+            custom_k=cfg.custom_k,
+            custom_dn_dt=1.0e-5 if cfg.custom_dn_dt is None else float(cfg.custom_dn_dt),
+            custom_r33_pm_v=0.0 if cfg.custom_r33_pm_v is None else float(cfg.custom_r33_pm_v),
+        )
+        clad_fn = get_material_fn(
+            "Custom" if cfg.custom_clad_n is not None else cfg.clad_material,
+            custom_n=cfg.custom_clad_n,
+        )
+        top_fn = get_material_fn(
+            "Custom" if cfg.custom_top_clad_n is not None else cfg.top_clad_material,
+            custom_n=cfg.custom_top_clad_n,
+        )
+        w_bot = float(cfg.ring_width_um)
+        box_pad = max(1.8, 1.35 * wl_um)
+        spec_m = WaveguideCrossSectionSpec(
+            w_bottom_um=w_bot,
+            h_film_um=float(cfg.film_height_um),
+            h_slab_um=float(cfg.slab_height_um),
+            sidewall_deg=float(cfg.sidewall_deg),
+            core_material_fn=core_fn,
+            clad_material_fn=clad_fn,
+            top_clad_material_fn=top_fn,
+            domain_width_um=max(3.6 * wl_scale, w_bot + 2.4 * wl_um),
+            h_box_um=box_pad,
+            h_top_clad_um=box_pad,
+        )
+        r_bend_m = (float(cfg.ring_radius_um) * 1e-6) if ("ring_radius_um" in explicit_keys and cfg.ring_radius_um > 0) else math.inf
+        # Quadratic Nedelec1xP2 elements achieve O(h^4) eigenvalue accuracy; ~14 elements across
+        # the narrowest core feature gives ~1e-6 n_eff convergence without over-meshing thick cores.
+        min_core_um = max(min(w_bot, float(cfg.film_height_um)), 0.12)
+        res_um = round(
+            float(np.clip(max(0.040 * wl_scale, min_core_um / 14.0), 0.018, 0.160)),
+            4,
+        )
+        grid_step = round(float(np.clip(max(0.040 * wl_scale, res_um), 0.018, 0.120)), 4)
+        clad_res_um = max(res_um * 5.0, 0.15 * wl_scale)
+        modes_m = solve_modes_fem(
+            spec_m,
+            wl_m,
+            bend_radius_m=r_bend_m,
+            num_modes=4,
+            core_mesh_res_um=res_um,
+            clad_mesh_res_um=clad_res_um,
+            eval_grid_step_um=grid_step,
+            mesh_backend="bsd_conformal",
+        )
+        # Centered 2-point group index for the fundamental mode (warm-started from neff0)
+        m0 = modes_m[0]
+        neff0 = float(np.real(m0.n_eff))
+        dl_m = max(wl_m * 4e-4, 0.5e-9)
+        m_lo = solve_modes_fem(
+            spec_m, wl_m - dl_m, bend_radius_m=r_bend_m, num_modes=2,
+            core_mesh_res_um=res_um, clad_mesh_res_um=clad_res_um,
+            n_guess=neff0, export_grid=False,
+        )
+        m_hi = solve_modes_fem(
+            spec_m, wl_m + dl_m, bend_radius_m=r_bend_m, num_modes=2,
+            core_mesh_res_um=res_um, clad_mesh_res_um=clad_res_um,
+            n_guess=neff0, export_grid=False,
+        )
+        dn_dl = (float(np.real(m_hi[0].n_eff)) - float(np.real(m_lo[0].n_eff))) / (2.0 * dl_m)
+        ng0 = float(neff0 - wl_m * dn_dl)
+        elapsed_ms = round((time.perf_counter() - t0_m) * 1e3, 1)
+
+        outlines = []
+        for pname, poly in spec_m.build_polygons_um().items():
+            if pname in ("core", "slab", "upper_core", "cap"):
+                outlines.append([[round(float(x), 4), round(float(y), 4)] for x, y in poly.exterior.coords])
+
+        ser_modes = []
+        for m in modes_m:
+            sy = max(1, len(m.y_m) // 110)
+            sx = max(1, len(m.x_m) // 130)
+            ex_sub = np.abs(m.Ex[::sy, ::sx])
+            ey_sub = np.abs(m.Ey[::sy, ::sx])
+            ez_sub = np.abs(m.Ez[::sy, ::sx])
+            e_tot = np.sqrt(ex_sub ** 2 + ey_sub ** 2 + ez_sub ** 2)
+            ser_modes.append({
+                "mode_index": m.mode_index,
+                "solver_backend": m.solver_backend,
+                "n_eff_real": float(np.real(m.n_eff)),
+                "n_eff_imag": float(np.imag(m.n_eff)),
+                "te_fraction": round(m.te_fraction, 4),
+                "a_eff_um2": round(m.a_eff_um2, 4),
+                "core_confinement": round(m.core_confinement, 4),
+                "m_azimuthal": round(m.m_azimuthal, 3) if math.isfinite(m.m_azimuthal) else None,
+                "x_um": np.round(m.x_m[::sx] * 1e6, 4).tolist(),
+                "y_um": np.round(m.y_m[::sy] * 1e6, 4).tolist(),
+                "E_abs": np.round(e_tot, 2).tolist(),
+                "Ex_abs": np.round(ex_sub, 2).tolist(),
+                "Ey_abs": np.round(ey_sub, 2).tolist(),
+                "Ez_abs": np.round(ez_sub, 2).tolist(),
+            })
+
+        mat_c_val = core_fn(wl_m, T_REF_K)
+        mat_cl_val = clad_fn(wl_m, T_REF_K)
+        mat_desc = (
+            f"Custom n={mat_c_val.nx:.4f} / clad n={mat_cl_val.nx:.4f}"
+            if (cfg.core_material == "Custom" or cfg.custom_n is not None)
+            else f"{cfg.core_material} (n={mat_c_val.nx:.4f}) / {cfg.clad_material}"
+        )
+        mode_payload = {
+            "elapsed_ms": elapsed_ms,
+            "polygon_outlines_um": outlines,
+            "modes": ser_modes,
+            "ng_fundamental": round(ng0, 5),
+            "n_clad": round(float(mat_cl_val.nx), 5),
+            "wavelength_nm": wl_nm,
+        }
+        solver_proof = {
+            "engine": "2D Vector FEM",
+            "engine_full": "2D Vector Maxwell FEM (Conformal Nedelec1×P2)",
+            "material": mat_desc,
+            "geometry": f"W={w_bot*1e3:.0f} nm, H={cfg.film_height_um*1e3:.0f} nm, slab={cfg.slab_height_um*1e3:.0f} nm, θ={cfg.sidewall_deg:.0f}°",
+            "wavelength_nm": wl_nm,
+            "elapsed_ms": elapsed_ms,
+        }
+        if zh:
+            msg = (
+                f"🔬 **已实时完成 2D 全矢量麦克斯韦有限元本征模求解（`{elapsed_ms} ms`）**\n"
+                f"- **截面与材料**：`{mat_desc}`，`W = {w_bot*1e3:.0f} nm`，`H = {cfg.film_height_um*1e3:.0f} nm`，`slab = {cfg.slab_height_um*1e3:.0f} nm`，侧壁 `{cfg.sidewall_deg:.0f}°` @ `{wl_nm:g} nm`\n"
+                f"- **基模结果 (`M0`)**：**`n_eff = {neff0:.5f}`**，群折射率 **`n_g = {ng0:.4f}`**，`TE = {m0.te_fraction*100:.1f}%`，芯层限制因子 `Γ = {m0.core_confinement*100:.1f}%`，有效模场面积 `A_eff = {m0.a_eff_um2:.3f} µm²`\n"
+                f"- **求解模式数**：已提取 `{len(ser_modes)}` 阶矢量模式（可在右侧列表点击任意模式切换场分布，或继续输入宽度扫描 / 微环 / MZI 要求）。"
+            )
+            chips = [
+                {"label": "📏 扫描波导宽度求单模截止", "prompt": "扫描波导宽度求单模截止"},
+                {"label": "💍 用该截面构建微环谐振器", "prompt": "用当前波导构建圆微环 R=30 um gap=200 nm 开始仿真"},
+            ]
+        else:
+            msg = (
+                f"🔬 **Solved 2D Full-Vector Maxwell Eigenmodes Live (`{elapsed_ms} ms`)**\n"
+                f"- **Cross-Section & Index**: `{mat_desc}`, `W = {w_bot*1e3:.0f} nm`, `H = {cfg.film_height_um*1e3:.0f} nm`, `slab = {cfg.slab_height_um*1e3:.0f} nm`, `{cfg.sidewall_deg:.0f}°` sidewall @ `{wl_nm:g} nm`\n"
+                f"- **Fundamental Mode (`M0`)**: **`n_eff = {neff0:.5f}`**, **`n_g = {ng0:.4f}`**, `TE = {m0.te_fraction*100:.1f}%`, Core Confinement `Γ = {m0.core_confinement*100:.1f}%`, `A_eff = {m0.a_eff_um2:.3f} µm²`\n"
+                f"- **Modes Extracted**: `{len(ser_modes)}` vector eigenmodes rendered on the right (click any row to inspect, or continue with a width sweep, microring, MZI, or coupler)."
+            )
+            chips = [
+                {"label": "📏 Sweep Width for Single-Mode Cutoff", "prompt": "Sweep waveguide width for single-mode cutoff"},
+                {"label": "💍 Build Microring with This Stack", "prompt": "Simulate point circular ring R=30 um gap=200 nm"},
+            ]
+        session["stage"] = "mode_solved"
+        session["wizard_step"] = 4
+        session["ui_view"] = "mode"
+        session["history"] = (history + [{"role": "assistant", "content": msg}])[-16:]
+        return {
+            "session": session,
+            "assistant_message": msg,
+            "chips": chips,
+            "mode_result": mode_payload,
+            "solver_proof": solver_proof,
+            "ui_view": "mode",
+            "wizard_step": 4,
+            "active_tab": "tab-mode",
+        }
+
+    # ------------------------------------------------------------------
     # Guided Step 3 -> Step 4 Pre-Check: Material chosen, ask to confirm Wafer Stack
     # ------------------------------------------------------------------
     if (
@@ -3715,6 +3937,10 @@ def _process_chat_turn_core(
             num_points=7,
             polarization=cfg.polarization,
             sc_fraction=cfg.sc_fraction,
+            custom_n=cfg.custom_n,
+            custom_k=cfg.custom_k,
+            custom_clad_n=cfg.custom_clad_n,
+            custom_top_clad_n=cfg.custom_top_clad_n,
         )
         if "explicit_widths" not in confirmed:
             cfg_dict["bus_width_um"] = w_res["recommended_bus_width_um"]

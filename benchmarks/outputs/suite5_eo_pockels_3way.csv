@@ -1,0 +1,5 @@
+# Solvers: MicroRing Studio v3.9.0 (scikit-fem Conformal 2D-FEM / Spatial CMT / 2D-FDFD) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + Heat Transfer ht + AC/DC Electrostatics es) | Ansys Lumerical 2026R1.0 (Build 4413)
+case_id,E_core_V_per_um_per_V_microring,E_core_V_per_um_per_V_comsol,E_core_rel_diff_pct,C_line_fF_per_um_microring,C_line_fF_per_um_comsol,C_line_rel_diff_pct,neff_0v_microring,neff_0v_comsol,neff_0v_lumerical,V_pi_L_Vcm_microring,V_pi_L_Vcm_comsol,V_pi_L_rel_diff_pct
+TFLN_Xcut_GSG_G5p0um,0.11333,0.11057,2.5,0.038,0.0379,0.26,1.911135,1.911662,1.911656,4.1582,4.1839,0.61
+TFLN_Xcut_GSG_G3p2um,0.16826,0.17663,4.74,0.0534,0.0564,5.32,1.911135,1.911338,1.911656,2.7948,2.8005,0.2
+ScAlN20_Vertical_Plates,0.15812,0.1563,1.16,0.1077,0.1086,0.83,1.756107,1.756398,1.756255,107.2144,108.1593,0.87
