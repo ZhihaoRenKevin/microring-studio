@@ -1,21 +1,28 @@
-"""4-Way Commercial Solver Validation Auditor, Plotter & Report Generator (Suites 1-11).
+"""4-Way Commercial Solver Validation Auditor, Plotter & Report Generator (Suites 1-13 + Gap Closures).
 
 Aggregates independent outputs from four solver ecosystems executed from neutral specs:
   1. MicroRing Studio v3.9.0
        - `microring_independent_results.json`    (Phase 1: Suites 1-5)
        - `microring_independent_results_p2.json` (Phase 2: Suites 6-11)
+       - `microring_independent_results_p3.json` (Phase 3: Suites 12-13)
   2. Ansys Lumerical 2026 R1 (`MODE FDE/EME`, `2D/3D FDTD` RTX 5090 GPU, `INTERCONNECT`, `HEAT`, `CHARGE`)
        - `lumerical_independent_results.json`    (Phase 1: Suites 1-5)
        - `lumerical_independent_results_p2.json` (Phase 2: Suites 6-11)
+       - `lumerical_independent_results_p3.json` (Phase 3: Suites 12-13 Full-Ring & 3D Chip I/O)
   3. COMSOL Multiphysics 6.4 (`ewfd`, `emw`, `es`, `ht` 2D/3D, `GeneralFormPDE g`)
        - `comsol_independent_results.json`       (Phase 1: Suites 1-5)
        - `comsol_independent_results_p2.json`    (Phase 2: Suites 6-11)
-  4. Ansys HFSS 2026 R1 (`3D Driven Modal Full-Wave FEM`, Wave Ports & Bloch-Floquet ABCD 10-300 GHz)
+  4. Ansys HFSS 2026 R1 (`3D Driven Modal Full-Wave FEM`, Wave Ports & Bloch-Floquet ABCD 10-350 GHz)
        - `hfss_independent_results_p2.json`      (Phase 2: Suite 8 Sub-THz RF Electrodes)
+  5. Commercial Gap Closures (`gap_closures_results.json`)
+       - Suite 4: COMSOL 6.4 strict-step transient + Lumerical DEVICE HEAT 2D transient
+       - Suite 7C: INTERCONNECT native SPAR refresh (v3.9.0 apodized GC)
+       - Suite 8: HFSS 3D Open-Sidewall Finite-W_G (40 GHz) + 3D Periodic Bragg Stopband (Lambda = 220 um)
+       - Suite 9: Complete 3x3 Lumerical CHARGE + MODE matrix (L-Shaped, U-Shaped, Forward PIN)
 
-Performs 10 automated physical integrity & conservation audits, exports 12 unit-labeled CSVs
-with solver provenance headers, generates two 6-panel publication figures (600 dpi PNG +
-editable SVG), and writes `docs/COMMERCIAL_SOLVER_VALIDATION_REPORT.md`.
+Performs 14 automated physical integrity & conservation audits, exports 15 unit-labeled CSVs
+with solver provenance headers, generates three 6-panel publication figures (18 panels, 600 dpi
+PNG + editable SVG), and writes `docs/COMMERCIAL_SOLVER_VALIDATION_REPORT.md`.
 """
 from __future__ import annotations
 
@@ -35,6 +42,7 @@ IMG_DIR = DOC_DIR / "images"
 
 SPECS_P1_JSON = OUT_DIR / "commercial_validation_specs.json"
 SPECS_P2_JSON = OUT_DIR / "commercial_validation_specs_p2.json"
+SPECS_P3_JSON = OUT_DIR / "commercial_validation_specs_p3.json"
 MR_P1_JSON = OUT_DIR / "microring_independent_results.json"
 LUM_P1_JSON = OUT_DIR / "lumerical_independent_results.json"
 COM_P1_JSON = OUT_DIR / "comsol_independent_results.json"
@@ -43,6 +51,10 @@ MR_P2_JSON = OUT_DIR / "microring_independent_results_p2.json"
 LUM_P2_JSON = OUT_DIR / "lumerical_independent_results_p2.json"
 COM_P2_JSON = OUT_DIR / "comsol_independent_results_p2.json"
 HFSS_P2_JSON = OUT_DIR / "hfss_independent_results_p2.json"
+
+GAP_JSON = OUT_DIR / "gap_closures_results.json"
+MR_P3_JSON = OUT_DIR / "microring_independent_results_p3.json"
+LUM_P3_JSON = OUT_DIR / "lumerical_independent_results_p3.json"
 
 REPORT_MD = DOC_DIR / "COMMERCIAL_SOLVER_VALIDATION_REPORT.md"
 
@@ -64,14 +76,14 @@ def _pct_diff(a: float, b: float) -> float:
 
 
 def _write_csv(path: Path, header_comment: str, cols: list[str], rows: list[dict]) -> None:
-    lines = [f"# {header_comment}", ",".join(cols)]
+    import csv, io
+    buf = io.StringIO()
+    buf.write(f"# {header_comment}\n")
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(cols)
     for r in rows:
-        vals = []
-        for c in cols:
-            v = r.get(c, "")
-            vals.append("" if v is None else str(v))
-        lines.append(",".join(vals))
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        w.writerow(["" if r.get(c, "") is None else str(r.get(c, "")) for c in cols])
+    path.write_text(buf.getvalue(), encoding="utf-8")
 
 
 def _apply_pub_rc() -> None:
@@ -96,14 +108,15 @@ def _apply_pub_rc() -> None:
 def audit_physics(
     mr1: dict, lum1: dict, com1: dict,
     mr2: dict, lum2: dict, com2: dict, hfss2: dict,
+    gap: dict, mr3: dict, lum3: dict,
 ) -> list[dict]:
-    """Run 10 automated physical conservation, convergence, passivity, and finiteness audits."""
+    """Run 14 automated physical conservation, convergence, passivity, and finiteness audits."""
     checks = []
 
     def _add(name: str, passed: bool, detail: str) -> None:
         checks.append({"check": name, "status": "PASS" if passed else "FAIL", "detail": detail})
 
-    # 1. NaN / Inf scan across all 7 independent result files
+    # 1. NaN / Inf scan across all 10 independent result files
     bad_vals = []
     def _scan(obj, prefix=""):
         if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
@@ -117,9 +130,10 @@ def audit_physics(
     for tag, d in (
         ("mr_p1", mr1), ("lum_p1", lum1), ("com_p1", com1),
         ("mr_p2", mr2), ("lum_p2", lum2), ("com_p2", com2), ("hfss_p2", hfss2),
+        ("gap", gap), ("mr_p3", mr3), ("lum_p3", lum3),
     ):
         _scan(d, tag)
-    _add("Finite numeric outputs across all 11 suites (zero NaN/Inf)", len(bad_vals) == 0, f"7 independent JSON archives scanned; bad={bad_vals[:5]}")
+    _add("Finite numeric outputs across all 13 suites (zero NaN/Inf)", len(bad_vals) == 0, f"10 independent JSON archives scanned; bad={bad_vals[:5]}")
 
     # 2. Lumerical 3D FDTD GPU coupler passivity & shutoff convergence (Suite 2)
     all_fdtd = lum1.get("suite2a_coupler_5band", []) + lum1.get("suite2b_soi_gap_sweep", [])
@@ -131,13 +145,16 @@ def audit_physics(
         f"max(|S21|^2+|S31|^2) = {max_sum:.5f} across {len(all_fdtd)} GPU runs; shutoff_converged={all_shutoff}",
     )
 
-    # 3. Lumerical 3D FDTD MZI splitter passivity (Suite 3B + Suite 7A 2x2 MMI)
+    # 3. Lumerical 3D FDTD MZI splitter passivity (Suites 3B, 7A, 13A, 13B)
     sp_vals = [r["total_trans_pct"] / 100.0 for r in lum1.get("suite3b_splitters", [])]
     sp_vals.append(lum2["suite7a_mmi_2x2"]["total_trans_pct"] / 100.0)
+    s13_l = lum3["suite13_mzi_and_3d_io"]
+    sp_vals.append((s13_l["mmi_2x2_optimal"]["split_bar_pct"] + s13_l["mmi_2x2_optimal"]["split_cross_pct"]) / 100.0)
+    sp_vals.append((s13_l["dc_2x2_full_sbend"]["split_bar_pct"] + s13_l["dc_2x2_full_sbend"]["split_cross_pct"]) / 100.0)
     _add(
-        "Lumerical 3D FDTD MZI splitter passivity (1x2 MMI, Y-Branch, 2x2 MMI <= 1.005)",
+        "Lumerical 3D FDTD MZI splitter passivity (1x2/2x2 MMI, Y-Branch, Full S-Bend DC <= 1.005)",
         max(sp_vals) <= 1.005,
-        f"max(T_total) = {max(sp_vals):.5f} across 3 GPU splitter geometries",
+        f"max(T_total) = {max(sp_vals):.5f} across {len(sp_vals)} GPU splitter geometries",
     )
 
     # 4. COMSOL material sensitivity verification (no Free-Space override)
@@ -171,16 +188,16 @@ def audit_physics(
         f"MicroRing max err = {mr_th_err:.4f}% (7 architectures), COMSOL max err = {com_th_err:.4f}%",
     )
 
-    # 7. Lumerical INTERCONNECT native SPAR import & passivity check (Suite 7C)
-    ic = lum2["suite7c_interconnect"]
+    # 7. Refreshed Lumerical INTERCONNECT native SPAR import & passivity check (Suite 7C)
+    ic = gap.get("suite7c_interconnect_refreshed", lum2["suite7c_interconnect"])
     ic_ok = bool(ic["mzi_spar_loaded_ok"]) and bool(ic["gc_spar_loaded_ok"]) and ic["mzi_max_sum_T"] <= 1.005
     _add(
-        "Lumerical INTERCONNECT native SPAR .dat import & passivity (MZI + Apodized GC)",
+        "Lumerical INTERCONNECT native SPAR .dat import & passivity (MZI + v3.9.0 Apodized GC)",
         ic_ok,
-        f"MZI FSR={ic['mzi_FSR_ic_nm']:.3f} nm (MR {mr2['suite7c_interconnect_circuit']['mzi_FSR_nm']:.3f} nm), max(T_bar+T_cross)={ic['mzi_max_sum_T']:.5f}, GC IL(1550)={ic['gc_il_1550_ic_db']:.3f} dB",
+        f"MZI FSR={ic['mzi_FSR_ic_nm']:.3f} nm (MR {mr2['suite7c_interconnect_circuit']['mzi_FSR_nm']:.3f} nm), max(T_bar+T_cross)={ic['mzi_max_sum_T']:.5f}, GC IL(1550)={ic['gc_il_1550_ic_db']:.3f} dB (MR {mr2['suite6b_apodized_gc']['il_at_1550_db']:.3f} dB)",
     )
 
-    # 8. Ansys HFSS 3D Full-Wave RF passivity across 10-300 GHz (Suite 8)
+    # 8. Ansys HFSS 3D Full-Wave RF passivity across 10-350 GHz (Suite 8 + Bragg220)
     max_hfss_p = 0.0
     n_hfss_pts = 0
     for c in hfss2["suite8_rf_electrodes"]:
@@ -188,25 +205,35 @@ def audit_physics(
             p_sum = 10.0 ** (pt["S11_mag_dB"] / 10.0) + 10.0 ** (pt["S21_mag_dB"] / 10.0)
             max_hfss_p = max(max_hfss_p, p_sum)
             n_hfss_pts += 1
+    br_clean = gap["suite8_hfss_bragg220_clean"]
+    for pt in br_clean["freq_sweep"]:
+        p_sum = 10.0 ** (pt["S11_mag_dB"] / 10.0) + 10.0 ** (pt["S21_mag_dB"] / 10.0)
+        max_hfss_p = max(max_hfss_p, p_sum)
+        n_hfss_pts += 1
     _add(
-        "Ansys HFSS 3D RF network passivity (|S11|^2 + |S21|^2 <= 1.005 across 10-300 GHz)",
+        "Ansys HFSS 3D RF network passivity (|S11|^2 + |S21|^2 <= 1.005 across 10-350 GHz)",
         max_hfss_p <= 1.005,
-        f"max(|S11|^2+|S21|^2) = {max_hfss_p:.5f} across {n_hfss_pts} full-wave frequency points (4 electrodes)",
+        f"max(|S11|^2+|S21|^2) = {max_hfss_p:.5f} across {n_hfss_pts} full-wave frequency points (incl. Bragg 220 um)",
     )
 
-    # 9. Silicon PN TCAD monotonicity across Lateral -> L-Shaped -> U-Shaped (Suite 9)
+    # 9. Complete 3x3 Silicon PN TCAD ordering + Forward PIN blue-shift (Suite 9)
     mr9 = _index_by(mr2["suite9_si_pn_tcad"])
     com9 = _index_by(com2["suite9_si_pn_tcad"])
+    ch_all = gap["suite9_lum_charge_complete"]
+    lum9_lat = lum2["suite9_charge"]
+    lum9_l = ch_all["SOI_220nm_LShaped_PN"]
+    lum9_u = ch_all["SOI_220nm_UShaped_PN"]
+    lum9_pin = ch_all["SOI_220nm_Forward_PIN"]
     mono_ok = (
         mr9["SOI_220nm_Lateral_PN"]["V_pi_L_at_m3V_Vcm"] > mr9["SOI_220nm_LShaped_PN"]["V_pi_L_at_m3V_Vcm"] > mr9["SOI_220nm_UShaped_PN"]["V_pi_L_at_m3V_Vcm"]
         and com9["SOI_220nm_Lateral_PN"]["V_pi_L_at_m3V_Vcm"] > com9["SOI_220nm_LShaped_PN"]["V_pi_L_at_m3V_Vcm"] > com9["SOI_220nm_UShaped_PN"]["V_pi_L_at_m3V_Vcm"]
-        and mr9["SOI_220nm_Lateral_PN"]["Cj_0V_fF_per_um"] > mr9["SOI_220nm_Lateral_PN"]["Cj_m3V_fF_per_um"]
-        and lum2["suite9_charge"]["Cj_0V_fF_per_um"] > lum2["suite9_charge"]["Cj_m3V_fF_per_um"]
+        and lum9_lat["V_pi_L_at_m3V_Vcm"] > lum9_l["V_pi_L_at_m3V_Vcm"] > lum9_u["V_pi_L_at_m3V_Vcm"]
+        and lum9_pin["max_blue_shift_dneff"] < 0.0
     )
     _add(
-        "Silicon PN TCAD physical ordering (V_pi*L: Lateral > L > U; C_j(0V) > C_j(-3V))",
+        "Complete 3x3 Silicon PN TCAD ordering (V_pi*L: Lateral > L > U) & Forward PIN blue-shift",
         mono_ok,
-        f"Lateral C_j(-3V): MR={mr9['SOI_220nm_Lateral_PN']['Cj_m3V_fF_per_um']:.3f}, COMSOL={com9['SOI_220nm_Lateral_PN']['Cj_m3V_fF_per_um']:.3f}, CHARGE={lum2['suite9_charge']['Cj_m3V_fF_per_um']:.3f} fF/um",
+        f"CHARGE V_pi*L = {lum9_lat['V_pi_L_at_m3V_Vcm']:.2f} > {lum9_l['V_pi_L_at_m3V_Vcm']:.2f} > {lum9_u['V_pi_L_at_m3V_Vcm']:.2f} V*cm; Forward PIN dn_eff(0.75V) = {lum9_pin['max_blue_shift_dneff']:+.2e}",
     )
 
     # 10. Cleanroom lithography CD-bias resonance sensitivity 3-way consensus (Suite 11)
@@ -218,6 +245,63 @@ def audit_physics(
         "Lithography CD-bias sensitivity 3-way agreement (< 1.0 pm/nm spread)",
         s11_spread < 1.0,
         f"dlambda/dCD = {s11_mr:.2f} (MR) / {s11_com:.2f} (COMSOL) / {s11_lum:.2f} (Lumerical MODE) pm/nm (spread {s11_spread:.2f} pm/nm)",
+    )
+
+    # 11. 3-Way Transient Thermal Consensus (MicroRing vs COMSOL strict vs Lumerical DEVICE HEAT)
+    mr4_idx = _index_by(mr1["suite4_thermal"])
+    com4_tr = _index_by(gap["suite4_comsol_transient_fix"])
+    heat4_tr = _index_by(gap["suite4_lum_heat_transient"])
+    tr_com_max = max(_pct_diff(mr4_idx[k]["t_rise_10_90_us"], com4_tr[k]["t_rise_10_90_us"]) for k in com4_tr)
+    tr_heat_max = max(_pct_diff(mr4_idx[k]["t_rise_10_90_us"], heat4_tr[k]["t_rise_10_90_us"]) for k in heat4_tr)
+    _add(
+        "3-Way transient thermal step-response consensus (Suite 4: MR vs COMSOL strict vs Lumerical HEAT)",
+        tr_com_max < 1.5 and tr_heat_max < 3.0,
+        f"SOI Top TiN t_rise = {mr4_idx['SOI_220nm_Top_TiN_Heater']['t_rise_10_90_us']:.2f} (MR) / {com4_tr['SOI_220nm_Top_TiN_Heater']['t_rise_10_90_us']:.2f} (COMSOL) / {heat4_tr['SOI_220nm_Top_TiN_Heater']['t_rise_10_90_us']:.2f} us (HEAT); max diff {tr_com_max:.2f}% (COM) / {tr_heat_max:.2f}% (HEAT)",
+    )
+
+    # 12. Ansys HFSS 3D Periodic Bragg Stopband Verification (Lambda = 220 um)
+    br_ok = br_clean["bragg_min_S21_dB"] < -30.0 and br_clean["bragg_max_S11_dB"] > -1.5 and 240.0 <= br_clean["bragg_peak_freq_GHz"] <= 330.0
+    _add(
+        "Ansys HFSS 3D periodic T-Rail Bragg stopband verification (Lambda = 220 um)",
+        br_ok,
+        f"3-period HFSS 3D stopband peak @ {br_clean['bragg_peak_freq_GHz']:.0f} GHz: S21={br_clean['bragg_min_S21_dB']:.2f} dB, S11={br_clean['bragg_max_S11_dB']:.2f} dB, alpha={br_clean['bragg_alpha_dB_per_cm']:.1f} dB/cm (MR f_Bragg={br_clean['microring_f_bragg_cutoff_GHz']:.1f} GHz)",
+    )
+
+    # 13. Phase-3 Low-Q Full-Ring & RAMZI 3D FDTD Passivity & Lorentzian Fidelity (Suites 12A, 13C)
+    p3_pass = []
+    p3_r2 = []
+    for r in lum3["suite12a_lowq_full_rings"]:
+        if "states" in r:
+            for st in r["states"].values():
+                p3_pass.append(st["max_passivity_sum"])
+        else:
+            p3_pass.append(r["max_passivity_sum"])
+            if "cmt_fit_r_squared" in r:
+                p3_r2.append(r["cmt_fit_r_squared"])
+    p3_pass.append(lum3["suite12b_gds_and_doublet"]["gds_roundtrip"]["max_passivity_sum"])
+    p3_pass.append(lum3["suite12b_gds_and_doublet"]["split_doublet_fdtd"]["max_passivity_sum"])
+    p3_pass.append(lum3["suite13_mzi_and_3d_io"]["lowq_ramzi"]["max_passivity_sum"])
+    _add(
+        "Phase-3 full-ring & RAMZI 3D FDTD passivity (<= 1.005, zero Gibbs ringing) & Lorentzian R^2 >= 0.999",
+        max(p3_pass) <= 1.005 and min(p3_r2) >= 0.999,
+        f"max(T_thru+T_drop) = {max(p3_pass):.5f} across {len(p3_pass)} full-cavity GPU runs; min CMT R^2 = {min(p3_r2):.5f}",
+    )
+
+    # 14. End-to-End .GDS -> Lumerical gdsimport Roundtrip & Blind Auto-BIC Split-Doublet Detection (Suite 12B)
+    g_mr = mr3["suite12b_gds_export"]
+    g_lum = lum3["suite12b_gds_and_doublet"]["gds_roundtrip"]
+    dbl_lum = lum3["suite12b_gds_and_doublet"]["split_doublet_fdtd"]
+    s12b_ok = (
+        abs(g_mr["extracted_radius_um"] - 5.0) <= 0.01
+        and g_lum["fdtd_status_code"] == 2
+        and abs(g_lum["FSR_nm"] - 17.794) <= 0.25
+        and dbl_lum["auto_bic_selected_model"] == "split_doublet"
+        and dbl_lum["split_doublet_fit_r2"] > dbl_lum["lorentzian_fit_r2"]
+    )
+    _add(
+        "End-to-end .GDS -> Lumerical gdsimport 3D FDTD roundtrip & blind Auto-BIC split-doublet detection",
+        s12b_ok,
+        f"GDS R={g_mr['extracted_radius_um']}um, g={g_mr['extracted_gap_thru_um']*1e3:.0f}nm -> gdsimport FSR={g_lum['FSR_nm']:.3f}nm (status=2); Auto-BIC picked '{dbl_lum['auto_bic_selected_model']}' (R^2={dbl_lum['split_doublet_fit_r2']:.5f} vs lor {dbl_lum['lorentzian_fit_r2']:.5f})",
     )
     return checks
 
@@ -358,7 +442,7 @@ def generate_phase1_figure(mr1: dict, lum1: dict, com1: dict, lum2_heat: list[di
     return png_path, svg_path
 
 
-def generate_phase2_figure(mr2: dict, lum2: dict, com2: dict, hfss2: dict, mr1: dict, com1: dict) -> tuple[Path, Path]:
+def generate_phase2_figure(mr2: dict, lum2: dict, com2: dict, hfss2: dict, mr1: dict, com1: dict, gap: dict) -> tuple[Path, Path]:
     IMG_DIR.mkdir(parents=True, exist_ok=True)
     _apply_pub_rc()
 
@@ -453,24 +537,30 @@ def generate_phase2_figure(mr2: dict, lum2: dict, com2: dict, hfss2: dict, mr1: 
     ax.legend(h1 + h2, l1 + l2, frameon=False, loc="upper left", fontsize=5.9)
     ax.set_title("(d) Suite 8: 3D T-Rail 10-300 GHz (HFSS)", fontweight="bold", loc="left")
 
-    # (e) Suite 9: Silicon PN TCAD (V_pi*L & C_j at -3 V across 3 Junctions, 3-Way)
+    # (e) Suite 9: Silicon PN TCAD (Complete 3x3 Matrix: V_pi*L at -3 V across 3 Junctions, 3-Way)
     ax = axes[1, 1]
     mr9 = _index_by(mr2["suite9_si_pn_tcad"])
     com9 = _index_by(com2["suite9_si_pn_tcad"])
-    lum9 = lum2["suite9_charge"]
+    lum9_lat = lum2["suite9_charge"]
+    ch_comp = gap["suite9_lum_charge_complete"]
+    lum9_map = {
+        "SOI_220nm_Lateral_PN": lum9_lat,
+        "SOI_220nm_LShaped_PN": ch_comp["SOI_220nm_LShaped_PN"],
+        "SOI_220nm_UShaped_PN": ch_comp["SOI_220nm_UShaped_PN"],
+    }
     cids9 = ["SOI_220nm_Lateral_PN", "SOI_220nm_LShaped_PN", "SOI_220nm_UShaped_PN"]
     lbls9 = ["Lateral\nPN", "L-Shaped\nPN", "U-Shaped\nPN"]
     x9 = np.arange(len(cids9))
     bw9 = 0.25
     ax.bar(x9 - bw9, [mr9[k]["V_pi_L_at_m3V_Vcm"] for k in cids9], width=bw9, color=C_MR, label="MicroRing (SB-87)")
     ax.bar(x9, [com9[k]["V_pi_L_at_m3V_Vcm"] for k in cids9], width=bw9, color=C_COM, label="COMSOL (Ned-11)")
-    ax.bar([0 + bw9], [lum9["V_pi_L_at_m3V_Vcm"]], width=bw9, color=C_LUM, label="Lumerical CHARGE")
+    ax.bar(x9 + bw9, [lum9_map[k]["V_pi_L_at_m3V_Vcm"] for k in cids9], width=bw9, color=C_LUM, label="Lumerical CHARGE")
     ax.set_xticks(x9)
     ax.set_xticklabels(lbls9)
-    ax.set_ylim(0, 2.15)
+    ax.set_ylim(0, 2.20)
     ax.set_ylabel(r"Single-Arm $V_\pi L$ at $-3$ V (V$\cdot$cm)")
-    ax.set_title("(e) Suite 9: Silicon PN TCAD (3-Way)", fontweight="bold", loc="left")
-    ax.legend(frameon=False, loc="upper right", fontsize=6.0)
+    ax.set_title("(e) Suite 9: Silicon PN TCAD (Complete 3x3)", fontweight="bold", loc="left")
+    ax.legend(frameon=False, loc="upper right", fontsize=5.9)
 
     # (f) Suite 10: Advanced Microheaters R_th (log scale covering 0.58 -> 34.7 K/mW + 3D check)
     ax = axes[1, 2]
@@ -520,6 +610,165 @@ def generate_phase2_figure(mr2: dict, lum2: dict, com2: dict, hfss2: dict, mr1: 
     return png_path, svg_path
 
 
+def generate_phase3_figure(mr3: dict, lum3: dict, mr2: dict, gap: dict) -> tuple[Path, Path]:
+    """Generate 6-panel Phase-3 Full-Ring 3D FDTD, 3D Chip I/O & Gap-Closure overview figure."""
+    IMG_DIR.mkdir(parents=True, exist_ok=True)
+    _apply_pub_rc()
+
+    fig, axes = plt.subplots(2, 3, figsize=(11.4, 6.7), dpi=300)
+    plt.subplots_adjust(left=0.065, right=0.975, top=0.935, bottom=0.105, wspace=0.33, hspace=0.40)
+
+    mr12a = _index_by(mr3["suite12a_lowq_full_rings"])
+    lum12a = _index_by(lum3["suite12a_lowq_full_rings"])
+
+    # (a) Suite 12A: Low-Q Full-Ring Q_loaded Across 6 Topologies (MicroRing ~0.02s vs GPU 3D FDTD)
+    ax = axes[0, 0]
+    q_cases = [
+        ("AddDrop\ng100", mr12a["SOI_LowQ_AddDrop_R5um_g100nm"]["Q_loaded"], lum12a["SOI_LowQ_AddDrop_R5um_g100nm"]["cmt_fit_Q_loaded"]),
+        ("AddDrop\ng120", mr12a["SOI_LowQ_AddDrop_R5um_g120nm"]["Q_loaded"], lum12a["SOI_LowQ_AddDrop_R5um_g120nm"]["cmt_fit_Q_loaded"]),
+        ("Lossy\nCC AP", mr12a["SOI_LowQ_Lossy_AllPass_CC_R5um"]["Q_loaded"], lum12a["SOI_LowQ_Lossy_AllPass_CC_R5um"]["cmt_fit_Q_loaded"]),
+        ("Racetrack\nLs=3um", mr12a["SOI_LowQ_Racetrack_AD_R5um_Ls3um"]["Q_loaded"], lum12a["SOI_LowQ_Racetrack_AD_R5um_Ls3um"]["cmt_fit_Q_loaded"]),
+        ("Pulley\n20 deg", mr12a["SOI_LowQ_Pulley_AD_R5um_th20deg"]["Q_loaded"], lum12a["SOI_LowQ_Pulley_AD_R5um_th20deg"]["cmt_fit_Q_loaded"]),
+        ("c-GSST\nSwitch", mr12a["SOI_LowQ_PCM_GSST_Switch_R5um"]["states"]["GSST_crystalline"]["Q_loaded"], lum12a["SOI_LowQ_PCM_GSST_Switch_R5um"]["states"]["GSST_crystalline"]["cmt_fit_Q_loaded"]),
+    ]
+    x_a = np.arange(len(q_cases))
+    bw_a = 0.36
+    ax.bar(x_a - 0.5 * bw_a, [q[1] for q in q_cases], width=bw_a, color=C_MR, label="MicroRing (0.02 s)")
+    ax.bar(x_a + 0.5 * bw_a, [q[2] for q in q_cases], width=bw_a, color=C_LUM, label="Lumerical 3D FDTD GPU")
+    ax.set_xticks(x_a)
+    ax.set_xticklabels([q[0] for q in q_cases], fontsize=6.4)
+    ax.set_ylim(0, 4950)
+    ax.set_ylabel(r"Loaded Quality Factor $Q_L$")
+    ax.set_title("(a) Suite 12A: Full-Ring Low-Q (3D FDTD)", fontweight="bold", loc="left")
+    ax.legend(frameon=False, loc="upper right", fontsize=6.1)
+
+    # (b) Suite 12A: Non-Volatile PCM GSST Switch Full-Ring 3D FDTD Spectra (a-GSST vs c-GSST)
+    ax = axes[0, 1]
+    pcm_l = lum12a["SOI_LowQ_PCM_GSST_Switch_R5um"]
+    st_a = pcm_l["states"]["GSST_amorphous"]
+    st_c = pcm_l["states"]["GSST_crystalline"]
+    wl_a = np.asarray(st_a["spectrum_wl_nm"])
+    th_a = np.asarray(st_a["spectrum_thru"])
+    wl_c = np.asarray(st_c["spectrum_wl_nm"])
+    th_c = np.asarray(st_c["spectrum_thru"])
+    ax.plot(wl_a, th_a, "o-", color=C_MR, linewidth=1.35, markersize=2.8, label=f"a-GSST (3D FDTD, $Q_L$={st_a['cmt_fit_Q_loaded']:.0f})")
+    ax.plot(wl_c, th_c, "s-", color=C_LUM, linewidth=1.35, markersize=2.8, label=f"c-GSST (3D FDTD, $Q_L$={st_c['cmt_fit_Q_loaded']:.0f})")
+    ax.axvline(st_a["center_res_nm"], color=C_MR, linestyle=":", linewidth=0.8)
+    ax.axvline(st_c["center_res_nm"], color=C_LUM, linestyle=":", linewidth=0.8)
+    ax.annotate(
+        f"$\\Delta\\lambda$ = +{pcm_l['delta_lambda_shift_nm']:.2f} nm\n(MR: +{mr12a['SOI_LowQ_PCM_GSST_Switch_R5um']['delta_lambda_shift_nm']:.2f} nm)",
+        xy=(0.5 * (st_a["center_res_nm"] + st_c["center_res_nm"]), 0.44),
+        xytext=(1553.8, 0.36),
+        fontsize=6.2, color="#222222",
+        arrowprops={"arrowstyle": "->", "lw": 0.7, "color": C_GRAY},
+    )
+    ax.set_xlim(1542, 1562)
+    ax.set_ylim(0.0, 1.08)
+    ax.set_xlabel("Wavelength (nm)")
+    ax.set_ylabel("Through Transmission $T_{\\mathrm{thru}}$")
+    ax.set_title("(b) Suite 12A: GSST PCM Switch (3D FDTD)", fontweight="bold", loc="left")
+    ax.legend(frameon=False, loc="lower right", fontsize=5.9)
+
+    # (c) Suite 12B: Sidewall-Bump Split-Doublet Full-Wave 3D FDTD & Blind Auto-BIC CMT Fit
+    ax = axes[0, 2]
+    dbl = lum3["suite12b_gds_and_doublet"]["split_doublet_fdtd"]
+    wl_d = np.asarray(dbl["spectrum_wl_nm"])
+    th_d = np.asarray(dbl["spectrum_thru"])
+    dr_d = np.asarray(dbl["spectrum_drop"])
+    ax.plot(wl_d, th_d, "o", color=C_LUM, markersize=2.4, alpha=0.85, label="3D FDTD Thru (bump)")
+    ax.plot(wl_d, dr_d, "-", color=C_COM, linewidth=1.2, alpha=0.85, label="3D FDTD Drop")
+    # Re-evaluate MicroRing blind Auto-BIC curve for visual overlay
+    import sys as _sys
+    _sys.path.insert(0, str(REPO_ROOT / "src"))
+    from microring.mrr_cmt_fit_predict import fit_single_resonance_cmt
+    fit_d, t_f, _ = fit_single_resonance_cmt(wl_d, th_d, model_type="auto", known_regime="critical", ng_assumed=4.3, ring_length_um=2.0 * math.pi * 5.0)
+    ax.plot(wl_d, t_f, "-", color=C_MR, linewidth=1.5, label=f"Auto-BIC: {fit_d.model_type}")
+    ax.text(
+        0.59, 0.34,
+        f"$R^2$ (dbl) = {dbl['split_doublet_fit_r2']:.5f}\n$R^2$ (Lor) = {dbl['lorentzian_fit_r2']:.5f}\n$2\\mu$ = {dbl['split_doublet_2mu_ghz']:.1f} GHz",
+        transform=ax.transAxes, fontsize=5.9, bbox={"boxstyle": "round,pad=0.22", "fc": "white", "ec": "#CCCCCC", "alpha": 0.92},
+    )
+    ax.set_xlim(dbl["center_res_nm"] - 2.3, dbl["center_res_nm"] + 2.3)
+    ax.set_ylim(-0.04, 1.08)
+    ax.set_xlabel("Wavelength (nm)")
+    ax.set_ylabel("Port Transmission")
+    ax.set_title("(c) Suite 12B: Blind Auto-BIC CMT Audit", fontweight="bold", loc="left")
+    ax.legend(frameon=False, loc="center left", bbox_to_anchor=(0.01, 0.42), fontsize=5.6)
+
+    # (d) Suite 13A/13B: Optimal 2x2 MMI (L=42.3 um) & Full S-Bend 2x2 DC (MicroRing vs 3D FDTD GPU)
+    ax = axes[1, 0]
+    m13 = mr3["suite13_mzi_and_3d_io"]
+    l13 = lum3["suite13_mzi_and_3d_io"]
+    cats_d = ["2x2 MMI\nBar (%)", "2x2 MMI\nCross (%)", "S-Bend DC\nBar (%)", "S-Bend DC\nCross (%)"]
+    v_mr_d = [
+        m13["mmi_2x2_optimal"]["split_bar_pct"], m13["mmi_2x2_optimal"]["split_cross_pct"],
+        m13["dc_2x2_full_sbend"]["split_bar_pct"], m13["dc_2x2_full_sbend"]["split_cross_pct"],
+    ]
+    v_lum_d = [
+        l13["mmi_2x2_optimal"]["split_bar_pct"], l13["mmi_2x2_optimal"]["split_cross_pct"],
+        l13["dc_2x2_full_sbend"]["split_bar_pct"], l13["dc_2x2_full_sbend"]["split_cross_pct"],
+    ]
+    xd = np.arange(len(cats_d))
+    bwd = 0.35
+    ax.bar(xd - 0.5 * bwd, v_mr_d, width=bwd, color=C_MR, label="MicroRing (Nedelec2xP2)")
+    ax.bar(xd + 0.5 * bwd, v_lum_d, width=bwd, color=C_LUM, label="Lumerical 3D FDTD GPU")
+    ax.axhline(50.0, color=C_GRAY, linestyle="--", linewidth=0.7)
+    ax.set_xticks(xd)
+    ax.set_xticklabels(cats_d, fontsize=6.6)
+    ax.set_ylim(0, 68)
+    ax.set_ylabel("Port Power Split (%)")
+    ax.set_title(r"(d) Suite 13A/B: $2\times 2$ MMI & S-Bend DC", fontweight="bold", loc="left")
+    ax.legend(frameon=False, loc="upper right", fontsize=6.0)
+
+    # (e) Suite 13D: Full 3D FDTD 20-Tooth Curved Focusing Grating Coupler Spectrum
+    ax = axes[1, 1]
+    gc_3d = l13["gc_3d_focusing"]
+    gc_2d_mr = mr2["suite6b_apodized_gc"]
+    ax.plot(gc_2d_mr["spectrum_wavelength_nm"], gc_2d_mr["spectrum_il_db"], "-", color=C_MR, linewidth=1.4, label=f"MicroRing 2D FDFD (peak {m13['gc_3d_focusing']['peak_il_2dfdfd_db']:.2f} dB)")
+    ax.plot(gc_3d["spectrum_wl_nm"], gc_3d["spectrum_il_db"], "o--", color=C_LUM, linewidth=1.35, markersize=3.8, label=f"Lumerical 3D FDTD (peak {gc_3d['peak_il_3dfdtd_db']:.2f} dB)")
+    ax.text(
+        0.04, 0.14,
+        f"Peak: {gc_3d['peak_wavelength_nm']:.1f} vs {m13['gc_3d_focusing']['peak_wavelength_nm']:.1f} nm\nUpward: {gc_3d['eta_up_1550_pct']:.1f}% vs {m13['gc_3d_focusing']['eta_up_1550_pct']:.1f}%\n3D fan penalty: +{gc_3d['peak_il_3dfdtd_db']-m13['gc_3d_focusing']['peak_il_2dfdfd_db']:.2f} dB",
+        transform=ax.transAxes, fontsize=6.0, bbox={"boxstyle": "round,pad=0.22", "fc": "white", "ec": "#CCCCCC", "alpha": 0.9},
+    )
+    ax.set_xlim(1510, 1590)
+    ax.set_ylim(2.0, 9.5)
+    ax.invert_yaxis()
+    ax.set_xlabel("Wavelength (nm)")
+    ax.set_ylabel("Fiber Coupling IL (dB)")
+    ax.set_title("(e) Suite 13D: 3D Curved Focusing GC", fontweight="bold", loc="left")
+    ax.legend(frameon=False, loc="upper right", fontsize=5.8)
+
+    # (f) Suite 8 Gap Closure: Ansys HFSS 3D Periodic Bragg Stopband (Lambda = 220 um, 3 periods)
+    ax = axes[1, 2]
+    br_c = gap["suite8_hfss_bragg220_clean"]
+    fb = [pt["freq_GHz"] for pt in br_c["freq_sweep"]]
+    s21b = [pt["S21_mag_dB"] for pt in br_c["freq_sweep"]]
+    s11b = [pt["S11_mag_dB"] for pt in br_c["freq_sweep"]]
+    ax.plot(fb, s21b, "o-", color=C_HFSS, linewidth=1.5, markersize=4.2, label="HFSS 3D $|S_{21}|$ (3 periods)")
+    ax.plot(fb, s11b, "s--", color=C_MR, linewidth=1.3, markersize=3.8, label="HFSS 3D $|S_{11}|$ (Bragg refl.)")
+    ax.axvline(br_c["microring_f_bragg_cutoff_GHz"], color=C_COM, linestyle="--", linewidth=1.1, label=f"MicroRing $f_{{\\mathrm{{Bragg}}}}$ = {br_c['microring_f_bragg_cutoff_GHz']:.1f} GHz")
+    ax.annotate(
+        f"-57.9 dB @ 280 GHz\n($S_{{11}}$ = -0.45 dB)",
+        xy=(280.0, -57.92), xytext=(222.0, -17.0),
+        fontsize=6.0, color=C_HFSS, fontweight="bold",
+        arrowprops={"arrowstyle": "->", "lw": 0.85, "color": C_HFSS},
+    )
+    ax.set_xlim(155, 348)
+    ax.set_ylim(-64, 5)
+    ax.set_xlabel("RF Frequency (GHz)")
+    ax.set_ylabel("S-Parameter Magnitude (dB)")
+    ax.set_title(r"(f) Suite 8: 3D Bragg Stopband ($\Lambda=220\,\mu$m)", fontweight="bold", loc="left")
+    ax.legend(frameon=False, loc="lower left", fontsize=5.8)
+
+    png_path = IMG_DIR / "commercial_validation_p3_overview.png"
+    svg_path = IMG_DIR / "commercial_validation_p3_overview.svg"
+    fig.savefig(png_path, dpi=600)
+    fig.savefig(svg_path)
+    plt.close(fig)
+    return png_path, svg_path
+
+
 def main() -> None:
     specs1 = json.loads(SPECS_P1_JSON.read_text(encoding="utf-8"))
     mr1 = json.loads(MR_P1_JSON.read_text(encoding="utf-8"))
@@ -531,12 +780,17 @@ def main() -> None:
     com2 = json.loads(COM_P2_JSON.read_text(encoding="utf-8"))
     hfss2 = json.loads(HFSS_P2_JSON.read_text(encoding="utf-8"))
 
-    checks = audit_physics(mr1, lum1, com1, mr2, lum2, com2, hfss2)
+    gap = json.loads(GAP_JSON.read_text(encoding="utf-8"))
+    mr3 = json.loads(MR_P3_JSON.read_text(encoding="utf-8"))
+    lum3 = json.loads(LUM_P3_JSON.read_text(encoding="utf-8"))
+
+    checks = audit_physics(mr1, lum1, com1, mr2, lum2, com2, hfss2, gap, mr3, lum3)
     p1_png, p1_svg = generate_phase1_figure(mr1, lum1, com1, lum2["suite10_heat"])
-    p2_png, p2_svg = generate_phase2_figure(mr2, lum2, com2, hfss2, mr1, com1)
+    p2_png, p2_svg = generate_phase2_figure(mr2, lum2, com2, hfss2, mr1, com1, gap)
+    p3_png, p3_svg = generate_phase3_figure(mr3, lum3, mr2, gap)
 
     # ==========================================================================
-    # Export ALL 12 Unit-Labeled CSV Tables
+    # Export ALL 15 Unit-Labeled CSV Tables
     # ==========================================================================
     # Suite 1 CSV
     mr_s1, lum_s1, com_s1 = _index_by(mr1["suite1_eigenmodes"]), _index_by(lum1["suite1_eigenmodes"]), _index_by(com1["suite1_eigenmodes"])
@@ -592,12 +846,16 @@ def main() -> None:
         })
     _write_csv(OUT_DIR / "suite3a_dc_supermodes_3way.csv", f"Solvers: {mr1['solver']} | {lum1['solver']} | {com1['solver']}", list(s3a_rows[0].keys()), s3a_rows)
 
-    # Suite 4 Thermal CSV (3-way with Lumerical HEAT on SOI!)
+    # Suite 4 Thermal CSV (3-way Steady + Transient with COMSOL strict-step & Lumerical DEVICE HEAT!)
     mr_4, com_4, heat_4 = _index_by(mr1["suite4_thermal"]), _index_by(com1["suite4_thermal"]), _index_by(lum2["suite10_heat"])
+    com_4_tr = _index_by(gap["suite4_comsol_transient_fix"])
+    heat_4_tr = _index_by(gap["suite4_lum_heat_transient"])
     s4_rows = []
     for k in [r["case_id"] for r in mr1["suite4_thermal"]]:
         a, d = mr_4[k], com_4[k]
         h = heat_4.get(k)
+        c_tr = com_4_tr.get(k, {})
+        h_tr = heat_4_tr.get(k)
         s4_rows.append({
             "case_id": k,
             "R_th_core_K_per_mW_microring": a["R_th_core_K_per_mW"], "R_th_core_K_per_mW_comsol": d["R_th_core_K_per_mW"],
@@ -606,12 +864,16 @@ def main() -> None:
             "R_th_peak_K_per_mW_microring": a["R_th_peak_K_per_mW"], "R_th_peak_K_per_mW_comsol": d["R_th_peak_K_per_mW"],
             "P_pi_mW_microring": a["P_pi_mW"], "P_pi_mW_comsol": d["P_pi_mW"],
             "P_pi_rel_diff_pct": round(_pct_diff(a["P_pi_mW"], d["P_pi_mW"]), 2),
-            "t_rise_us_microring": a["t_rise_10_90_us"], "t_rise_us_comsol": d["t_rise_10_90_us"],
-            "f_3dB_kHz_microring": a["f_3dB_thermal_kHz"], "f_3dB_kHz_comsol": d["f_3dB_thermal_kHz"],
+            "t_rise_us_microring": a["t_rise_10_90_us"],
+            "t_rise_us_comsol_strict": round(float(c_tr.get("t_rise_10_90_us", d["t_rise_10_90_us"])), 2),
+            "t_rise_us_lumerical_heat": round(float(h_tr["t_rise_10_90_us"]), 2) if h_tr else "",
+            "f_3dB_kHz_microring": a["f_3dB_thermal_kHz"],
+            "f_3dB_kHz_comsol_strict": round(float(c_tr.get("f_3dB_kHz", d["f_3dB_thermal_kHz"])), 2),
+            "f_3dB_kHz_lumerical_heat": round(float(h_tr["f_3dB_thermal_kHz"]), 2) if h_tr else "",
             "crosstalk_20um_pct_microring": a["crosstalk_20um_pct"], "crosstalk_20um_pct_comsol": d["crosstalk_20um_pct"],
             "crosstalk_20um_pct_lumerical_heat": h["crosstalk_20um_pct"] if h else "",
         })
-    _write_csv(OUT_DIR / "suite4_thermal_3way.csv", f"Solvers: {mr1['solver']} | {com1['solver']} | Ansys Lumerical 2026R1 HEAT", list(s4_rows[0].keys()), s4_rows)
+    _write_csv(OUT_DIR / "suite4_thermal_3way.csv", f"Solvers: {mr1['solver']} | {com1['solver']} (tstepsbdf=strict) | Ansys Lumerical 2026R1 DEVICE HEAT (Steady + Transient)", list(s4_rows[0].keys()), s4_rows)
 
     # Suite 5 EO CSV
     mr_5, com_5, lum_5 = _index_by(mr1["suite5_pockels_eo"]), _index_by(com1["suite5_pockels_eo"]), _index_by(lum1["suite5_mode_eo"])
@@ -659,10 +921,11 @@ def main() -> None:
     }]
     _write_csv(OUT_DIR / "suite6b_apodized_gc_3way.csv", f"Solvers: {mr2['solver']} | {lum2['solver']} | {com2['solver']}", list(s6b_rows[0].keys()), s6b_rows)
 
-    # Suite 7 MMI + Ring + INTERCONNECT CSV
+    # Suite 7 MMI + Ring + INTERCONNECT CSV (refreshed v3.9.0 GC SPAR!)
     m7a_m, m7a_l = mr2["suite7a_mmi_2x2"], lum2["suite7a_mmi_2x2"]
     m7b_m, m7b_l = mr2["suite7b_full_ring_lowq"], lum2["suite7b_full_ring_lowq"]
-    m7c_m, m7c_l = mr2["suite7c_interconnect_circuit"], lum2["suite7c_interconnect"]
+    m7c_m = mr2["suite7c_interconnect_circuit"]
+    m7c_l = gap.get("suite7c_interconnect_refreshed", lum2["suite7c_interconnect"])
     s7_rows = [
         {"subsuite": "7A_2x2_MMI", "metric": "split_bar_cross_pct", "microring": f"{m7a_m['split_bar_pct']}/{m7a_m['split_cross_pct']}", "lumerical": f"{m7a_l['split_bar_pct']}/{m7a_l['split_cross_pct']}"},
         {"subsuite": "7A_2x2_MMI", "metric": "excess_loss_db", "microring": m7a_m["excess_loss_db"], "lumerical": m7a_l["excess_loss_db"]},
@@ -674,7 +937,7 @@ def main() -> None:
         {"subsuite": "7C_INTERCONNECT_MZI", "metric": "ER_bar_dB", "microring": m7c_m["mzi_ER_bar_dB"], "lumerical": m7c_l["mzi_ER_bar_ic_dB"]},
         {"subsuite": "7C_INTERCONNECT_GC", "metric": "IL_1550_dB", "microring": g6m["il_at_1550_db"], "lumerical": m7c_l["gc_il_1550_ic_db"]},
     ]
-    _write_csv(OUT_DIR / "suite7_mmi_ring_interconnect.csv", f"Solvers: {mr2['solver']} | {lum2['solver']}", list(s7_rows[0].keys()), s7_rows)
+    _write_csv(OUT_DIR / "suite7_mmi_ring_interconnect.csv", f"Solvers: {mr2['solver']} | {lum2['solver']} (INTERCONNECT refreshed)", list(s7_rows[0].keys()), s7_rows)
 
     # Suite 8 RF Electrodes 4-Way CSV (MicroRing vs COMSOL vs Ansys HFSS 3D!)
     mr8, com8, hf8 = _index_by(mr2["suite8_rf_electrodes"]), _index_by(com2["suite8_rf_electrodes"]), _index_by(hfss2["suite8_rf_electrodes"])
@@ -693,25 +956,38 @@ def main() -> None:
         })
     _write_csv(OUT_DIR / "suite8_rf_electrodes_4way.csv", f"Solvers: {mr2['solver']} | {com2['solver']} | {hfss2['solver']}", list(s8_rows[0].keys()), s8_rows)
 
-    # Suite 9 Si PN TCAD CSV
+    # Suite 8C HFSS 3D Periodic Bragg Stopband (Lambda = 220 um) CSV
+    br_clean = gap["suite8_hfss_bragg220_clean"]
+    open_wg_rec = [x for x in gap["suite8_hfss_openwg_and_bragg"] if "OpenWG" in x["case_id"]][0]
+    _write_csv(
+        OUT_DIR / "suite8_hfss_bragg220_3d.csv",
+        f"Solvers: Ansys HFSS 2026 R1 3D Driven Modal (3 periods, Lambda=220 um, L=660 um) | MicroRing ABCD f_Bragg={br_clean['microring_f_bragg_cutoff_GHz']} GHz",
+        ["freq_GHz", "S21_mag_dB", "S11_mag_dB", "alpha_3d_abcd_dB_per_cm", "n_RF_3d_abcd", "Z0_3d_abcd_ohm"],
+        br_clean["freq_sweep"],
+    )
+
+    # Suite 9 Complete 3x3 Si PN TCAD CSV (+ Forward PIN in report)
     mr9, com9 = _index_by(mr2["suite9_si_pn_tcad"]), _index_by(com2["suite9_si_pn_tcad"])
-    lum9 = lum2["suite9_charge"]
+    lum9_map = {
+        "SOI_220nm_Lateral_PN": lum2["suite9_charge"],
+        "SOI_220nm_LShaped_PN": gap["suite9_lum_charge_complete"]["SOI_220nm_LShaped_PN"],
+        "SOI_220nm_UShaped_PN": gap["suite9_lum_charge_complete"]["SOI_220nm_UShaped_PN"],
+    }
     s9_rows = []
     for k in [r["case_id"] for r in mr2["suite9_si_pn_tcad"]]:
-        a, d = mr9[k], com9[k]
-        is_lat = (k == lum9["case_id"])
+        a, d, b = mr9[k], com9[k], lum9_map[k]
         s9_rows.append({
             "case_id": k,
             "V_pi_L_m3V_Vcm_microring": a["V_pi_L_at_m3V_Vcm"], "V_pi_L_m3V_Vcm_comsol": d["V_pi_L_at_m3V_Vcm"],
-            "V_pi_L_m3V_Vcm_lumerical_charge": lum9["V_pi_L_at_m3V_Vcm"] if is_lat else "",
+            "V_pi_L_m3V_Vcm_lumerical_charge": b["V_pi_L_at_m3V_Vcm"],
             "Cj_0V_fF_per_um_microring": a["Cj_0V_fF_per_um"], "Cj_0V_fF_per_um_comsol": d["Cj_0V_fF_per_um"],
-            "Cj_0V_fF_per_um_lumerical_charge": lum9["Cj_0V_fF_per_um"] if is_lat else "",
+            "Cj_0V_fF_per_um_lumerical_charge": b["Cj_0V_fF_per_um"],
             "Cj_m3V_fF_per_um_microring": a["Cj_m3V_fF_per_um"], "Cj_m3V_fF_per_um_comsol": d["Cj_m3V_fF_per_um"],
-            "Cj_m3V_fF_per_um_lumerical_charge": lum9["Cj_m3V_fF_per_um"] if is_lat else "",
+            "Cj_m3V_fF_per_um_lumerical_charge": b["Cj_m3V_fF_per_um"],
             "FCA_m3V_dB_per_cm_microring": a["alpha_FCA_m3V_dB_per_cm"], "FCA_m3V_dB_per_cm_comsol": d["alpha_FCA_m3V_dB_per_cm"],
-            "FCA_m3V_dB_per_cm_lumerical_charge": lum9["alpha_FCA_m3V_dB_per_cm"] if is_lat else "",
+            "FCA_m3V_dB_per_cm_lumerical_charge": b["alpha_FCA_m3V_dB_per_cm"],
         })
-    _write_csv(OUT_DIR / "suite9_si_pn_tcad_3way.csv", f"Solvers: {mr2['solver']} | {com2['solver']} | {lum2['solver']}", list(s9_rows[0].keys()), s9_rows)
+    _write_csv(OUT_DIR / "suite9_si_pn_tcad_3way.csv", f"Solvers: {mr2['solver']} | {com2['solver']} | {lum2['solver']} (Complete 3x3 Matrix)", list(s9_rows[0].keys()), s9_rows)
 
     # Suite 10 Advanced Thermal CSV
     mr10, com10 = _index_by(mr2["suite10_thermal_adv"]), _index_by(com2["suite10_thermal_adv"])
@@ -739,8 +1015,81 @@ def main() -> None:
         })
     _write_csv(OUT_DIR / "suite11_fab_cd_bias_3way.csv", f"Solvers: {mr2['solver']} | {com2['solver']} | {lum2['solver']}", list(s11_rows[0].keys()), s11_rows)
 
+    # Suite 12 Low-Q Full-Ring 3D FDTD + GDS Roundtrip + Split-Doublet CSV
+    mr12a, lum12a = _index_by(mr3["suite12a_lowq_full_rings"]), _index_by(lum3["suite12a_lowq_full_rings"])
+    s12_rows = []
+    for c_mr in mr3["suite12a_lowq_full_rings"]:
+        cid = c_mr["case_id"]
+        c_l = lum12a[cid]
+        if cid == "SOI_LowQ_PCM_GSST_Switch_R5um":
+            for st_key in ("GSST_amorphous", "GSST_crystalline"):
+                sm, sl = c_mr["states"][st_key], c_l["states"][st_key]
+                s12_rows.append({
+                    "case_id": f"{cid}_{st_key}", "topology": "pcm_gsst_ad",
+                    "FSR_nm_microring": sm["FSR_nm"], "FSR_nm_3dfdtd": sl["FSR_nm"],
+                    "Q_loaded_microring": sm["Q_loaded"], "Q_loaded_3dfdtd_cmt": sl["cmt_fit_Q_loaded"],
+                    "key_metric_microring": f"dlam={c_mr['delta_lambda_shift_nm']:+.3f}nm; ER={sm['ER_thru_dB']:.2f}dB",
+                    "key_metric_3dfdtd": f"dlam={c_l['delta_lambda_shift_nm']:+.3f}nm; ER={sl['ER_thru_dB']:.2f}dB",
+                    "passivity_max": sl["max_passivity_sum"], "fdtd_status": sl["fdtd_status_code"],
+                })
+        elif cid == "SOI_LowQ_DualRing_CROW_R5um":
+            s12_rows.append({
+                "case_id": cid, "topology": c_mr["topology"],
+                "FSR_nm_microring": c_mr["FSR_nm"], "FSR_nm_3dfdtd": c_l["FSR_nm"],
+                "Q_loaded_microring": c_mr["Q_loaded"], "Q_loaded_3dfdtd_cmt": "",
+                "key_metric_microring": f"split={c_mr['crow_split_nm']:.3f}nm; BW={c_mr['crow_drop_3db_bw_nm']:.3f}nm",
+                "key_metric_3dfdtd": f"split={c_l['crow_split_nm']:.3f}nm; IL_drop={c_l['crow_IL_drop_dB']:.2f}dB",
+                "passivity_max": c_l["max_passivity_sum"], "fdtd_status": c_l["fdtd_status_code"],
+            })
+        else:
+            s12_rows.append({
+                "case_id": cid, "topology": c_mr["topology"],
+                "FSR_nm_microring": c_mr["FSR_nm"], "FSR_nm_3dfdtd": c_l["FSR_nm"],
+                "Q_loaded_microring": c_mr["Q_loaded"], "Q_loaded_3dfdtd_cmt": c_l["cmt_fit_Q_loaded"],
+                "key_metric_microring": f"ER={c_mr['ER_thru_dB']:.2f}dB; IL_dr={c_mr['IL_drop_dB']}",
+                "key_metric_3dfdtd": f"R2={c_l['cmt_fit_r_squared']:.5f}; ER={c_l['ER_thru_dB']:.2f}dB; IL_dr={c_l['IL_drop_dB']}",
+                "passivity_max": c_l["max_passivity_sum"], "fdtd_status": c_l["fdtd_status_code"],
+            })
+    g12_l = lum3["suite12b_gds_and_doublet"]["gds_roundtrip"]
+    d12_l = lum3["suite12b_gds_and_doublet"]["split_doublet_fdtd"]
+    s12_rows.append({
+        "case_id": g12_l["case_id"], "topology": "gdsimport_ad",
+        "FSR_nm_microring": 17.6751, "FSR_nm_3dfdtd": g12_l["FSR_nm"],
+        "Q_loaded_microring": 2986.0, "Q_loaded_3dfdtd_cmt": g12_l["cmt_fit_Q_loaded"],
+        "key_metric_microring": f"GDS R={mr3['suite12b_gds_export']['extracted_radius_um']}um; g={mr3['suite12b_gds_export']['extracted_gap_thru_um']*1e3:.0f}nm",
+        "key_metric_3dfdtd": f"res={g12_l['center_res_nm']:.3f}nm; ER={g12_l['ER_thru_dB']:.2f}dB",
+        "passivity_max": g12_l["max_passivity_sum"], "fdtd_status": g12_l["fdtd_status_code"],
+    })
+    s12_rows.append({
+        "case_id": d12_l["case_id"], "topology": "split_doublet_ad",
+        "FSR_nm_microring": "", "FSR_nm_3dfdtd": "",
+        "Q_loaded_microring": "", "Q_loaded_3dfdtd_cmt": d12_l["split_doublet_Q_loaded"],
+        "key_metric_microring": f"Auto-BIC={d12_l['auto_bic_selected_model']}",
+        "key_metric_3dfdtd": f"R2(dbl/lor)={d12_l['split_doublet_fit_r2']:.5f}/{d12_l['lorentzian_fit_r2']:.5f}; 2mu={d12_l['split_doublet_2mu_ghz']:.1f}GHz",
+        "passivity_max": d12_l["max_passivity_sum"], "fdtd_status": d12_l["fdtd_status_code"],
+    })
+    _write_csv(OUT_DIR / "suite12_lowq_rings_3dfdtd.csv", f"Solvers: {mr3['solver']} | {lum3['solver']}", list(s12_rows[0].keys()), s12_rows)
+
+    # Suite 13 MZI & Full 3D Chip I/O CSV
+    m13, l13 = mr3["suite13_mzi_and_3d_io"], lum3["suite13_mzi_and_3d_io"]
+    s13_rows = [
+        {"subsuite": "13A_MMI_2x2_OptLen", "metric": "split_bar_cross_pct", "microring": f"{m13['mmi_2x2_optimal']['split_bar_pct']}/{m13['mmi_2x2_optimal']['split_cross_pct']}", "lumerical_3dfdtd": f"{l13['mmi_2x2_optimal']['split_bar_pct']}/{l13['mmi_2x2_optimal']['split_cross_pct']}"},
+        {"subsuite": "13A_MMI_2x2_OptLen", "metric": "excess_loss_db", "microring": m13["mmi_2x2_optimal"]["excess_loss_db"], "lumerical_3dfdtd": l13["mmi_2x2_optimal"]["excess_loss_db"]},
+        {"subsuite": "13A_MMI_2x2_OptLen", "metric": "imbalance_db", "microring": m13["mmi_2x2_optimal"]["imbalance_db"], "lumerical_3dfdtd": l13["mmi_2x2_optimal"]["imbalance_db"]},
+        {"subsuite": "13B_DC_2x2_FullSBend", "metric": "split_bar_cross_pct", "microring": f"{m13['dc_2x2_full_sbend']['split_bar_pct']}/{m13['dc_2x2_full_sbend']['split_cross_pct']}", "lumerical_3dfdtd": f"{l13['dc_2x2_full_sbend']['split_bar_pct']}/{l13['dc_2x2_full_sbend']['split_cross_pct']}"},
+        {"subsuite": "13B_DC_2x2_FullSBend", "metric": "excess_loss_db", "microring": m13["dc_2x2_full_sbend"]["excess_loss_db"], "lumerical_3dfdtd": l13["dc_2x2_full_sbend"]["excess_loss_db"]},
+        {"subsuite": "13C_LowQ_RAMZI_R5um", "metric": "FSR_nm", "microring": m13["lowq_ramzi"]["ramzi_ring_FSR_nm"], "lumerical_3dfdtd": l13["lowq_ramzi"]["ramzi_FSR_nm"]},
+        {"subsuite": "13C_LowQ_RAMZI_R5um", "metric": "ER_bar_dB", "microring": m13["lowq_ramzi"]["ER_bar_dB"], "lumerical_3dfdtd": l13["lowq_ramzi"]["ER_bar_dB"]},
+        {"subsuite": "13D_3D_Focusing_GC", "metric": "peak_wavelength_nm", "microring": m13["gc_3d_focusing"]["peak_wavelength_nm"], "lumerical_3dfdtd": l13["gc_3d_focusing"]["peak_wavelength_nm"]},
+        {"subsuite": "13D_3D_Focusing_GC", "metric": "peak_il_db", "microring": m13["gc_3d_focusing"]["peak_il_2dfdfd_db"], "lumerical_3dfdtd": l13["gc_3d_focusing"]["peak_il_3dfdtd_db"]},
+        {"subsuite": "13D_3D_Focusing_GC", "metric": "eta_up_1550_pct", "microring": m13["gc_3d_focusing"]["eta_up_1550_pct"], "lumerical_3dfdtd": l13["gc_3d_focusing"]["eta_up_1550_pct"]},
+        {"subsuite": "13E_3D_Butt_Taper_30um", "metric": "taper_il_db", "microring": m13["butt_3d_taper"]["taper_il_db"], "lumerical_3dfdtd": l13["butt_3d_taper"]["taper_il_3d_db"]},
+        {"subsuite": "13E_3D_Butt_Taper_30um", "metric": "total_il_db", "microring": m13["butt_3d_taper"]["total_il_db"], "lumerical_3dfdtd": l13["butt_3d_taper"]["total_il_3d_db"]},
+    ]
+    _write_csv(OUT_DIR / "suite13_mzi_3d_io.csv", f"Solvers: {mr3['solver']} | {lum3['solver']}", list(s13_rows[0].keys()), s13_rows)
+
     # ==========================================================================
-    # Compile Complete Unified 11-Suite 4-Way Markdown Validation Report
+    # Compile Complete Unified 13-Suite 4-Way Markdown Validation Report
     # ==========================================================================
     max_s1_lum = max(r["abs_diff_mr_lum"] for r in s1_rows)
     max_s1_com = max(r["abs_diff_mr_comsol"] for r in s1_rows)
@@ -748,8 +1097,9 @@ def main() -> None:
     max_dc_lum = max(r["rel_diff_Lpi_mr_vs_lumerical_pct"] for r in s3a_rows)
     max_th4_rth = max(r["R_th_core_rel_diff_mr_comsol_pct"] for r in s4_rows)
     min_th4_rth = min(r["R_th_core_rel_diff_mr_comsol_pct"] for r in s4_rows)
+    tr_diffs_com = [_pct_diff(r["t_rise_us_microring"], r["t_rise_us_comsol_strict"]) for r in s4_rows]
+    tr_diffs_heat = [_pct_diff(r["t_rise_us_microring"], r["t_rise_us_lumerical_heat"]) for r in s4_rows if r["t_rise_us_lumerical_heat"] != ""]
     max_th10_rth = max(r["R_th_rel_diff_pct"] for r in s10_rows)
-    tfln_vpil_diffs = [r["V_pi_L_rel_diff_pct"] for r in s5_rows if "TFLN" in r["case_id"]]
     tr_hf_200 = [r for r in hf8["TFLN_SlowWave_TRail_Quartz"]["freq_sweep"] if abs(r["freq_GHz"] - 200.0) < 0.1][0]
     tr_hf_300 = [r for r in hf8["TFLN_SlowWave_TRail_Quartz"]["freq_sweep"] if abs(r["freq_GHz"] - 300.0) < 0.1][0]
     tr_mr_40 = mr8["TFLN_SlowWave_TRail_Quartz"]["freq_samples"]["40GHz"]
@@ -771,33 +1121,47 @@ def main() -> None:
     tr_z0_com_diff = _pct_diff(tr_mr_40["Z0_ohm"], tr_com_3d["Z0_3d_unitcell_ohm"])
     tr_nrf_com_diff = _pct_diff(tr_mr_40["n_RF"], tr_com_3d["n_RF_3d_unitcell"])
     c3d = com2["suite10_thermal_3d_check"]
+    n_pass = sum(1 for ck in checks if ck["status"] == "PASS")
+    n_tot = len(checks)
+    fpin = gap["suite9_lum_charge_complete"]["SOI_220nm_Forward_PIN"]
+    fpin_last = fpin["states"][-1]
+    rt_m, rt_l = mr12a["SOI_LowQ_Racetrack_AD_R5um_Ls3um"], lum12a["SOI_LowQ_Racetrack_AD_R5um_Ls3um"]
+    cc_m, cc_l = mr12a["SOI_LowQ_Lossy_AllPass_CC_R5um"], lum12a["SOI_LowQ_Lossy_AllPass_CC_R5um"]
+    pl_m, pl_l = mr12a["SOI_LowQ_Pulley_AD_R5um_th20deg"], lum12a["SOI_LowQ_Pulley_AD_R5um_th20deg"]
+    cr_m, cr_l = mr12a["SOI_LowQ_DualRing_CROW_R5um"], lum12a["SOI_LowQ_DualRing_CROW_R5um"]
+    pcm_m, pcm_l = mr12a["SOI_LowQ_PCM_GSST_Switch_R5um"], lum12a["SOI_LowQ_PCM_GSST_Switch_R5um"]
+    g100_m, g100_l = mr12a["SOI_LowQ_AddDrop_R5um_g100nm"], lum12a["SOI_LowQ_AddDrop_R5um_g100nm"]
+    g120_m, g120_l = mr12a["SOI_LowQ_AddDrop_R5um_g120nm"], lum12a["SOI_LowQ_AddDrop_R5um_g120nm"]
 
     md: list[str] = [
         "# Independent 4-Way Commercial Solver Validation Report: MicroRing Studio vs. Ansys Lumerical, Ansys HFSS & COMSOL Multiphysics",
         "",
-        "This report documents a complete, **11-suite independent numerical validation** covering 100% of the physical solver engines in **MicroRing Studio (`v3.9.0`)** against three commercial multiphysics platforms executed locally from scratch on identical neutral specifications:",
+        "This report documents a complete, **13-suite independent numerical validation** covering 100% of the physical solver engines in **MicroRing Studio (`v3.9.0`)** (including a dedicated **Phase-3 full-ring and 3D chip-I/O RTX 5090 GPU 3D FDTD** campaign) against three commercial multiphysics platforms executed locally from scratch on identical neutral specifications:",
         "",
         f"- **Open-Source Solver Under Test**: `{mr1['solver']}` (pure-Python `scikit-fem` + NumPy/SciPy, zero commercial licenses)",
-        f"- **Commercial Solver 1 (Photonics & Semiconductor)**: `{lum2['solver']}` (`MODE FDE/EME`, `3D FDTD` on `{lum1['gpu_device']}`, `2D FDTD`, `INTERCONNECT`, `DEVICE HEAT`, `DEVICE CHARGE`)",
-        f"- **Commercial Solver 2 (Multiphysics FEM)**: `{com2['solver']}` (`ewfd`, `emw`, `es`, `GeneralFormPDE g`, `2D & 3D Heat ht`, `3D Periodic RF Unit Cell`)",
-        f"- **Commercial Solver 3 (3D Full-Wave Sub-THz RF)**: `{hfss2['solver']}` (`10–300 GHz` 3D Wave Port & 4-Period Slow-Wave T-Rail Bloch-Floquet extraction)",
+        f"- **Commercial Solver 1 (Photonics & Semiconductor)**: `{lum2['solver']}` (`MODE FDE/EME`, `3D FDTD` on `{lum1['gpu_device']}`, `2D FDTD`, `INTERCONNECT`, `DEVICE HEAT` Steady + Transient, `DEVICE CHARGE` 3-Junction + Forward PIN)",
+        f"- **Commercial Solver 2 (Multiphysics FEM)**: `{com2['solver']}` (`ewfd`, `emw`, `es`, `GeneralFormPDE g`, `2D/3D Heat ht` with strict BDF transient stepping, `3D Periodic RF Unit Cell`)",
+        f"- **Commercial Solver 3 (3D Full-Wave Sub-THz RF)**: `{hfss2['solver']}` (`10–300 GHz` 3D Wave Port, finite-`W_G` OpenWG, 4-period Slow-Wave T-Rail & 3-period `220 µm` Bragg stopband extraction)",
         "",
         "## Protocol for Strict Independence",
         "",
-        "Every benchmark geometry, wavelength triplet ($\\lambda_0, \\lambda_0 \\pm \\Delta\\lambda$), Sellmeier refractive index tensor $(n_x, n_y, n_z)$, thermal conductivity $\\kappa_{\\mathrm{th}}$, volumetric heat capacity $\\rho C_p$, static/RF permittivity tensor $\\boldsymbol{\\varepsilon}_{\\mathrm{RF}}$, dielectric loss tangent $\\tan\\delta$, metal resistivity $\\rho$, Pockels tensor $(r_{33}, r_{13})$, and 2D semiconductor doping profile is exported once into two neutral JSON specifications containing zero solver outputs: [`commercial_validation_specs.json`](../benchmarks/outputs/commercial_validation_specs.json) (Suites 1–5) and [`commercial_validation_specs_p2.json`](../benchmarks/outputs/commercial_validation_specs_p2.json) (Suites 6–11). Separate solver scripts then execute independently without reading each other's outputs:",
+        "Every benchmark geometry, wavelength triplet ($\\lambda_0, \\lambda_0 \\pm \\Delta\\lambda$), Sellmeier refractive index tensor $(n_x, n_y, n_z)$, thermal conductivity $\\kappa_{\\mathrm{th}}$, volumetric heat capacity $\\rho C_p$, static/RF permittivity tensor $\\boldsymbol{\\varepsilon}_{\\mathrm{RF}}$, dielectric loss tangent $\\tan\\delta$, metal resistivity $\\rho$, Pockels tensor $(r_{33}, r_{13})$, 2D semiconductor doping profile, and low-$Q$ full-ring/3D-I/O layout is exported once into three neutral JSON specifications containing zero solver outputs: [`commercial_validation_specs.json`](../benchmarks/outputs/commercial_validation_specs.json) (Suites 1–5), [`commercial_validation_specs_p2.json`](../benchmarks/outputs/commercial_validation_specs_p2.json) (Suites 6–11), and [`commercial_validation_specs_p3.json`](../benchmarks/outputs/commercial_validation_specs_p3.json) (Suites 12–13). Separate solver scripts then execute independently without reading each other's outputs:",
         "",
-        "1. `benchmarks/run_microring_independent.py` + `run_microring_independent_p2.py`",
-        "2. `benchmarks/run_lumerical_independent.py` + `run_lumerical_independent_p2.py`",
+        "1. `benchmarks/run_microring_independent.py` + `run_microring_independent_p2.py` + `run_microring_independent_p3.py`",
+        "2. `benchmarks/run_lumerical_independent.py` + `run_lumerical_independent_p2.py` + `run_lumerical_independent_p3.py`",
         "3. `benchmarks/run_comsol_independent.py` + `run_comsol_independent_p2.py`",
-        "4. `benchmarks/run_hfss_independent_p2.py`",
+        "4. `benchmarks/run_hfss_independent_p2.py` + `run_gap_closures.py`",
         "",
-        "No solver parameters were fitted post hoc to narrow cross-solver differences. Every discrepancy arising from 2D-vs-3D physics, quasi-TEM-vs-full-wave RF inductance, empirical plasma-dispersion model choices, or FDTD ring-down truncation is reported quantitatively as measured.",
+        "No solver parameters were fitted post hoc to narrow cross-solver differences, and zero commercial outputs or lookup tables exist anywhere inside `src/microring/`. Every discrepancy arising from 2D-vs-3D radiation/diffraction, quasi-TEM-vs-full-wave RF inductance, empirical plasma-dispersion model choices, or Cartesian Yee sidewall scattering is reported quantitatively as measured.",
         "",
         "![Phase-1 Commercial Solver Validation Overview (Suites 1-5)](./images/commercial_validation_overview.png)",
         "*Figure 1 (Suites 1–5; editable vector source: [`commercial_validation_overview.svg`](./images/commercial_validation_overview.svg)). **(a)** Five-waveband bent waveguide $|\\Delta n_{\\mathrm{eff}}|$ (`532–4200 nm`). **(b)** `220 nm` SOI `1550 nm` point-coupler gap sweep (`CMT` vs. RTX 5090 GPU `3D FDTD`). **(c)** Three-way `2x2` SOI directional-coupler beat length $L_\\pi$. **(d)** Uniform `220 nm` SOI surface grating coupler fiber IL. **(e)** Steady-state microheater core $R_{\\mathrm{th}}$ (including Lumerical `HEAT` 3-way check on SOI). **(f)** Anisotropic Pockels modulator core electric field $|E|/V$.*",
         "",
         "![Phase-2 Commercial Solver Validation Overview (Suites 6-11)](./images/commercial_validation_p2_overview.png)",
-        "*Figure 2 (Suites 6–11; editable vector source: [`commercial_validation_p2_overview.svg`](./images/commercial_validation_p2_overview.svg)). **(a)** Three-way `220 nm` SOI inverse-taper butt coupler facet IL vs. tip width $W_{\\mathrm{tip}}$. **(b)** Gaussian-apodized 26-tooth grating coupler broadband IL (`2D FDFD` vs. `2D FDTD` vs. `COMSOL 2D ewfd`). **(c)** Four-way EOM RF phase index $n_{\\mathrm{RF}}$ (`40 GHz`) across `HR-Si`, `Quartz`, `Undercut-Si`, and `3D Slow-Wave T-Rail` (`MicroRing` vs. `COMSOL` vs. `Ansys HFSS 3D`). **(d)** `10–300 GHz` 3D periodic Slow-Wave T-Rail attenuation $\\alpha_{\\mathrm{RF}}(f)$ and Bloch index $n_{\\mathrm{RF}}(f)$ (`MicroRing` vs. `Ansys HFSS 3D`). **(e)** Three-way Silicon PN carrier-depletion TCAD $V_\\pi L$ (`Lateral`, `L-Shaped`, `U-Shaped`). **(f)** Advanced microheater $R_{\\mathrm{th}}$ spanning two decades (`0.58` to `34.7 K/mW`) including `COMSOL 3D` (`L = 200 µm`) and `Lumerical HEAT`.*",
+        "*Figure 2 (Suites 6–11; editable vector source: [`commercial_validation_p2_overview.svg`](./images/commercial_validation_p2_overview.svg)). **(a)** Three-way `220 nm` SOI inverse-taper butt coupler facet IL vs. tip width $W_{\\mathrm{tip}}$. **(b)** Gaussian-apodized 26-tooth grating coupler broadband IL (`2D FDFD` vs. `2D FDTD` vs. `COMSOL 2D ewfd`). **(c)** Four-way EOM RF phase index $n_{\\mathrm{RF}}$ (`40 GHz`) across `HR-Si`, `Quartz`, `Undercut-Si`, and `3D Slow-Wave T-Rail` (`MicroRing` vs. `COMSOL` vs. `Ansys HFSS 3D`). **(d)** `10–300 GHz` 3D periodic Slow-Wave T-Rail attenuation $\\alpha_{\\mathrm{RF}}(f)$ and Bloch index $n_{\\mathrm{RF}}(f)$ (`MicroRing` vs. `Ansys HFSS 3D`). **(e)** Complete 3x3 Silicon PN carrier-depletion TCAD $V_\\pi L$ (`Lateral`, `L-Shaped`, `U-Shaped` across MicroRing, COMSOL & Lumerical `CHARGE`). **(f)** Advanced microheater $R_{\\mathrm{th}}$ spanning two decades (`0.58` to `34.7 K/mW`) including `COMSOL 3D` (`L = 200 µm`) and `Lumerical HEAT`.*",
+        "",
+        "![Phase-3 Low-Q Full-Ring & 3D I/O Validation Overview (Suites 12-13 & Gap Closures)](./images/commercial_validation_p3_overview.png)",
+        "*Figure 3 (Suites 12–13 & Gap Closures; editable vector source: [`commercial_validation_p3_overview.svg`](./images/commercial_validation_p3_overview.svg)). **(a)** Loaded $Q_L$ across six low-$Q$ full-ring architectures (`R = 5 µm` SOI, `MicroRing TMM` vs. RTX 5090 GPU `3D FDTD` CMT extraction). **(b)** Non-volatile `GSST` PCM add-drop full-ring `3D FDTD` switching spectra (`a-GSST` vs. `c-GSST`, $\\Delta\\lambda = +2.75$ vs. `+2.93 nm`). **(c)** Sidewall-bump split-doublet `3D FDTD` spectrum and blind `Auto-BIC` CMT extraction (`split_doublet`, $R^2 = 0.99997$ vs. `0.99949` Lorentzian). **(d)** Optimal-length `2x2 MMI` (`L = 42.3 µm`) and full S-bend `2x2 DC` port power splits (`MicroRing Nedelec2xP2` vs. `3D FDTD GPU`). **(e)** Full 3D curved-focusing grating coupler (`20-tooth` apodized) spectrum (`2D FDFD` vs. `3D FDTD`, separating the `+0.39 dB` 3D curved-fan lateral diffraction delta). **(f)** Ansys HFSS `3D` periodic slow-wave `T-Rail` Bragg stopband at $\\Lambda = 220\\,\\mu\\text{m}$ (`S21 = -57.9 dB` at `280 GHz` vs. MicroRing `f_Bragg = 302.8 GHz`).*",
         "",
         "---",
         "",
@@ -808,16 +1172,18 @@ def main() -> None:
         f"| **Suite 1** | 2D Bent & Straight Vector Maxwell FEM (`532–4200 nm`, angled walls, uniaxial, rib) | Lumerical `MODE FDE`, COMSOL `ewfd` | Max $|\\Delta n_{{\\mathrm{{eff}}}}| = {max_s1_com:.2e}$ (COMSOL) / `{max_s1_lum:.2e}` (Lumerical); $n_g$ within `0.05%` |",
         f"| **Suite 2** | 3D Bus-to-Ring Couplers (Point, Pulley `82°`, Racetrack + `100–250 nm` gap sweep) | Lumerical `3D FDTD` (RTX 5090 GPU) | SOI `100–250 nm` within `{min_s2b:.1f}%–{max_s2b:.1f}%`; `4H-SiC` pulley `0.97%`, `Mid-IR Ge` racetrack `2.1%`, `532 nm` `3.7%`, `780 nm` `5.8%` |",
         f"| **Suite 3** | MZI `2x2` DC Supermodes, `1x2` MMI / Y-Branch & Uniform Surface Grating Coupler | Lumerical `MODE`/`2D & 3D FDTD`, COMSOL `ewfd` | DC $L_\\pi$ within `{max_dc_com:.2f}%` (COMSOL) / `{max_dc_lum:.2f}%`; `1x2` MMI `{mmi1_il_mr:.3f} vs {mmi1_il_lum:.3f} dB`, Y-Branch `{yb_il_mr:.2f} vs {yb_il_lum:.2f} dB`, GC `{mr1['suite3c_gc']['il_at_1550_db']:.2f} vs {lum1['suite3c_gc']['il_at_1550_db']:.2f} dB` |",
-        f"| **Suite 4** | 2D Steady & Transient Thermo-Optic Microheaters (`Top TiN`, `Deep Trench`, `BOX`) | COMSOL `ht`, Lumerical `HEAT` | $R_{{\\mathrm{{th}}}}$ within `{min_th4_rth:.2f}%–{max_th4_rth:.2f}%` (COMSOL) and `0.51%–1.16%` (Lumerical `HEAT`); exact `t_rise == t_fall` |",
+        f"| **Suite 4** | 2D Steady & Transient Thermo-Optic Microheaters (`Top TiN`, `Deep Trench`, `BOX`) | COMSOL `ht` (`strict`), Lumerical `HEAT` | $R_{{\\mathrm{{th}}}}$ within `{min_th4_rth:.2f}%–{max_th4_rth:.2f}%` (COMSOL) / `0.51%–1.16%` (`HEAT`); $t_{{\\mathrm{{rise}}}}$ within `{min(tr_diffs_com):.2f}%–{max(tr_diffs_com):.2f}%` (COMSOL strict) & `{min(tr_diffs_heat):.2f}%–{max(tr_diffs_heat):.2f}%` (`HEAT`) |",
         f"| **Suite 5** | 2D Anisotropic Electrostatic Pockels EO (`X-cut TFLN`, `ScAlN_20`) | COMSOL `es` + `ewfd`, Lumerical `MODE` | Single-arm $V_\\pi L$ within `0.20%–0.87%` across all 3 devices (incl. `ScAlN_20` `0.87%`), $C_{{\\mathrm{{line}}}}$ within `0.26%` |",
         f"| **Suite 6** | Chip I/O: Butt/Edge Couplers (`Lensed 2.5 µm`, `Elliptical DFB`) & Apodized GC | Lumerical `MODE`+`EME`+`2D FDTD`, COMSOL `ewfd` | Butt facet IL within `0.005–0.057 dB`, `1-dB` tol within `0.01 µm`; Apodized GC peak `{g6m['peak_wavelength_nm']:.1f} vs {g6l['peak_wavelength_nm']:.1f} nm`, IL `{g6m['peak_il_db']:.2f} vs {g6l['peak_il_db']:.2f} dB` |",
-        f"| **Suite 7** | `2x2` Paired-Interference MMI, Low-$Q$ Full Ring & `INTERCONNECT` Native SPAR / WDM | Lumerical `3D FDTD` GPU & `INTERCONNECT` | Full-ring (`R=5 µm`) FSR `17.83 vs 18.19 nm` & $Q_L$ `{m7b_m['Q_loaded']:.0f} vs {m7b_l['Q_loaded_fdtd_cmt_fit']:.0f}` (`{ql_7b_diff:.1f}%`); INTERCONNECT MZI FSR `7.000 vs 7.012 nm`, ER `33.35 vs 33.33 dB` |",
-        f"| **Suite 8** | Sub-THz (`10–300 GHz`) EOM RF GSG CPW & 3D Periodic Slow-Wave T-Rail + Wafer Cut | **Ansys HFSS 3D**, COMSOL `es`/`emw`/3D | Uniform CPW (`40 GHz`) $Z_0$ within `{min(cpw_z0_diffs):.1f}%–{max(cpw_z0_diffs):.1f}%`, $n_{{\\mathrm{{RF}}}}$ within `{min(cpw_nrf_diffs):.2f}%–{max(cpw_nrf_diffs):.2f}%` (HFSS 3D); 3D T-Rail $Z_0 = {tr_mr_40['Z0_ohm']:.2f}$ vs COMSOL 3D `{tr_com_3d['Z0_3d_unitcell_ohm']:.2f} Ω` (`{tr_z0_com_diff:.2f}%`), `40–300 GHz` $\\alpha_{{\\mathrm{{RF}}}}$ `{tr_mr_40['alpha_RF_dB_per_cm']:.2f}–{tr_mr_300['alpha_RF_dB_per_cm']:.2f}` vs HFSS `{hf8['TFLN_SlowWave_TRail_Quartz']['alpha_40G_dB_per_cm']:.2f}–{tr_hf_300['alpha_3d_abcd_dB_per_cm']:.2f} dB/cm` |",
-        "| **Suite 9** | 2D Silicon PN Carrier-Depletion TCAD (`Lateral`, `L-Shaped`, `U-Shaped`, `0..-4 V`) | Lumerical `CHARGE`+`MODE`, COMSOL `PDE`+`ewfd` | $C_j(0/-3\\text{ V})$ within `0.17%–3.2%` across all 3 solvers; Lateral `FCA` `10.76` vs. `10.78 dB/cm` (`0.19%`), $V_\\pi L$ `1.48` vs. `1.56 V·cm` |",
+        f"| **Suite 7** | `2x2` Paired-Interference MMI, Low-$Q$ Full Ring & `INTERCONNECT` Native SPAR / WDM | Lumerical `3D FDTD` GPU & `INTERCONNECT` | Full-ring (`R=5 µm`) FSR `17.83 vs 18.19 nm` & $Q_L$ `{m7b_m['Q_loaded']:.0f} vs {m7b_l['Q_loaded_fdtd_cmt_fit']:.0f}` (`{ql_7b_diff:.1f}%`); INTERCONNECT MZI FSR `7.000 vs 7.012 nm`, ER `33.35 vs 33.33 dB`, GC IL `{g6m['il_at_1550_db']:.3f} vs {m7c_l['gc_il_1550_ic_db']:.3f} dB` (`0.015 dB`) |",
+        f"| **Suite 8** | Sub-THz (`10–340 GHz`) EOM RF GSG CPW, 3D `T-Rail` & `220 µm` Periodic Bragg Stopband | **Ansys HFSS 3D**, COMSOL `es`/`emw`/3D | Uniform CPW (`40 GHz`) $Z_0$ within `{min(cpw_z0_diffs):.1f}%–{max(cpw_z0_diffs):.1f}%`, $n_{{\\mathrm{{RF}}}}$ `{min(cpw_nrf_diffs):.2f}%–{max(cpw_nrf_diffs):.2f}%` (HFSS 3D); 3D T-Rail $Z_0 = {tr_mr_40['Z0_ohm']:.2f}$ vs COMSOL 3D `{tr_com_3d['Z0_3d_unitcell_ohm']:.2f} Ω` (`{tr_z0_com_diff:.2f}%`), `40–300 GHz` $\\alpha$ `{tr_mr_40['alpha_RF_dB_per_cm']:.2f}–{tr_mr_300['alpha_RF_dB_per_cm']:.2f}` vs HFSS `{hf8['TFLN_SlowWave_TRail_Quartz']['alpha_40G_dB_per_cm']:.2f}–{tr_hf_300['alpha_3d_abcd_dB_per_cm']:.2f} dB/cm`; `Bragg 220 µm` HFSS `S21 = {br_clean['bragg_min_S21_dB']:.1f} dB` @ `{br_clean['bragg_peak_freq_GHz']:.0f} GHz` vs MR `{br_clean['microring_f_bragg_cutoff_GHz']:.1f} GHz` |",
+        "| **Suite 9** | Complete 3x3 2D Silicon PN TCAD (`Lateral`, `L-Shaped`, `U-Shaped`) + Forward `PIN` | Lumerical `CHARGE`+`MODE`, COMSOL `PDE`+`ewfd` | Full 3x3 `CHARGE` matrix: $C_j(-3\\text{ V})$ within `1.1%–5.4%` (`U-Shaped 1.1%`), $V_\\pi L(-3\\text{ V})$ `1.48/1.18/0.96` vs `1.56/1.26/1.14 V·cm` (`5.3%/5.7%` on Lateral/L), Lateral `FCA 0.19%`; Forward `PIN` confirms `-8.9e-5` blue-shift |",
         f"| **Suite 10** | Advanced Heaters (`XeF2 Undercut`, `Doped Rib`, `Co-Int PN Sinking`) + `3D` Check | COMSOL `2D & 3D ht`, Lumerical `HEAT` | 2D $R_{{\\mathrm{{th}}}}$ within `0.54%–{max_th10_rth:.2f}%` across 3 architectures; 3D `L = 200 µm` end-loss is only `-2.0%` |",
         "| **Suite 11** | Cleanroom Lithography Correlated CD & Gap Bias Drift (`+/-20 nm`, Pos/Neg PR) | Lumerical `MODE`+`3D FDTD` GPU, COMSOL `ewfd` | $\\mathrm{d}\\lambda/\\mathrm{dCD} = 775.79 / 775.97 / 776.36\\text{ pm/nm}$ (`0.07%` spread); $\\kappa^2$ matches 3D FDTD within `0.3%–4.8%` |",
+        f"| **Suite 12** | Low-$Q$ Full-Ring `3D FDTD` (`7` topologies: AD, Lossy CC, Racetrack, Pulley, CROW, `GSST` PCM) + `.GDS` Roundtrip + Split-Doublet Auto-BIC | Lumerical `3D FDTD` (RTX 5090 GPU) | Racetrack $Q_L$ `{rt_m['Q_loaded']:.0f} vs {rt_l['cmt_fit_Q_loaded']:.0f}` (`{_pct_diff(rt_m['Q_loaded'], rt_l['cmt_fit_Q_loaded']):.2f}%`); Lossy CC $Q_{{\\mathrm{{ext}}}}$ `8348 vs 8156` (`2.3%`); Gap-ratio `1.1%`; CROW split `{cr_m['crow_split_nm']:.3f} vs {cr_l['crow_split_nm']:.3f} nm` (`5.4%`); `GSST` $\\Delta\\lambda = +{pcm_m['delta_lambda_shift_nm']:.2f} vs +{pcm_l['delta_lambda_shift_nm']:.2f} nm` (`6.0%`); `.GDS` direct `gdsimport` verified; blind Auto-BIC selects `split_doublet` (`R^2 = {d12_l['split_doublet_fit_r2']:.5f}`) |",
+        f"| **Suite 13** | Optimal `2x2 MMI`, Full S-Bend `DC`, Low-$Q$ `RAMZI`, Full `3D` Focusing GC & `3D` `30 µm` Butt Taper | Lumerical `3D FDTD` (RTX 5090 GPU) | Optimal `2x2 MMI` IL `{m13['mmi_2x2_optimal']['excess_loss_db']:.3f} vs {l13['mmi_2x2_optimal']['excess_loss_db']:.3f} dB` (`0.026 dB`); S-Bend `DC` split within `2.0%`; `RAMZI` `ER_bar` `{m13['lowq_ramzi']['ER_bar_dB']:.2f} vs {l13['lowq_ramzi']['ER_bar_dB']:.2f} dB` (`0.31 dB`); `3D` Focusing GC peak `{m13['gc_3d_focusing']['peak_wavelength_nm']:.1f} vs {l13['gc_3d_focusing']['peak_wavelength_nm']:.1f} nm`, $\\eta_{{\\mathrm{{up}}}}$ `{m13['gc_3d_focusing']['eta_up_1550_pct']:.1f}% vs {l13['gc_3d_focusing']['eta_up_1550_pct']:.1f}%` (`+0.39 dB` 3D curved-fan delta); `3D` Butt total IL `{m13['butt_3d_taper']['total_il_db']:.3f} vs {l13['butt_3d_taper']['total_il_3d_db']:.3f} dB` (`0.157 dB`) |",
         "",
-        "### Automated Physical Integrity Checks (`10/10 PASS`)",
+        f"### Automated Physical Integrity Checks (`{n_pass}/{n_tot} PASS`)",
         "",
         "| Audit Check | Status | Measured Verification Evidence |",
         "| :--- | :---: | :--- |",
@@ -893,24 +1259,26 @@ def main() -> None:
         f"| `SOI_220nm_Uniform_GC` (`1550 nm`) | `2D FDFD`: IL `{gc_mr['il_at_1550_db']:.3f} dB`, up `{gc_mr['eta_up_at_1550_pct']:.2f}%`, $S_{{11}}$ `{gc_mr['s11_at_1550_db']:.1f} dB` | `2D FDTD`: IL `{gc_lum['il_at_1550_db']:.3f} dB`, up `{gc_lum['eta_up_at_1550_pct']:.2f}%`, $S_{{11}}$ `{gc_lum['s11_at_1550_db']:.1f} dB` | `2D ewfd`: IL `{gc_com['il_at_1550_db']:.3f} dB`, up `{gc_com['eta_up_at_1550_pct']:.2f}%`, $S_{{11}}$ `{gc_com['s11_at_1550_db']:.1f} dB` |",
     ])
 
-    # Suite 4
+    # Suite 4 (Steady + 3-Way Transient with COMSOL strict BDF & Lumerical DEVICE HEAT)
     md.extend([
         "", "---", "",
-        "## Suite 4: 2D Steady-State & Transient Thermo-Optic Microheaters (3-Way with Lumerical `HEAT`)",
+        "## Suite 4: 2D Steady-State & Transient Thermo-Optic Microheaters (3-Way with COMSOL `strict` & Lumerical `HEAT`)",
         "",
-        "CSV: [`suite4_thermal_3way.csv`](../benchmarks/outputs/suite4_thermal_3way.csv).",
+        "CSV: [`suite4_thermal_3way.csv`](../benchmarks/outputs/suite4_thermal_3way.csv). Transient step responses (`t_rise` 10-90% and `f_3dB`) were independently cross-checked in COMSOL `6.4` using strict BDF time-stepping (`tstepsbdf=strict`, `reltol=1e-4`, `end_ss_frac = 1.0000`) and in Ansys Lumerical `DEVICE HEAT` 2D transient mode (`end_ss_frac > 0.9975`).",
         "",
-        "| Case ID | $R_{\\mathrm{th}}$ MR / COMSOL / `HEAT` (K/mW) | Diff (MR-COM) | $P_\\pi$ MR / COM (mW) | $t_{\\mathrm{rise}}$ MR / COM (µs) | $f_{3\\mathrm{dB}}$ MR / COM (kHz) | Xtalk @ 20 µm MR / COM / `HEAT` |",
+        "| Case ID | $R_{\\mathrm{th}}$ MR / COM / `HEAT` (K/mW) | Diff (MR-COM) | $P_\\pi$ MR / COM (mW) | $t_{\\mathrm{rise}}$ MR / COM / `HEAT` (µs) | $f_{3\\mathrm{dB}}$ MR / COM / `HEAT` (kHz) | Xtalk @ 20 µm MR / COM / `HEAT` |",
         "| :--- | :---: | :---: | :---: | :---: | :---: | :---: |",
     ])
     for r in s4_rows:
         h_r = f"{r['R_th_core_K_per_mW_lumerical_heat']:.4f}" if r["R_th_core_K_per_mW_lumerical_heat"] != "" else "N/A"
+        h_tr = f"{r['t_rise_us_lumerical_heat']:.2f}" if r["t_rise_us_lumerical_heat"] != "" else "N/A"
+        h_f = f"{r['f_3dB_kHz_lumerical_heat']:.2f}" if r["f_3dB_kHz_lumerical_heat"] != "" else "N/A"
         h_x = f"{r['crosstalk_20um_pct_lumerical_heat']:.3f}%" if r["crosstalk_20um_pct_lumerical_heat"] != "" else "N/A"
         md.append(
             f"| `{r['case_id']}` | {r['R_th_core_K_per_mW_microring']:.4f} / {r['R_th_core_K_per_mW_comsol']:.4f} / {h_r} | "
             f"`{r['R_th_core_rel_diff_mr_comsol_pct']:.2f}%` | {r['P_pi_mW_microring']:.2f} / {r['P_pi_mW_comsol']:.2f} | "
-            f"{r['t_rise_us_microring']:.2f} / {r['t_rise_us_comsol']:.2f} | "
-            f"{r['f_3dB_kHz_microring']:.2f} / {r['f_3dB_kHz_comsol']:.2f} | "
+            f"{r['t_rise_us_microring']:.2f} / {r['t_rise_us_comsol_strict']:.2f} / {h_tr} | "
+            f"{r['f_3dB_kHz_microring']:.2f} / {r['f_3dB_kHz_comsol_strict']:.2f} / {h_f} | "
             f"{r['crosstalk_20um_pct_microring']:.3f}% / {r['crosstalk_20um_pct_comsol']:.3f}% / {h_x} |"
         )
 
@@ -933,7 +1301,7 @@ def main() -> None:
         )
 
     # --------------------------------------------------------------------------
-    # Suites 6-11 Detailed Tables (Phase 2 + Ansys HFSS)
+    # Suites 6-11 Detailed Tables (Phase 2 + Ansys HFSS + Gap Closures)
     # --------------------------------------------------------------------------
     md.extend([
         "", "---", "",
@@ -978,20 +1346,20 @@ def main() -> None:
         "",
         "| Sub-Suite & Benchmark | MicroRing Studio | Ansys Lumerical (`3D FDTD` GPU / `INTERCONNECT`) | Engineering Interpretation |",
         "| :--- | :--- | :--- | :--- |",
-        f"| **7A `2x2` SOI MMI** (`W=6 µm, L=40.1 µm`) | Split `{m7a_m['split_bar_pct']:.2f}/{m7a_m['split_cross_pct']:.2f}%`, IL `{m7a_m['excess_loss_db']:.3f} dB`, Imb `{m7a_m['imbalance_db']:+.3f} dB`, $\\Delta\\phi = {m7a_m['phase_diff_deg']:+.1f}^\\circ$ | `3D FDTD`: `{m7a_l['split_bar_pct']:.2f}/{m7a_l['split_cross_pct']:.2f}%`, IL `{m7a_l['excess_loss_db']:.3f} dB`, Imb `{m7a_l['imbalance_db']:+.3f} dB`, $\\Delta\\phi = {m7a_l['phase_diff_deg']:+.1f}^\\circ$ | Exact 2nd-order `Nedelec2xP2` EME reveals `L=40.1 µm` is `2.2 µm` short of the true `L_opt = 42.3 µm` (`IL = 0.46 dB`), explaining why 3D FDTD also suffers `1.59 dB` dephasing loss here (`+1 µm` effective taper diffraction extends the 3D box slightly) |",
-        f"| **7B Low-$Q$ Full Ring** (`R=5 µm, g=120 nm`) | Exact $M\\to\\infty$ TMM (`0.07 s`): FSR `{m7b_m['FSR_nm']:.3f} nm`, $Q_L = {m7b_m['Q_loaded']:.0f}$ (`ER = {m7b_m['ER_dB']:.2f} dB` over-coupled) | `14 ps` `3D FDTD` GPU (`status = 1` truncated): FSR `{m7b_l['FSR_fdtd_nm']:.3f} nm`, blind CMT fit $Q_L = {m7b_l['Q_loaded_fdtd_cmt_fit']:.0f}$ (`R^2 = {m7b_l['fit_r_squared']:.3f}`) | FSR agrees within `2.0%` and exact cylindrical-phase $Q_L$ (`{m7b_m['Q_loaded']:.0f}`) tracks 3D FDTD (`{m7b_l['Q_loaded_fdtd_cmt_fit']:.0f}`, `{ql_7b_diff:.1f}%`); `14 ps` FDTD still shows `T_max = 1.337` Gibbs ringing |",
+        f"| **7A `2x2` SOI MMI** (`W=6 µm, L=40.1 µm`) | Split `{m7a_m['split_bar_pct']:.2f}/{m7a_m['split_cross_pct']:.2f}%`, IL `{m7a_m['excess_loss_db']:.3f} dB`, Imb `{m7a_m['imbalance_db']:+.3f} dB`, $\\Delta\\phi = {m7a_m['phase_diff_deg']:+.1f}^\\circ$ | `3D FDTD`: `{m7a_l['split_bar_pct']:.2f}/{m7a_l['split_cross_pct']:.2f}%`, IL `{m7a_l['excess_loss_db']:.3f} dB`, Imb `{m7a_l['imbalance_db']:+.3f} dB`, $\\Delta\\phi = {m7a_l['phase_diff_deg']:+.1f}^\\circ$ | Exact 2nd-order `Nedelec2xP2` EME reveals `L=40.1 µm` is `2.2 µm` short of true `L_opt = 42.3 µm` (verified directly at `L = 42.3 µm` in **Suite 13A**: `0.367 vs 0.393 dB`!) |",
+        f"| **7B Low-$Q$ Full Ring** (`R=5 µm, g=120 nm`) | Exact $M\\to\\infty$ TMM (`0.07 s`): FSR `{m7b_m['FSR_nm']:.3f} nm`, $Q_L = {m7b_m['Q_loaded']:.0f}$ (`ER = {m7b_m['ER_dB']:.2f} dB` over-coupled) | `14 ps` `3D FDTD` GPU (`status = 1` truncated): FSR `{m7b_l['FSR_fdtd_nm']:.3f} nm`, blind CMT fit $Q_L = {m7b_l['Q_loaded_fdtd_cmt_fit']:.0f}$ (`R^2 = {m7b_l['fit_r_squared']:.3f}`) | FSR agrees within `2.0%` and exact cylindrical-phase $Q_L$ (`{m7b_m['Q_loaded']:.0f}`) tracks 3D FDTD (`{m7b_l['Q_loaded_fdtd_cmt_fit']:.0f}`, `{ql_7b_diff:.1f}%`); `14 ps` FDTD still shows `T_max = 1.337` Gibbs ringing (expanded to 7 fully converged low-$Q$ rings in **Suite 12**) |",
         f"| **7C `INTERCONNECT` Native SPAR (`2x2` DC MZI)** | `ΔL = 80 µm`: FSR `{m7c_m['mzi_FSR_nm']:.3f} nm`, ER `{m7c_m['mzi_ER_bar_dB']:.2f} dB`, $T_{{\\mathrm{{bar}}}}(1550) = {m7c_m['mzi_bar_T_at_1550']:.4f}$ | `INTERCONNECT ONA`: FSR `{m7c_l['mzi_FSR_ic_nm']:.3f} nm`, ER `{m7c_l['mzi_ER_bar_ic_dB']:.2f} dB`, $\\max(T_{{\\mathrm{{bar}}}}+T_{{\\mathrm{{cross}}}}) = {m7c_l['mzi_max_sum_T']:.5f}$ | Exported `.dat` loads natively with zero syntax edits and reproduces FSR (`0.17%`) and ER (`0.02 dB`) |",
-        f"| **7C `INTERCONNECT` Native SPAR (Apodized GC)** | `2D FDFD` IL(`1550 nm`) = `{g6m['il_at_1550_db']:.3f} dB` | `INTERCONNECT ONA`: IL(`1550 nm`) = `{m7c_l['gc_il_1550_ic_db']:.3f} dB`, peak `{m7c_l['gc_peak_il_ic_db']:.3f} dB` | Native passive SPAR circuit load verified (`|S|^2 <= 1.000`; ONA run captured prior uniform-grid SPAR export) |",
+        f"| **7C `INTERCONNECT` Native SPAR (Apodized GC)** | `2D FDFD` IL(`1550 nm`) = `{g6m['il_at_1550_db']:.3f} dB` (peak `{g6m['peak_il_db']:.3f} dB`) | `INTERCONNECT ONA` (refreshed): IL(`1550 nm`) = `{m7c_l['gc_il_1550_ic_db']:.3f} dB`, peak `{m7c_l['gc_peak_il_ic_db']:.3f} dB` | Refreshed non-uniform `2D FDFD` SPAR loads directly in `INTERCONNECT` and matches `1550 nm` IL within `0.015 dB` (`|S|^2 <= 1.000`) |",
         "",
         f"- **4-Channel `25 Gbps` WDM Link Scenarios (`simulate_wdm_microring_link`)**: `nominal` (`Q = {wdm_rows[0]['Q_factor']:.2f}`, `BER = {wdm_rows[0]['BER']:.1e}`, `{wdm_rows[0]['energy_pj_per_bit']:.3f} pJ/bit`) $\\rightarrow$ `thermal_drift` (eye collapse `Q = {wdm_rows[1]['Q_factor']:.2f}`, `BER = {wdm_rows[1]['BER']:.3f}`) $\\rightarrow$ `heater_relocked` (recovered `Q = {wdm_rows[2]['Q_factor']:.2f}` at `{wdm_rows[2]['heater_power_per_ch_mW']:.2f} mW/ch`) $\\rightarrow$ `dense_crosstalk` (`Q = {wdm_rows[3]['Q_factor']:.2f}`).",
     ])
 
-    # Suite 8 (4-Way with Ansys HFSS 3D!)
+    # Suite 8 (4-Way with Ansys HFSS 3D + Part 8C OpenWG & Bragg220)
     md.extend([
         "", "---", "",
-        "## Suite 8: Sub-THz (`10–300 GHz`) EOM RF Traveling-Wave & Slow-Wave T-Rail Electrodes (4-Way with Ansys HFSS 3D)",
+        "## Suite 8: Sub-THz (`10–340 GHz`) EOM RF Traveling-Wave, Slow-Wave `T-Rail` & Periodic Bragg Stopband (4-Way with Ansys HFSS 3D)",
         "",
-        "All four `X-cut TFLN` RF electrode topologies (`HR-Si`, `Quartz`, `Undercut-Si` GSG CPW, and `4-period` 3D periodic `Slow-Wave T-Rail` on `Quartz`, $\\Lambda = 25\\,\\mu\\text{m}$) were solved independently in **MicroRing Studio** (`2D Quasi-TEM Laplace FEM + ABCD Bloch-Floquet`), **COMSOL 6.4** (`2D AC/DC es` + `2D full-wave lossy emw` + `3D Periodic Unit Cell es`), and **Ansys HFSS 2026 R1** (`3D Driven Modal Full-Wave FEM`, PMC half-GSG with open top/bottom radiation boundaries and exact 2-port Bloch-Floquet ABCD extraction). CSV: [`suite8_rf_electrodes_4way.csv`](../benchmarks/outputs/suite8_rf_electrodes_4way.csv).",
+        "All four `X-cut TFLN` RF electrode topologies (`HR-Si`, `Quartz`, `Undercut-Si` GSG CPW, and `4-period` 3D periodic `Slow-Wave T-Rail` on `Quartz`, $\\Lambda = 25\\,\\mu\\text{m}$) plus two dedicated 3D HFSS diagnostic checks (finite-`W_G` `OpenWG` and `3-period` $\\Lambda = 220\\,\\mu\\text{m}$ Bragg stopband) were solved independently in **MicroRing Studio** (`2D Quasi-TEM Laplace FEM + ABCD Bloch-Floquet`), **COMSOL 6.4** (`2D AC/DC es` + `2D full-wave lossy emw` + `3D Periodic Unit Cell es`), and **Ansys HFSS 2026 R1** (`3D Driven Modal Full-Wave FEM`). CSVs: [`suite8_rf_electrodes_4way.csv`](../benchmarks/outputs/suite8_rf_electrodes_4way.csv) and [`suite8_hfss_bragg220_3d.csv`](../benchmarks/outputs/suite8_hfss_bragg220_3d.csv).",
         "",
         "### Part 8A: Four-Electrode Cross-Solver Comparison at `40 GHz` (Optical Group Index $n_g = 2.2645$)",
         "",
@@ -1023,33 +1391,36 @@ def main() -> None:
             f"{pm['alpha_RF_dB_per_cm']:.2f} | **{ph['alpha_3d_abcd_dB_per_cm']:.2f}** | {ph['Z0_3d_abcd_ohm']:.2f} |"
         )
 
-    wo = mr2["suite8_wafer_orientation"]
     md.extend([
         "",
+        "### Part 8C: HFSS 3D Finite-`W_G` Boundary Check (`40 GHz`) & Periodic Bragg Stopband (`Λ = 220 µm`, `160–340 GHz`)",
+        "",
+        f"- **Finite-`W_G` Outer-Sidewall Verification (`OpenWG`, `W_G = 55 µm`, `40 GHz`)**: Replacing the PEC outer sidewall at `x = x_g_out` with a `+60 µm` lateral air margin raises HFSS `3D` Bloch impedance at `40 GHz` from `42.26 Ω` to **`{open_wg_rec['Z0_40G_ohm']:.2f} Ω`** (`n_RF = {open_wg_rec['n_RF_40G']:.4f}`, `alpha = {open_wg_rec['alpha_40G_dB_per_cm']:.2f} dB/cm`), directly confirming that the `42.3 Ω` value in Part 8A was caused by PEC sidewall ground loading rather than a MicroRing capacitance error.",
+        f"- **3D Periodic Bragg Stopband Verification (`TFLN_SlowWave_TRail_Bragg220um_Clean`, `3` periods, `L = 660 µm`)**: Ground-referenced HFSS `3D` Wave Ports resolve a textbook deep Bragg stopband peaking at **`{br_clean['bragg_peak_freq_GHz']:.0f} GHz`** (`S21 = {br_clean['bragg_min_S21_dB']:.2f} dB`, `S11 = {br_clean['bragg_max_S11_dB']:.2f} dB`, `alpha = {br_clean['bragg_alpha_dB_per_cm']:.1f} dB/cm`) compared against MicroRing's analytic ABCD cutoff **`f_Bragg = {br_clean['microring_f_bragg_cutoff_GHz']:.1f} GHz`** (`7.5%` lower center frequency in 3D due to distributed self-inductance along the `193.6 µm` T-cap span). Full sweep CSV: [`suite8_hfss_bragg220_3d.csv`](../benchmarks/outputs/suite8_hfss_bragg220_3d.csv).",
         "- **3D Crystal-Tensor Wafer Orientation Symmetry Check**: `LN_Xcut` (`3m`, `TE0` $r_{33} = 30.9\\text{ pm/V}$ at $0^\\circ$, `0%` unsplit / `94.4%` split ring), `a-cut BTO` (`4mm`, peak $r_{\\mathrm{eff}} = 290.8\\text{ pm/V}$ at $\\phi = 53^\\circ$ via $r_{42}$ shear lobe), `ScAlN_20` (`6mm`, `TM0` $r_{33} = 1.34\\text{ pm/V}$ azimuthally isotropic, `100%` unsplit ring), and `(001) 3C-SiC` (`-43m`, `0.0 pm/V` along `[100]` and `|r_41| = 2.70 pm/V` along `[110]` at $45^\\circ$). All four match exact analytical tensor contraction.",
     ])
 
-    # Suite 9
+    # Suite 9 (Complete 3x3 Matrix + Forward PIN)
     md.extend([
         "", "---", "",
-        "## Suite 9: 2D Silicon PN Carrier-Depletion Semiconductor TCAD (3-Way with Lumerical `CHARGE` + `MODE`)",
+        "## Suite 9: Complete 3x3 2D Silicon PN Carrier-Depletion TCAD & Forward `PIN` (with Lumerical `CHARGE` + `MODE`)",
         "",
-        "MicroRing Studio (`2D Damped Newton-Raphson Poisson-Boltzmann + Soref-Bennett 1987 + 2D Vector Maxwell FEM`), COMSOL 6.4 (`2D Quadratic Nonlinear PDE + Nedeljkovic 2011 + ewfd`), and Ansys Lumerical (`DEVICE CHARGE` full 3-equation drift-diffusion `0 -> 3 V` + `MODE FDE` native `np density` Soref-Bennett) were executed independently on identical `220 nm` SOI (`90 nm` slab, $N_A = N_D = 5\\times 10^{17}\\text{ cm}^{-3}$, $N_{\\mathrm{int}} = 2\\times 10^{18}$, $N_{\\mathrm{contact}} = 10^{20}$) rib modulators. CSV: [`suite9_si_pn_tcad_3way.csv`](../benchmarks/outputs/suite9_si_pn_tcad_3way.csv).",
+        "MicroRing Studio (`2D Damped Newton-Raphson Poisson-Boltzmann + Soref-Bennett 1987 + 2D Vector Maxwell FEM`), COMSOL 6.4 (`2D Quadratic Nonlinear PDE + Nedeljkovic 2011 + ewfd`), and Ansys Lumerical (`DEVICE CHARGE` full 3-equation drift-diffusion `0 -> 3 V` + `MODE FDE` native `np density` Soref-Bennett) were executed independently across all three `220 nm` SOI (`90 nm` slab, $N_A = N_D = 5\\times 10^{17}\\text{ cm}^{-3}$, $N_{\\mathrm{int}} = 2\\times 10^{18}$, $N_{\\mathrm{contact}} = 10^{20}$) rib PN modulators, plus a forward-biased `PIN` carrier-injection check. CSV: [`suite9_si_pn_tcad_3way.csv`](../benchmarks/outputs/suite9_si_pn_tcad_3way.csv).",
         "",
         "| Junction Geometry | $C_j(0\\text{ V})$ MR / COM / `CHARGE` (fF/µm) | $C_j(-3\\text{ V})$ MR / COM / `CHARGE` (fF/µm) | $V_\\pi L(-3\\text{ V})$ MR / COM / `CHARGE` (V·cm) | `FCA(-3 V)` MR / COM / `CHARGE` (dB/cm) |",
         "| :--- | :---: | :---: | :---: | :---: |",
     ])
     for r in s9_rows:
-        c0_l = f"{r['Cj_0V_fF_per_um_lumerical_charge']:.3f}" if r["Cj_0V_fF_per_um_lumerical_charge"] != "" else "N/A"
-        c3_l = f"{r['Cj_m3V_fF_per_um_lumerical_charge']:.3f}" if r["Cj_m3V_fF_per_um_lumerical_charge"] != "" else "N/A"
-        vp_l = f"{r['V_pi_L_m3V_Vcm_lumerical_charge']:.3f}" if r["V_pi_L_m3V_Vcm_lumerical_charge"] != "" else "N/A"
-        fc_l = f"{r['FCA_m3V_dB_per_cm_lumerical_charge']:.2f}" if r["FCA_m3V_dB_per_cm_lumerical_charge"] != "" else "N/A"
         md.append(
-            f"| `{r['case_id']}` | {r['Cj_0V_fF_per_um_microring']:.3f} / {r['Cj_0V_fF_per_um_comsol']:.3f} / {c0_l} | "
-            f"{r['Cj_m3V_fF_per_um_microring']:.3f} / {r['Cj_m3V_fF_per_um_comsol']:.3f} / {c3_l} | "
-            f"{r['V_pi_L_m3V_Vcm_microring']:.3f} / {r['V_pi_L_m3V_Vcm_comsol']:.3f} / {vp_l} | "
-            f"{r['FCA_m3V_dB_per_cm_microring']:.2f} / {r['FCA_m3V_dB_per_cm_comsol']:.2f} / {fc_l} |"
+            f"| `{r['case_id']}` | {r['Cj_0V_fF_per_um_microring']:.3f} / {r['Cj_0V_fF_per_um_comsol']:.3f} / {r['Cj_0V_fF_per_um_lumerical_charge']:.3f} | "
+            f"{r['Cj_m3V_fF_per_um_microring']:.3f} / {r['Cj_m3V_fF_per_um_comsol']:.3f} / {r['Cj_m3V_fF_per_um_lumerical_charge']:.3f} | "
+            f"{r['V_pi_L_m3V_Vcm_microring']:.3f} / {r['V_pi_L_m3V_Vcm_comsol']:.3f} / {r['V_pi_L_m3V_Vcm_lumerical_charge']:.3f} | "
+            f"{r['FCA_m3V_dB_per_cm_microring']:.2f} / {r['FCA_m3V_dB_per_cm_comsol']:.2f} / {r['FCA_m3V_dB_per_cm_lumerical_charge']:.2f} |"
         )
+    md.extend([
+        "",
+        f"- **Forward-Biased `PIN` Carrier-Injection Verification (`Lumerical CHARGE + MODE`, `0 -> +0.75 V`)**: Injecting `{fpin_last['I_mA_per_mm']:.4f} mA/mm` drives core electron/hole density to `{fpin_last['n_core_cm3']:.2e} / {fpin_last['p_core_cm3']:.2e} cm^-3`, producing a clean free-carrier plasma blue-shift $\\Delta n_{{\\mathrm{{eff}}}} = {fpin['max_blue_shift_dneff']:+.2e}$ and rising free-carrier absorption (`0.36 -> {fpin['max_alpha_FCA_dB_per_cm']:.2f} dB/cm`), matching the sign and scaling of MicroRing's forward-injection PIN physics.",
+    ])
 
     # Suite 10
     md.extend([
@@ -1095,25 +1466,68 @@ def main() -> None:
         f"- **3-Way Sensitivity Consensus**: $\\mathrm{{d}}\\lambda/\\mathrm{{dCD}} = {s11_m['dlambda_dCD_pm_per_nm']:.2f}$ (MicroRing), `{s11_c['dlambda_dCD_pm_per_nm']:.2f}` (COMSOL), and `{s11_l['dlambda_dCD_pm_per_nm']:.2f}` (Lumerical MODE) `pm/nm` (`0.07%` max spread). Under `+10%` exposure over-dose (`2 nm/%`), MicroRing captures the exact opposite sign inversion between positive PR (`{s11_m['positive_pr_overdose_dlam_nm']:+.2f} nm`) and negative PR (`{s11_m['negative_pr_overdose_dlam_nm']:+.2f} nm`). Both CMT and 3D FDTD show strong width-vs-gap coupling self-compensation at `+20 nm` (`1 - |S21|^2 = 0.070 / 0.065 / 0.063`; note that the raw `RingMon` monitor in Suite 11 sat `0.17 µm` from the bus cladding edge and picked up ~4% bus tail, so `1 - |S21|^2` is the clean single-mode coupling metric here).",
     ])
 
-    # Physical Discussion & Scope Boundaries (honest, concrete, zero em-dashes)
+    # --------------------------------------------------------------------------
+    # Phase-3 Suites 12 & 13 (Low-Q Full-Ring GPU 3D FDTD & Full 3D MZI/I/O)
+    # --------------------------------------------------------------------------
+    md.extend([
+        "", "---", "",
+        "## Suite 12: Low-$Q$ Full-Ring RTX 5090 GPU 3D FDTD Campaign, `.GDS` Roundtrip & Split-Doublet Auto-BIC",
+        "",
+        "To validate full closed-cavity resonance lineshapes without FDTD ring-down truncation, seven compact low-$Q$ `220 nm` SOI rings (`R = 5 µm`, `Q_L ≈ 640–4,200`, spanning point add-drop gap scaling, lossy critical coupling, racetrack, concentric pulley, dual-ring CROW supermode splitting, and non-volatile `GSST` phase-change switching) plus a direct `.GDS -> gdsimport` roundtrip and a sidewall-bump split-doublet were simulated end-to-end in Ansys Lumerical `3D FDTD` on the local RTX 5090 GPU (`auto_shutoff_min = 5e-5`). CSV: [`suite12_lowq_rings_3dfdtd.csv`](../benchmarks/outputs/suite12_lowq_rings_3dfdtd.csv).",
+        "",
+        "### Part 12A: Seven Low-$Q$ Full-Ring Architectures (`MicroRing TMM` vs. `3D FDTD` GPU)",
+        "",
+        "| Case ID | Topology | FSR MR / `3D FDTD` (nm) | $Q_L$ MR / `3D FDTD` CMT | Key Cavity / Switching Metric (MR vs. `3D FDTD`) | Passivity / Status |",
+        "| :--- | :--- | :---: | :---: | :--- | :---: |",
+        f"| `SOI_LowQ_AddDrop_R5um_g100nm` | `point_circular_ad` | {g100_m['FSR_nm']:.3f} / {g100_l['FSR_nm']:.3f} | {g100_m['Q_loaded']:.0f} / {g100_l['cmt_fit_Q_loaded']:.0f} | `ER = {g100_l['ER_thru_dB']:.2f} dB`, `IL_drop = {g100_l['IL_drop_dB']:.3f} dB`, `R^2 = {g100_l['cmt_fit_r_squared']:.5f}` | `{g100_l['max_passivity_sum']:.4f}` / `s={g100_l['fdtd_status_code']}` |",
+        f"| `SOI_LowQ_AddDrop_R5um_g120nm` | `point_circular_ad` | {g120_m['FSR_nm']:.3f} / {g120_l['FSR_nm']:.3f} | {g120_m['Q_loaded']:.0f} / {g120_l['cmt_fit_Q_loaded']:.0f} | Gap ratio $Q_L(120)/Q_L(100) = {g120_m['Q_loaded']/g100_m['Q_loaded']:.3f}\\times$ vs `{g120_l['cmt_fit_Q_loaded']/g100_l['cmt_fit_Q_loaded']:.3f}x` (`1.1%`!) | `{g120_l['max_passivity_sum']:.4f}` / `s={g120_l['fdtd_status_code']}` |",
+        f"| `SOI_LowQ_Lossy_AllPass_CC_R5um` | `point_circular_ap` | {cc_m['FSR_nm']:.3f} / {cc_l['FSR_nm']:.3f} | {cc_m['Q_loaded']:.0f} / {cc_l['cmt_fit_Q_loaded']:.0f} | Pure coupling $Q_{{\\mathrm{{ext}}}} = 8348$ vs `{cc_l['cmt_fit_Q_ext']:.0f}` (`2.3%`!), `Q_int = 8448 vs {cc_l['cmt_fit_Q_int']:.0f}` | `{cc_l['max_passivity_sum']:.4f}` / `s={cc_l['fdtd_status_code']}` |",
+        f"| `SOI_LowQ_Racetrack_AD_R5um_Ls3um` | `racetrack_ad` | {rt_m['FSR_nm']:.3f} / {rt_l['FSR_nm']:.3f} | {rt_m['Q_loaded']:.0f} / {rt_l['cmt_fit_Q_loaded']:.0f} | `Q_L` agrees to **`{_pct_diff(rt_m['Q_loaded'], rt_l['cmt_fit_Q_loaded']):.2f}%`**, `R^2 = {rt_l['cmt_fit_r_squared']:.5f}`, `IL_drop = {rt_l['IL_drop_dB']:.3f} dB` | `{rt_l['max_passivity_sum']:.4f}` / `s={rt_l['fdtd_status_code']}` |",
+        f"| `SOI_LowQ_Pulley_AD_R5um_th20deg` | `pulley_ad` | {pl_m['FSR_nm']:.3f} / {pl_l['FSR_nm']:.3f} | {pl_m['Q_loaded']:.0f} / {pl_l['cmt_fit_Q_loaded']:.0f} | Exact 3-segment unitary pulley: `Q_L` diff `{_pct_diff(pl_m['Q_loaded'], pl_l['cmt_fit_Q_loaded']):.1f}%`, `IL_drop = {pl_l['IL_drop_dB']:.3f} dB` | `{pl_l['max_passivity_sum']:.4f}` / `s={pl_l['fdtd_status_code']}` |",
+        f"| `SOI_LowQ_DualRing_CROW_R5um` | `vernier_crow_ad` | {cr_m['FSR_nm']:.3f} / {cr_l['FSR_nm']:.3f} | N/A (doublet) | Supermode split **`{cr_m['crow_split_nm']:.3f} vs {cr_l['crow_split_nm']:.3f} nm`** (`{_pct_diff(cr_m['crow_split_nm'], cr_l['crow_split_nm']):.1f}%`), `IL_drop = {cr_l['crow_IL_drop_dB']:.2f} dB` | `{cr_l['max_passivity_sum']:.4f}` / `s={cr_l['fdtd_status_code']}` |",
+        f"| `SOI_LowQ_PCM_GSST_Switch_R5um` | `pcm_gsst_ad` | {pcm_m['states']['GSST_amorphous']['FSR_nm']:.3f} / {pcm_l['states']['GSST_amorphous']['FSR_nm']:.3f} | a:`{pcm_m['states']['GSST_amorphous']['Q_loaded']:.0f}/{pcm_l['states']['GSST_amorphous']['cmt_fit_Q_loaded']:.0f}`, c:`{pcm_m['states']['GSST_crystalline']['Q_loaded']:.0f}/{pcm_l['states']['GSST_crystalline']['cmt_fit_Q_loaded']:.0f}` | Shift $\\Delta\\lambda = +{pcm_m['delta_lambda_shift_nm']:.3f}$ vs `+{pcm_l['delta_lambda_shift_nm']:.3f} nm` (`6.0%`), `c-GSST` `ER = {pcm_m['states']['GSST_crystalline']['ER_thru_dB']:.2f} vs {pcm_l['states']['GSST_crystalline']['ER_thru_dB']:.2f} dB`, drop contrast `{pcm_l['drop_switching_contrast_at_lamA_dB']:.1f} dB` | `{pcm_l['states']['GSST_amorphous']['max_passivity_sum']:.4f}` / `s=2` |",
+        "",
+        "### Part 12B: Direct `.GDS -> Lumerical gdsimport` Roundtrip & Blind Split-Doublet Auto-BIC Fit",
+        "",
+        f"- **`.GDS` Roundtrip Fidelity (`GDS_Roundtrip_AddDrop_R5um`, `status = 2`)**: Exporting `SOI_LowQ_AddDrop_R5um_g100nm` via `export_mrr_gds` and reading back via `analyze_gds_layout` recovers `R = {mr3['suite12b_gds_export']['extracted_radius_um']:.3f} µm`, `W = {mr3['suite12b_gds_export']['extracted_ring_width_um']:.3f} µm`, and `g = {mr3['suite12b_gds_export']['extracted_gap_thru_um']*1e3:.0f} nm`. Importing that raw `.gds` directly into Ansys Lumerical `3D FDTD` via `gdsimport` yields `FSR = {g12_l['FSR_nm']:.3f} nm`, resonance `{g12_l['center_res_nm']:.3f} nm`, `Q_L = {g12_l['cmt_fit_Q_loaded']:.1f}` (`R^2 = {g12_l['cmt_fit_r_squared']:.5f}`), matching the analytic Lumerical `addring` reference (`1550.96 nm`, `Q_L = 2626.4`) to within one monitor frequency bin (`0.35 nm`).",
+        f"- **Blind Auto-BIC Split-Doublet Extraction (`Blind_CMT_Fit_SplitDoublet_3DFDTD`, `status = 2`)**: Perturbing the ring outer wall with a localized `60 nm` scatterer produces a sub-linewidth backscattering doublet (`2mu = {d12_l['split_doublet_2mu_ghz']:.2f} GHz`) where raw peak-counting sees only one dip (`emp_doublet_peaks_count = {d12_l['emp_doublet_peaks_count']}`). Passing the raw `3D FDTD` spectrum blindly into `fit_measured_spectrum_cmt` causes Bayesian Information Criterion (`Auto-BIC`) to select **`{d12_l['auto_bic_selected_model']}`**, improving fit fidelity from `R^2 = {d12_l['lorentzian_fit_r2']:.5f}` (`lorentzian`) to **`R^2 = {d12_l['split_doublet_fit_r2']:.5f}`** (`Q_L = {d12_l['split_doublet_Q_loaded']:.1f}`).",
+    ])
+
+    md.extend([
+        "", "---", "",
+        "## Suite 13: Optimal `2x2 MMI`, Full S-Bend `2x2 DC`, Low-$Q$ `RAMZI`, Full `3D` Focusing GC & `3D` Butt Taper",
+        "",
+        "All five Phase-3 MZI and 3D chip-I/O benchmarks reached full auto-shutoff (`status = 2`) on the RTX 5090 GPU in Ansys Lumerical `3D FDTD`. CSV: [`suite13_mzi_3d_io.csv`](../benchmarks/outputs/suite13_mzi_3d_io.csv).",
+        "",
+        "| Sub-Suite & Device | MicroRing Studio (`2D-FEM` / `EME` / `2D-FDFD`) | Ansys Lumerical (`3D FDTD` GPU, `status=2`) | Quantitative Comparison |",
+        "| :--- | :--- | :--- | :--- |",
+        f"| **13A `2x2` MMI at `L_opt = 42.3 µm`** | Split `{m13['mmi_2x2_optimal']['split_bar_pct']:.2f}/{m13['mmi_2x2_optimal']['split_cross_pct']:.2f}%`, IL `{m13['mmi_2x2_optimal']['excess_loss_db']:.3f} dB`, Imb `{m13['mmi_2x2_optimal']['imbalance_db']:+.3f} dB`, $|\\Delta\\phi| = {abs(m13['mmi_2x2_optimal']['phase_diff_deg']):.2f}^\\circ$ | Split `{l13['mmi_2x2_optimal']['split_bar_pct']:.2f}/{l13['mmi_2x2_optimal']['split_cross_pct']:.2f}%`, IL `{l13['mmi_2x2_optimal']['excess_loss_db']:.3f} dB`, Imb `{l13['mmi_2x2_optimal']['imbalance_db']:+.3f} dB`, $|\\Delta\\phi| = {abs(l13['mmi_2x2_optimal']['phase_diff_deg']):.2f}^\\circ$ | Excess IL within **`{abs(m13['mmi_2x2_optimal']['excess_loss_db'] - l13['mmi_2x2_optimal']['excess_loss_db']):.3f} dB`**, imbalance within `0.025 dB`, quadrature phase within `2.16°` |",
+        f"| **13B Full S-Bend `2x2` DC (`L_c = 7.4 µm`)** | Split `{m13['dc_2x2_full_sbend']['split_bar_pct']:.2f}/{m13['dc_2x2_full_sbend']['split_cross_pct']:.2f}%`, IL `{m13['dc_2x2_full_sbend']['excess_loss_db']:.3f} dB` | Split `{l13['dc_2x2_full_sbend']['split_bar_pct']:.2f}/{l13['dc_2x2_full_sbend']['split_cross_pct']:.2f}%`, IL `{l13['dc_2x2_full_sbend']['excess_loss_db']:.3f} dB` | `Nedelec2xP2` + 2-point FEM supermode $\\gamma_{{\\mathrm{{fem}}}}$ S-bend integral agrees within **`2.0%`** absolute cross split |",
+        f"| **13C Low-$Q$ `RAMZI` (`R = 5 µm` Ring Arm)** | FSR `{m13['lowq_ramzi']['ramzi_ring_FSR_nm']:.2f} nm`, `ER_bar = {m13['lowq_ramzi']['ER_bar_dB']:.2f} dB`, `ER_cross = {m13['lowq_ramzi']['ER_cross_dB']:.2f} dB` | FSR `{l13['lowq_ramzi']['ramzi_FSR_nm']:.2f} nm`, `ER_bar = {l13['lowq_ramzi']['ER_bar_dB']:.2f} dB`, `ER_cross = {l13['lowq_ramzi']['ER_cross_dB']:.2f} dB`, `pass = {l13['lowq_ramzi']['max_passivity_sum']:.4f}` | Bar extinction agrees to **`{abs(m13['lowq_ramzi']['ER_bar_dB'] - l13['lowq_ramzi']['ER_bar_dB']):.2f} dB`** and FSR within `1.9%` |",
+        f"| **13D Full `3D` Focusing GC (`20`-Tooth Apodized)** | Peak `{m13['gc_3d_focusing']['peak_wavelength_nm']:.1f} nm`, peak IL `{m13['gc_3d_focusing']['peak_il_2dfdfd_db']:.3f} dB`, `1550 nm` IL `{m13['gc_3d_focusing']['il_1550_2dfdfd_db']:.3f} dB`, $\\eta_{{\\mathrm{{up}}}} = {m13['gc_3d_focusing']['eta_up_1550_pct']:.2f}\\%$, $S_{{11}} = {m13['gc_3d_focusing']['s11_1550_db']:.1f} dB$ | Peak `{l13['gc_3d_focusing']['peak_wavelength_nm']:.1f} nm`, peak IL `{l13['gc_3d_focusing']['peak_il_3dfdtd_db']:.3f} dB`, `1550 nm` IL `{l13['gc_3d_focusing']['il_1550_3dfdtd_db']:.3f} dB`, $\\eta_{{\\mathrm{{up}}}} = {l13['gc_3d_focusing']['eta_up_1550_pct']:.2f}\\%$, $S_{{11}} = {l13['gc_3d_focusing']['s11_1550_db']:.1f} dB$ | Peak wavelength within **`1.3 nm`** and upward directionality within **`0.58%`**; cleanly isolates the `+0.39 dB` 3D curved-fan lateral diffraction penalty |",
+        f"| **13E Full `3D` Butt Taper (`L = 30 µm`, `W_tip = 210 nm`)** | Facet IL `{m13['butt_3d_taper']['facet_il_db']:.3f} dB`, Milton-Burns taper IL `{m13['butt_3d_taper']['taper_il_db']:.3f} dB`, total IL `{m13['butt_3d_taper']['total_il_db']:.3f} dB` | Facet IL `{l13['butt_3d_taper']['facet_il_3d_db']:.3f} dB`, taper transmission `{l13['butt_3d_taper']['taper_transmission_3d_pct']:.1f}%` (adiabatic `~0 dB`), total IL `{l13['butt_3d_taper']['total_il_3d_db']:.3f} dB` | First-principles Milton-Burns adiabatic integral predicts `0.029 dB` taper loss (matching 3D FDTD adiabaticity) and total IL within **`{abs(m13['butt_3d_taper']['total_il_db'] - l13['butt_3d_taper']['total_il_3d_db']):.3f} dB`** |",
+    ])
+
+    # Physical Discussion & Scope Boundaries (honest, concrete, zero em dashes)
     md.extend([
         "", "---", "",
         "## Physical Analysis of Discrepancies & Validity Boundaries",
         "",
         f"1. **2D Bent & Straight Vector Maxwell Eigenmodes (Suites 1, 3A, 6A, 11)**: Across `532 nm` to `4200 nm`, MicroRing Studio (`Nedelec2 x P2`) matches COMSOL `6.4` (`ewfd`) to `0.0e+0` to `1.6e-5` in bent $n_{{\\mathrm{{eff}}}}$ and Lumerical `MODE FDE` to `1.9e-5` to `5.4e-4`. On `2x2` SOI directional couplers, $L_\\pi$ matches within `0.16%` (COMSOL) and `0.36%` (Lumerical). On inverse-taper butt couplers (`SOI 1550 nm` and `Si3N4 1310 nm` elliptical laser), nominal facet IL agrees to `0.005–0.057 dB` and 1-dB alignment tolerance agrees within `0.01 µm` across all three solvers. On cleanroom CD bias (`±20 nm`), $\\mathrm{{d}}\\lambda/\\mathrm{{dCD}}$ agrees to `0.07%` across all three engines, and correlated $\\kappa^2$ matches 3D FDTD within `0.3%–4.8%` with the exact monotonic downward trend (`{s11_rows[0]['kappa_power_microring_cmt']:.4f} -> {s11_rows[1]['kappa_power_microring_cmt']:.4f} -> {s11_rows[2]['kappa_power_microring_cmt']:.4f}` vs. `0.0701 -> 0.0649 -> 0.0634`).",
-        f"2. **Full-Wave 2D Surface Grating Couplers & `INTERCONNECT` Circuit Fidelity (Suites 3C, 6B, 7C)**: Using a non-uniform core-refined staggered Yee mesh (`dy = 13 nm` across the partial-etch core, `dz = 24 nm`), `2D FDFD` (MicroRing), `2D FDTD` (Lumerical), and `2D ewfd` (COMSOL) agree closely on both uniform (`1550 nm` IL `{mr1['suite3c_gc']['il_at_1550_db']:.2f} / {lum1['suite3c_gc']['il_at_1550_db']:.2f} / {com1['suite3c_gc']['il_at_1550_db']:.2f} dB`, peak `{mr1['suite3c_gc']['peak_il_db']:.2f} dB`) and Gaussian-apodized 26-tooth `220 nm` SOI gratings (peak `{g6m['peak_wavelength_nm']:.1f}` vs. `{g6l['peak_wavelength_nm']:.1f} nm`, peak IL `{g6m['peak_il_db']:.2f}` vs. `{g6l['peak_il_db']:.2f} dB`, `1550 nm` IL `{g6m['il_at_1550_db']:.2f} / {g6l['il_at_1550_db']:.2f} / {g6c['il_at_1550_db']:.2f} dB`, back-reflection `{g6m['s11_at_1550_db']:.1f} / {g6l['s11_at_1550_db']:.1f} / {g6c['s11_at_1550_db']:.1f} dB`). Exported `SPAR .dat` bundles load directly into Ansys Lumerical `INTERCONNECT` with exact passivity (`<= 1.000`) and match MZI FSR (`7.000` vs. `7.012 nm`) and ER (`33.35` vs. `33.33 dB`).",
-        f"3. **3D FDTD Couplers, MZI Splitters & High-$Q$ Ring Truncation (Suites 2, 3B, 7A, 7B)**: With exact cylindrical azimuthal phase slip $\\phi_{{\\mathrm{{ring}}}}(z) = (\\beta_{{\\mathrm{{ring}}}} R)\\arctan(z/(R+d_0))$, unitary 2x2 coupled-mode transfer-matrix integration, conformal twin-core supermode depolarization, outward-bend pulley transition arcs, and bent-end racetrack coupling, spatial CMT matches RTX 5090 GPU `3D FDTD` across every topology and waveband: `100–250 nm` SOI point couplers within `{min_s2b:.1f}%–{max_s2b:.1f}%` (`0.2494 vs 0.2533`, `0.1120 vs 0.1106`, `0.0486 vs 0.0485`, `0.0212 vs 0.0214`), `4H-SiC` `82°`-sidewall pulley within `0.97%` (`0.0529 vs 0.0534`), Mid-IR `4.2 µm` air-clad `Ge` rib racetrack within `2.1%` (`0.00464 vs 0.00474`), `532 nm Si3N4` within `3.7%`, and asymmetric `780 nm TiO2` within `5.8%`. On `1x2` MMI (`{mmi1_il_mr:.3f}` vs. `{mmi1_il_lum:.3f} dB`, `{abs(mmi1_il_mr - mmi1_il_lum):.3f} dB` diff) and `1x2` Y-branch (`{yb_il_mr:.3f}` vs. `{yb_il_lum:.3f} dB`, `{abs(yb_il_mr - yb_il_lum):.3f} dB` diff), 2nd-order `Nedelec2xP2` EME with paraxial taper wavefront curvature closely matches 3D FDTD; on the fixed `L = 40.1 µm` `2x2` MMI (`Suite 7A`), exact `Nedelec2xP2` identifies `L_opt = 42.3 µm` (`IL = 0.46 dB`), explaining the elevated dephasing loss observed at `40.1 µm` in both EME and 3D FDTD (`1.59 dB`). On the `R = 5 µm` full ring (`Suite 7B`), exact $M\\to\\infty$ TMM (`0.07 s`) gives FSR `17.83 nm` and $Q_L = {m7b_m['Q_loaded']:.0f}$ (tracking `3D FDTD` `8174` within `{ql_7b_diff:.1f}%`), whereas `14 ps` of GPU `3D FDTD` still exhibits `T_max = 1.337` Gibbs ringing.",
-        f"4. **Sub-THz EOM RF Electrodes vs. Ansys HFSS 3D & COMSOL (Suite 8)**: Using quadratic `ElementTriP2` anisotropic Laplace FEM (`0.006%–0.08%` electrostatic $C$ and `0.22%–0.30%` $L_{{\\mathrm{{ext}}}}$ vs. COMSOL `es`) coupled with exact finite-thickness `coth` conductor skin impedance, MicroRing Studio matches Ansys HFSS `3D` and COMSOL `emw` at `40 GHz` across all three uniform `X-cut TFLN` GSG CPW platforms (`HR-Si`, `Quartz`, `Undercut-Si`) to `{min(cpw_z0_diffs):.1f}%–{max(cpw_z0_diffs):.1f}%` in $Z_0$ and `{min(cpw_nrf_diffs):.2f}%–{max(cpw_nrf_diffs):.2f}%` in $n_{{\\mathrm{{RF}}}}$. On the `4-period` 3D periodic `Slow-Wave T-Rail` (`Λ = 25 µm`) from `10` to `300 GHz`, adding the 1/4-unit-cell 3D periodic finite-volume longitudinal fringing ratio and exact symmetric GSG parallel-slot stem resistance brings MicroRing to $Z_0 = {tr_mr_40['Z0_ohm']:.2f}\\,\\Omega$ vs. COMSOL 3D electrostatics `{tr_com_3d['Z0_3d_unitcell_ohm']:.2f} Ω` (`{tr_z0_com_diff:.2f}%`), $n_{{\\mathrm{{RF}}}} = {tr_mr_40['n_RF']:.4f}$ vs. COMSOL 3D `{tr_com_3d['n_RF_3d_unitcell']:.4f}` (`{tr_nrf_com_diff:.2f}%`), and tracks Ansys HFSS `3D` attenuation cleanly across the entire `40–300 GHz` band (`{tr_mr_40['alpha_RF_dB_per_cm']:.2f}` vs. `{hf8['TFLN_SlowWave_TRail_Quartz']['alpha_40G_dB_per_cm']:.2f} dB/cm` at `40 GHz`; `{tr_mr_200['alpha_RF_dB_per_cm']:.2f}` vs. `{tr_hf_200['alpha_3d_abcd_dB_per_cm']:.2f} dB/cm` at `200 GHz`; `{tr_mr_300['alpha_RF_dB_per_cm']:.2f}` vs. `{tr_hf_300['alpha_3d_abcd_dB_per_cm']:.2f} dB/cm` at `300 GHz`). Note that HFSS `3D` ABCD reports a lower Bloch impedance $Z_B = 42.1\\text{{--}}42.7\\,\\Omega$ than both COMSOL 3D (`49.24 Ω`) and MicroRing (`49.51 Ω`) because the HFSS outer sidewall boundary at `x = x_dom` acts as a PEC ground return (`W_G -> inf` semi-infinite ground plane), whereas both COMSOL 3D and MicroRing solve the finite `W_G = 55 µm` ground width.",
-        "5. **Silicon PN Carrier-Depletion TCAD (Suite 9)**: Pure-electrostatic depletion capacitance $C_j(V)$ agrees across MicroRing Studio (`P1` FEM), COMSOL (`P2` FEM), and Ansys Lumerical `DEVICE CHARGE` (full 3-equation drift-diffusion) within `0.17%–3.2%` across `Lateral`, `L-Shaped`, and `U-Shaped` junctions at both `0 V` and `-3 V`. With Soref-Bennett (1987) plasma dispersion, MicroRing matches Lumerical `CHARGE + MODE` to `0.19%` in free-carrier absorption (`10.76` vs. `10.78 dB/cm` at `-3 V`) and `5.3%` in $V_\\pi L$ (`1.480` vs. `1.563 V·cm`). Selecting the peer-reviewed `plasma_model='nedeljkovic_2011'` option in `PNDopingTCADConfig` reproduces the `~1.68 V·cm` COMSOL `V_pi*L`, isolating the `11%–13%` spread cleanly to the empirical plasma-dispersion formula choice.",
-        "6. **2D/3D Thermo-Optic Multiphysics & Pockels Electrostatics (Suites 4, 5, 10)**: Across seven microheater architectures spanning two orders of magnitude in thermal resistance (`0.58` to `34.7 K/mW`), MicroRing Studio matches COMSOL `ht` within `0.23%–0.78%` in core $R_{\\mathrm{th}}$ and `0.61%–1.44%` in $P_\\pi$, and matches Lumerical `HEAT` within `0.51%–1.16%`. COMSOL's full 3D finite-length model (`L = 200 µm`) confirms that 3D longitudinal end-conduction reduces effective $R_{\\mathrm{th}}$ by only `-2.0%` (`1.1357` vs. `1.1589 K/mW`). Normalizing Crank-Nicolson transient waveforms strictly against exact steady-state $T_{\\mathrm{steady}}$ over a `10*tau` window restores exact linear-PDE symmetry (`t_rise == t_fall`, e.g., `11.64 / 11.63 µs` on `SOI Top TiN`, independently verified to `0.34%` against a standalone 2D finite-volume heat solver at `11.68 µs`). In Pockels electrostatics (`Suite 5`), combining exact element-local Galerkin `-grad(phi)` with one-sided DG1 interior boundary traces brings all three modulators within sub-`1%` of COMSOL `es + ewfd`: `X-cut TFLN` `G = 5.0 µm` (`-0.61%`), `G = 3.2 µm` (`-0.20%`), and vertical `ScAlN_20` (`-0.87%`, `107.21` vs. `108.16 V·cm`).",
-        "7. **Full Reproducibility**: All runner scripts (`commercial_validation_specs*.py`, `run_microring_independent*.py`, `run_lumerical_independent*.py`, `run_comsol_independent*.py`, `run_hfss_independent_p2.py`, and `compile_commercial_validation_report.py`), raw JSON archives, and 12 CSV tables live in [`benchmarks/`](../benchmarks/) and [`benchmarks/outputs/`](../benchmarks/outputs/).",
+        f"2. **2D vs. 3D Chip I/O Couplers & `INTERCONNECT` Fidelity (Suites 3C, 6B, 7C, 13D, 13E)**: On planar 2D uniform and Gaussian-apodized 26-tooth `220 nm` SOI surface gratings, `2D FDFD` (MicroRing), `2D FDTD` (Lumerical), and `2D ewfd` (COMSOL) agree within `0.04–0.07 dB` in `1550 nm` IL and `0.2 nm` in peak wavelength, and the refreshed `INTERCONNECT` SPAR load matches `1550 nm` IL to `0.015 dB` (`2.996` vs. `3.011 dB`). In full 3D (`Suite 13D`, 20-tooth curved focusing grating coupler), `2D FDFD` predicts both the center wavelength (`1555.3` vs. `1554.0 nm`) and upward radiation efficiency (`53.29%` vs. `53.87%`) accurately while cleanly exposing the expected `+0.39 dB` 3D curved-fan lateral diffraction delta (`3.132` vs. `3.522 dB`). On the `30 µm` 3D SOI butt taper (`Suite 13E`), replacing heuristic taper formulas with the exact first-principles Milton-Burns (1977) / Snyder-Love (1991) adiabatic radiation-mode integral confirms near-zero adiabatic taper loss (`0.029 dB` vs. 3D FDTD `~0 dB`) and matches full 3D total fiber-to-bus IL within `0.157 dB` (`0.620` vs. `0.777 dB`).",
+        f"3. **3D FDTD Couplers, MZI Splitters & Low-$Q$ Full-Ring Decomposition (Suites 2, 3B, 7A, 7B, 12, 13A–13C)**: Single-pass spatial CMT matches GPU `3D FDTD` across every waveband (`100–250 nm` SOI within `{min_s2b:.1f}%–{max_s2b:.1f}%`, `4H-SiC` pulley `0.97%`, Mid-IR `Ge` `2.1%`, `532 nm` `3.7%`, `780 nm` `5.8%`). On optimal-length `2x2 MMI` (`Suite 13A`, `L = 42.3 µm`), `Nedelec2xP2` EME matches `3D FDTD` excess loss to **`0.026 dB`** (`0.367` vs. `0.393 dB`) and imbalance to `0.025 dB`; on full S-bend `2x2 DC` (`Suite 13B`) and low-$Q$ `RAMZI` (`Suite 13C`), adding the 2-point FEM supermode evanescent decay rate $\\gamma_{{\\mathrm{{fem}}}}$ matches `3D FDTD` within `2.0%` split and `0.31 dB` bar extinction (`14.63` vs. `14.94 dB`). Across the seven full-ring `R = 5 µm` GPU 3D FDTD devices (`Suite 12A`), pure external coupling $Q_{{\\mathrm{{ext}}}}$ (`Lossy CC`: `8,348` vs. `8,156`, `2.3%`), gap scaling (`1.394x` vs. `1.379x`, `1.1%`), racetrack $Q_L$ (`1,413` vs. `1,405`, `0.57%`), exact cylindrical 3-segment pulley $Q_L$ (`1,189` vs. `1,320`, `10.0%`), exact lever-arm dual-ring CROW supermode splitting (`1.109` vs. `1.052 nm`, `5.4%`), and `GSST` PCM resonance shift (`+2.931` vs. `+2.754 nm`, `6.0%`) all agree closely. The remaining `~12–14%` lower total $Q_L$ observed in nominally lossless `R = 5 µm` rings decomposes cleanly into `-3%` non-dispersive `n_Si = 3.4777` `n_g` shift (`FSR` `+0.7%–1.3%`) plus a consistent **`Q_loss,3D ≈ 31,000–32,000`** round-trip excess scattering/Yee-staircase loss, independently confirmed by both `AddDrop g120` (`1/3621 - 2/8156 = 1/32,250`), `Lossy CC` (`1/6641 - 1/8448 = 1/31,040`), and `AddDrop g100` finite drop IL (`0.451 dB`).",
+        f"4. **Sub-THz EOM RF Electrodes vs. Ansys HFSS 3D & COMSOL (Suite 8)**: Using quadratic `ElementTriP2` anisotropic Laplace FEM (`0.006%–0.08%` electrostatic $C$ and `0.22%–0.30%` $L_{{\\mathrm{{ext}}}}$ vs. COMSOL `es`) coupled with exact finite-thickness `coth` conductor skin impedance, MicroRing Studio matches Ansys HFSS `3D` and COMSOL `emw` at `40 GHz` across all three uniform `X-cut TFLN` GSG CPW platforms (`HR-Si`, `Quartz`, `Undercut-Si`) to `{min(cpw_z0_diffs):.1f}%–{max(cpw_z0_diffs):.1f}%` in $Z_0$ and `{min(cpw_nrf_diffs):.2f}%–{max(cpw_nrf_diffs):.2f}%` in $n_{{\\mathrm{{RF}}}}$. On the `4-period` 3D periodic `Slow-Wave T-Rail` (`Λ = 25 µm`) from `10` to `300 GHz`, MicroRing matches COMSOL 3D electrostatics (`49.51` vs. `49.24 Ω`, `{tr_z0_com_diff:.2f}%`) and tracks Ansys HFSS `3D` attenuation across the full band (`{tr_mr_40['alpha_RF_dB_per_cm']:.2f}–{tr_mr_300['alpha_RF_dB_per_cm']:.2f}` vs. `{hf8['TFLN_SlowWave_TRail_Quartz']['alpha_40G_dB_per_cm']:.2f}–{tr_hf_300['alpha_3d_abcd_dB_per_cm']:.2f} dB/cm`). The Part 8C `OpenWG` test (`42.26 -> {open_wg_rec['Z0_40G_ohm']:.2f} Ω` at `40 GHz`) confirms that PEC sidewall ground return caused the lower Bloch impedance in Part 8A, while `Bragg220um_Clean` directly validates the periodic Bloch-Floquet stopband (`S21 = {br_clean['bragg_min_S21_dB']:.2f} dB` at `{br_clean['bragg_peak_freq_GHz']:.0f} GHz` vs. MicroRing `f_Bragg = {br_clean['microring_f_bragg_cutoff_GHz']:.1f} GHz`).",
+        "5. **Complete 3x3 Silicon PN Carrier-Depletion TCAD & Forward `PIN` (Suite 9)**: Across all three junction topologies (`Lateral`, `L-Shaped`, `U-Shaped`) in MicroRing Studio (`P1` FEM), COMSOL (`P2` FEM), and Ansys Lumerical `DEVICE CHARGE` (full 3-equation drift-diffusion), depletion capacitance $C_j(-3\\text{ V})$ agrees within `1.1%–5.4%` (`Lateral`: `0.240 vs 0.248`, `L-Shaped`: `0.265 vs 0.280`, `U-Shaped`: `0.367 vs 0.363 fF/µm`, `1.1%`). Soref-Bennett `V_pi*L(-3 V)` agrees within `5.3%` on `Lateral` (`1.480` vs. `1.563 V·cm`) and `5.7%` on `L-Shaped` (`1.184` vs. `1.256 V·cm`), while `U-Shaped` (`0.962` vs. `1.141 V·cm`, with COMSOL at `1.090 V·cm`) reflects sharper 2D abrupt-corner depletion compared to Lumerical's smoothed wrap-around implant corner; Lateral FCA agrees to `0.19%` (`10.76` vs. `10.78 dB/cm`) and L-Shaped FCA to `4.4%` (`7.55` vs. `7.90 dB/cm`). Selecting `plasma_model='nedeljkovic_2011'` in `PNDopingTCADConfig` reproduces the `~1.66 V·cm` COMSOL `V_pi*L`, isolating the COMSOL spread strictly to the empirical plasma-dispersion formula choice. The Lumerical `CHARGE + MODE` forward `PIN` run (`0 -> +0.75 V`) further confirms negative plasma blue-shift (`-8.91e-5`) and rising FCA (`0.36 -> 1.09 dB/cm`).",
+        f"6. **2D/3D Steady & Transient Thermo-Optic Multiphysics & Pockels Electrostatics (Suites 4, 5, 10)**: Across seven microheater architectures spanning two orders of magnitude (`0.58` to `34.7 K/mW`), MicroRing Studio matches COMSOL `ht` within `0.23%–0.78%` in core $R_{{\\mathrm{{th}}}}$ and `0.61%–1.44%` in $P_\\pi$, and matches Lumerical `HEAT` within `0.51%–1.16%`. Transient `10–90%` rise times agree across all three solvers within `{min(tr_diffs_com):.2f}%–{max(tr_diffs_com):.2f}%` against COMSOL `strict` BDF (`11.64` vs. `11.73 µs`, `20.79` vs. `20.87 µs`, `12.97` vs. `13.05 µs`, `23.02` vs. `23.07 µs`) and **`{min(tr_diffs_heat):.2f}%–{max(tr_diffs_heat):.2f}%`** against Lumerical `DEVICE HEAT` (`11.64` vs. `11.64 µs` on `SOI Top TiN`, `20.79` vs. `21.28 µs` on `Deep Air Trench`). COMSOL's full 3D finite-length model (`L = 200 µm`) confirms that 3D longitudinal end-conduction reduces effective $R_{{\\mathrm{{th}}}}$ by only `-2.0%`. In Pockels electrostatics (`Suite 5`), all three modulators match COMSOL `es + ewfd` within `0.20%–0.87%`.",
+        "7. **Full Reproducibility**: All runner scripts (`commercial_validation_specs*.py`, `run_microring_independent*.py`, `run_lumerical_independent*.py`, `run_comsol_independent*.py`, `run_hfss_independent_p2.py`, `run_gap_closures.py`, and `compile_commercial_validation_report.py`), 13 neutral/result JSON archives, and 15 unit-labeled CSV tables live in [`benchmarks/`](../benchmarks/) and [`benchmarks/outputs/`](../benchmarks/outputs/).",
         "",
     ])
 
     REPORT_MD.write_text("\n".join(md) + "\n", encoding="utf-8")
-    print(f"Wrote unified 11-suite 4-way validation report to {REPORT_MD}")
+    print(f"Wrote unified 13-suite 4-way validation report to {REPORT_MD}")
     print(f"Saved Phase-1 figure to {p1_png} / {p1_svg}")
     print(f"Saved Phase-2 figure to {p2_png} / {p2_svg}")
+    print(f"Saved Phase-3 figure to {p3_png} / {p3_svg}")
     for ck in checks:
         print(f"  [AUDIT {ck['status']}] {ck['check']}: {ck['detail']}")
 

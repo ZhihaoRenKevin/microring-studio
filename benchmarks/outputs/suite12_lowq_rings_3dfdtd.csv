@@ -1,0 +1,12 @@
+# Solvers: MicroRing Studio v3.9.0 (scikit-fem Conformal 2D-FEM / Unitary Spatial CMT / 2D-FDFD / EME) | Ansys Lumerical 2026R1.0 (3D FDTD RTX 5090 GPU, auto_shutoff_min = 5e-05)
+case_id,topology,FSR_nm_microring,FSR_nm_3dfdtd,Q_loaded_microring,Q_loaded_3dfdtd_cmt,key_metric_microring,key_metric_3dfdtd,passivity_max,fdtd_status
+SOI_LowQ_AddDrop_R5um_g100nm,point_circular_ad,17.6751,17.7937,2986.0,2626.4,ER=54.15dB; IL_dr=0.02,R2=0.99994; ER=24.43dB; IL_dr=0.451,0.99988,1
+SOI_LowQ_AddDrop_R5um_g120nm,point_circular_ad,17.6751,17.7937,4162.0,3620.7,ER=51.27dB; IL_dr=0.02,R2=0.99937; ER=6.55dB; IL_dr=1.726,0.99992,2
+SOI_LowQ_Lossy_AllPass_CC_R5um,point_circular_ap,17.6751,17.9053,4198.0,3660.6,ER=44.41dB; IL_dr=None,R2=0.99980; ER=14.82dB; IL_dr=None,1.00055,2
+SOI_LowQ_Racetrack_AD_R5um_Ls3um,racetrack_ad,14.8395,15.2076,1413.0,1404.9,ER=60.61dB; IL_dr=0.01,R2=0.99998; ER=10.57dB; IL_dr=0.665,0.99971,2
+SOI_LowQ_Pulley_AD_R5um_th20deg,pulley_ad,17.6751,18.0386,1189.0,1320.4,ER=62.11dB; IL_dr=0.01,R2=0.99997; ER=17.45dB; IL_dr=0.174,0.99407,1
+SOI_LowQ_DualRing_CROW_R5um,vernier_crow_ad,17.6751,17.9214,2986.0,,split=1.109nm; BW=1.320nm,split=1.052nm; IL_drop=1.85dB,1.00086,1
+SOI_LowQ_PCM_GSST_Switch_R5um_GSST_amorphous,pcm_gsst_ad,17.6742,17.9977,3535.0,3688.2,dlam=+2.931nm; ER=52.68dB,dlam=+2.754nm; ER=9.11dB,0.9996,2
+SOI_LowQ_PCM_GSST_Switch_R5um_GSST_crystalline,pcm_gsst_ad,17.6511,18.0618,685.0,640.8,dlam=+2.931nm; ER=1.82dB,dlam=+2.754nm; ER=1.51dB,0.9909,2
+GDS_Roundtrip_AddDrop_R5um,gdsimport_ad,17.6751,17.9053,2986.0,2657.3,GDS R=4.999um; g=102nm,res=1550.610nm; ER=13.29dB,1.00001,2
+Blind_CMT_Fit_SplitDoublet_3DFDTD,split_doublet_ad,,,,3693.6,Auto-BIC=split_doublet,R2(dbl/lor)=0.99997/0.99949; 2mu=7.9GHz,0.99995,2

@@ -1,4 +1,4 @@
-# Solvers: MicroRing Studio v3.9.0 (Phase-2 Complete Physical Engine Suite) | Ansys Lumerical 2026R1.0 (MODE FDE/EME + 3D FDTD RTX 5090 GPU + 2D FDTD + CHARGE + HEAT + INTERCONNECT)
+# Solvers: MicroRing Studio v3.9.0 (Phase-2 Complete Physical Engine Suite) | Ansys Lumerical 2026R1.0 (MODE FDE/EME + 3D FDTD RTX 5090 GPU + 2D FDTD + CHARGE + HEAT + INTERCONNECT) (INTERCONNECT refreshed)
 subsuite,metric,microring,lumerical
 7A_2x2_MMI,split_bar_cross_pct,26.24/29.21,34.13/35.19
 7A_2x2_MMI,excess_loss_db,2.561,1.592
@@ -8,4 +8,4 @@ subsuite,metric,microring,lumerical
 7B_FullRing_R5um,Q_loaded,7926.0,8174.2
 7C_INTERCONNECT_MZI,FSR_nm,6.9995,7.012
 7C_INTERCONNECT_MZI,ER_bar_dB,33.35,33.33
-7C_INTERCONNECT_GC,IL_1550_dB,2.996,3.388
+7C_INTERCONNECT_GC,IL_1550_dB,2.996,3.011

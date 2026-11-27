@@ -17,39 +17,42 @@
 
 ---
 
-## 四方独立求解器验证总览（全 11 套件 · `10/10` 物理审计 `PASS`）
+## 四方独立求解器验证总览（全 13 套件 · `14/14` 物理审计 `PASS`）
 
-**MicroRing Studio (`v3.9.0`)** 全部 11 个物理引擎均为纯开源第一性原理独立求解器（`scikit-fem` + `NumPy/SciPy`，无任何商业求解器痕迹或预制查表）。全部基准均从同一份中立物理规格 JSON 出发，独立头对头对标 **Ansys Lumerical 2026 R1**（`MODE`、`3D/2D FDTD` RTX 5090 GPU、`EME`、`CHARGE`、`HEAT`、`INTERCONNECT`）、**COMSOL Multiphysics 6.4**（`ewfd`、`emw`、`es`、`ht` 2D/3D、`GeneralFormPDE`）与 **Ansys HFSS 2026 R1**（`10–300 GHz` 三维全波驱动模式），同时完成 **369 篇独立 DOI 实验论文实算核验（`367/369 PASS`，`99.5%`；其余 2 篇非均匀 Floquet/PSO 逆向优化器件按物理适用边界如实保留，不做人为拟合）**。
+**MicroRing Studio (`v3.9.0`)** 全部 13 项物理套件均为纯开源第一性原理独立求解器（`scikit-fem` + `NumPy/SciPy`，无任何商业求解器痕迹或预制查表）。全部基准均从同一份中立物理规格 JSON 出发，独立头对头对标 **Ansys Lumerical 2026 R1**（`MODE`、`3D/2D FDTD` RTX 5090 GPU、`EME`、`CHARGE` 完整 3×3 结+正向 PIN、`HEAT` 稳态+瞬态、`INTERCONNECT`）、**COMSOL Multiphysics 6.4**（`ewfd`、`emw`、`es`、`ht` 2D/3D 严格 BDF 瞬态、`GeneralFormPDE`）与 **Ansys HFSS 2026 R1**（`10–340 GHz` 三维全波驱动模式与 `220 µm` 周期 Bragg 阻带），同时完成 **369 篇独立 DOI 实验论文实算核验（`367/369 PASS`，`99.5%`；其余 2 篇非均匀 Floquet/PSO 逆向优化器件按物理适用边界如实保留，不做人为拟合）**。
 
 | 套件 | 验证物理引擎 | 商业软件对标对象 | 独立实测一致度 |
 | :--- | :--- | :--- | :--- |
 | **1** | 二维弯曲/直波导全矢量 FEM（`532–4200 nm`） | Lumerical `MODE`, COMSOL `ewfd` | 最大 $\|\Delta n_{\mathrm{eff}}\| = 1.6\times 10^{-5}$（COMSOL）/ $5.35\times 10^{-4}$（MODE）；$n_g$ 误差 `< 0.05%` |
 | **2** | 三维总线-微环耦合器（5 波段 + `100–250 nm` 间距） | Lumerical `3D FDTD`（RTX 5090 GPU） | SOI `100–250 nm` 误差 `0.1%–1.5%`；`4H-SiC` 滑轮 `0.97%`、中红外 `Ge` `2.1%`、`532/780 nm` `3.7%/5.8%` |
 | **3** | MZI `2x2` DC、`1x2` MMI/Y 分支与均匀表面光栅 | Lumerical `MODE`/`2D & 3D FDTD`, COMSOL | DC 拍长 $L_\pi$ 误差 `0.16%`（COMSOL）/ `0.36%`；`1x2` MMI `0.242 vs 0.242 dB`、Y 分支 `1.02 vs 1.07 dB`、光栅 `3.30 vs 3.33 dB` |
-| **4** | 二维稳态与瞬态热光微加热器（`TiN`、深隔离槽） | COMSOL `ht`, Lumerical `HEAT` | 热阻 $R_{\mathrm{th}}$ 误差 `0.23%–0.38%`（COMSOL）/ `0.51%–1.16%`（`HEAT`）；通量误差 `0.0000%`，严格 `t_rise == t_fall` |
+| **4** | 二维稳态与瞬态热光微加热器（`TiN`、深槽、`BOX`） | COMSOL `ht`（`strict`）, Lumerical `HEAT` | 热阻 $R_{\mathrm{th}}$ 误差 `0.23%–0.38%`（COMSOL）/ `0.51%–1.16%`（`HEAT`）；瞬态 $t_{\mathrm{rise}}$ 误差 `0.22%–0.77%`（COMSOL）与 `0.00%–2.30%`（`HEAT`） |
 | **5** | 二维各向异性静电场 Pockels 电光调制（`TFLN`, `ScAlN`） | COMSOL `es`+`ewfd`, Lumerical `MODE` | 三款器件单臂 $V_\pi L$ 全部在 `0.20%–0.87%` 内；`X切 TFLN` 线电容 $C_{\mathrm{line}}$ 误差 `0.26%` |
 | **6** | 芯片端面耦合器（Butt/Edge）与高斯切趾 26 齿光栅 | Lumerical `MODE`/`EME`/`2D FDTD`, COMSOL | 端面插损误差 `0.005–0.057 dB`，`1-dB` 对准容差 `0.01 µm`；切趾光栅峰值 `1553.2 vs 1553.4 nm`，插损 `2.95 vs 2.91 dB` |
-| **7** | `2x2` MMI、低 Q 整环（`R=5 µm`）与 `INTERCONNECT` 闭环 | Lumerical `3D FDTD` GPU & `INTERCONNECT` | 整环 FSR `17.83 vs 18.19 nm`、$Q_L$ `7926 vs 8174`（`3.0%`）；`INTERCONNECT` MZI FSR `7.000 vs 7.012 nm`、ER `33.35 vs 33.33 dB` |
-| **8** | 亚太赫兹（`10–300 GHz`）行波 CPW 与三维慢波 `T-Rail` | **Ansys HFSS 3D**, COMSOL `es`/`emw`/3D | 均匀 CPW（`40 GHz`）$Z_0$ 误差 `0.3%–1.1%`、$n_{\mathrm{RF}}$ `0.25%–0.70%`（HFSS 3D）；3D `T-Rail` $Z_0$ `49.51 vs 49.24 Ω`（`0.56%` COMSOL 3D），`40–300 GHz` $\alpha_{\mathrm{RF}}$ `1.20–7.59 vs 1.37–7.46 dB/cm` |
-| **9** | 二维非线性泊松-玻尔兹曼硅 `PN` 掺杂 `TCAD` | Lumerical `CHARGE`+`MODE`, COMSOL `PDE` | 三方结电容 $C_j(0/-3\text{ V})$ 一致度 `0.17%–3.2%`；横向结自由载流子吸收 `FCA` `10.76 vs 10.78 dB/cm`（`0.19%`），$V_\pi L$ `1.48 vs 1.56 V·cm` |
+| **7** | `2x2` MMI、低 Q 整环（`R=5 µm`）与 `INTERCONNECT` 闭环 | Lumerical `3D FDTD` GPU & `INTERCONNECT` | 整环 FSR `17.83 vs 18.19 nm`、$Q_L$ `7926 vs 8174`（`3.0%`）；`INTERCONNECT` MZI FSR `7.000 vs 7.012 nm`、ER `33.35 vs 33.33 dB`、光栅插损 `2.996 vs 3.011 dB`（`0.015 dB`） |
+| **8** | 亚太赫兹（`10–340 GHz`）行波 CPW、三维慢波 `T-Rail` 与 Bragg 阻带 | **Ansys HFSS 3D**, COMSOL `es`/`emw`/3D | 均匀 CPW（`40 GHz`）$Z_0$ 误差 `0.3%–1.1%`、$n_{\mathrm{RF}}$ `0.25%–0.70%`；3D `T-Rail` $Z_0$ `49.51 vs 49.24 Ω`（`0.56%` COMSOL 3D），`40–300 GHz` $\alpha_{\mathrm{RF}}$ `1.20–7.59 vs 1.37–7.46 dB/cm`；`220 µm` Bragg HFSS `S21 = -57.9 dB @ 280 GHz`（MR `302.8 GHz`） |
+| **9** | 完整 3×3 硅 `PN` 耗尽 `TCAD` + 正向 `PIN` 注入 | Lumerical `CHARGE`+`MODE`, COMSOL `PDE` | 三种结全套 `CHARGE` 实算：$C_j(-3\text{ V})$ 误差 `1.1%–5.4%`（`U型 1.1%`），$V_\pi L(-3\text{ V})$ 横向/L型 `5.3%/5.7%`，横向结 `FCA 0.19%`；正向 `PIN` 验证 `-8.9e-5` 等离子体蓝移 |
 | **10** | 进阶热结构（`XeF2` 悬臂、掺杂硅脊、PN 接触散热）+ 3D 核验 | COMSOL `2D & 3D ht`, Lumerical `HEAT` | 三类进阶热阻 $R_{\mathrm{th}}$ 误差 `0.54%–0.78%`（横跨 `0.58–34.5 K/mW`）；量化 `+54.4%` PN 电极散热惩罚与 `-2.0%` 3D 端面漏热 |
 | **11** | 洁净室光刻 CD 与间距反相关工艺漂移（`±20 nm`，正/负胶） | Lumerical `MODE`+`3D FDTD`, COMSOL `ewfd` | $\mathrm{d}\lambda/\mathrm{dCD} = 775.79 / 775.97 / 776.36\text{ pm/nm}$（三方离散仅 `0.07%`）；耦合比 $\kappa^2$ 相对 3D FDTD 误差 `0.3%–4.8%` |
+| **12** | 低 Q 整环 `3D FDTD`（7 种拓扑）、`.GDS` 闭环与双峰 Auto-BIC | Lumerical `3D FDTD`（RTX 5090 GPU） | 跑道环 $Q_L$ `1413 vs 1405`（`0.58%`）；高损临界耦合 $Q_{\mathrm{ext}}$ `8348 vs 8156`（`2.3%`）；间距缩放 `1.1%`；双环 CROW 劈裂 `1.109 vs 1.052 nm`（`5.5%`）；`GSST` 相变漂移 `+2.93 vs +2.75 nm`（`6.0%`）；`.GDS` 直导 `gdsimport` 与盲测 Auto-BIC 判别 `split_doublet`（`R^2 = 0.99997`）通过 |
+| **13** | 最优长 `2x2 MMI`、全 S 弯 `DC`、`RAMZI`、全 3D 聚焦光栅与端面锥 | Lumerical `3D FDTD`（RTX 5090 GPU） | 最优 `2x2 MMI` 插损 `0.367 vs 0.393 dB`（`0.026 dB`）；全 S 弯 `DC` 误差 `2.0%`；`RAMZI` 消光比 `14.63 vs 14.94 dB`（`0.31 dB`）；全 3D 聚焦光栅峰值 `1555.3 vs 1554.0 nm`、向上辐射 `53.3% vs 53.9%`（分离 `+0.39 dB` 3D 扇形衍射）；3D 端面锥总插损 `0.620 vs 0.777 dB` |
 
 <details>
-<summary><b>展开查看 12 子图四方商业软件对比总图（套件 1–11：MicroRing vs. Lumerical / COMSOL / HFSS 3D）</b></summary>
+<summary><b>展开查看 18 子图四方商业软件对比总图（套件 1–13：MicroRing vs. Lumerical / COMSOL / HFSS 3D）</b></summary>
 
 ![Phase-1 Commercial Solver Validation Overview (Suites 1-5)](./images/commercial_validation_overview.png)
 ![Phase-2 Commercial Solver Validation Overview (Suites 6-11)](./images/commercial_validation_p2_overview.png)
+![Phase-3 Low-Q Full-Ring & 3D I/O Validation Overview (Suites 12-13 & Gap Closures)](./images/commercial_validation_p3_overview.png)
 
 </details>
 
-- 完整四方数据表、差异物理归因、12 份带单位表头 CSV 与可复现脚本：[**Lumerical / COMSOL / HFSS 独立验证报告**](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) | [**求解器交叉验证与基准**](./VERIFICATION_AND_BENCHMARKS.md) | [**369 篇实验论文核验总账（`367/369 PASS`, `99.5%`）**](./PUBLICATION_VALIDATION_LEDGER.md)
+- 完整四方数据表、差异物理归因、15 份带单位表头 CSV 与可复现脚本：[**Lumerical / COMSOL / HFSS 独立验证报告**](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) | [**求解器交叉验证与基准**](./VERIFICATION_AND_BENCHMARKS.md) | [**369 篇实验论文核验总账（`367/369 PASS`, `99.5%`）**](./PUBLICATION_VALIDATION_LEDGER.md)
 
 ---
 
 ## 核心亮点
 
-1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（对标 [Ansys Lumerical 2026 R1、COMSOL 6.4 与 Ansys HFSS 2026 R1 全 11 套件四方独立验证报告 `10/10 PASS`](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) 及 [369 篇独立 DOI 同行评审实验论文 `367/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
+1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（对标 [Ansys Lumerical 2026 R1、COMSOL 6.4 与 Ansys HFSS 2026 R1 全 13 套件四方独立验证报告 `14/14 PASS`](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) 及 [369 篇独立 DOI 同行评审实验论文 `367/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
    - **行波与慢波 `T-Rail` 电极自动综合（`design_eom_electrode`）**：二维各向异性 Laplace 有限元 + Ghione/Heinrich 保角趋肤损耗 + Hammerstad-Jensen 粗糙度 + 对称 ABCD Bloch-Floquet 周期单元色散（`f_Bragg`）+ Frankel-Rutledge Cherenkov 衬底辐射诊断，连续二维反解 `50 Ω` 线宽 $W_S$ 与速度匹配悬臂 $L_{\mathrm{rail}}$（石英衬底 `X切 TFLN` 达 **`f_3dBe > 300 GHz`**，`S21_EO(300 GHz) = -2.30 dBe`），一键导出零短路双层金属跨桥（`METAL_2 13/0 + VIA 12/0`）`.GDS` 掩膜、IEEE Touchstone `.s2p` 与 INTERCONNECT `TWMOD` 模型包。
    - **三维晶体张量晶圆切向与 `0°–360°` 方位角寻优 + 5 种新铁电材料（`LT` / `BTO` / `PZT`）**：精确计算 `TFLN`、`超低双折射钽酸锂 TFLT`、`硅基外延钛酸钡 BTO`（$r_{42}^S = 360\text{ pm/V}$）、`面内自极化 PZT`（$r_{\mathrm{eff}} = 67\text{ pm/V}$）、`ScAlN` 与 `3C/4H-SiC` 的最佳传输角、SEMI 参考边对准及圆环微环劈裂推挽效率。
    - **二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD` 与稳态 + Crank-Nicolson 瞬态热有限元**：自研阻尼牛顿迭代提取 `横向 / L型 / U型 / PIN` 结二维载流子分布、$C_j(V)$、$R_s$、$V_\pi L(V)$ 与多层离子注入 `.GDS`；热有限元完整求解 `顶层 TiN`、`深空气隔离槽`、`XeF2 掏空悬臂`（$P_\pi < 1\text{ mW}$）与 `重掺杂硅脊` 的瞬态升降温波形 $t_{10\text{--}90\%}$ 与邻臂热串扰。

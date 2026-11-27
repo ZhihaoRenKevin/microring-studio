@@ -21,6 +21,10 @@ benchmarks/outputs/*
 !benchmarks/outputs/lumerical_independent_results_p2.json
 !benchmarks/outputs/comsol_independent_results_p2.json
 !benchmarks/outputs/hfss_independent_results_p2.json
+!benchmarks/outputs/gap_closures_results.json
+!benchmarks/outputs/commercial_validation_specs_p3.json
+!benchmarks/outputs/microring_independent_results_p3.json
+!benchmarks/outputs/lumerical_independent_results_p3.json
 !benchmarks/outputs/suite1_eigenmode_3way.csv
 !benchmarks/outputs/suite2_coupler_3dfdtd_gpu.csv
 !benchmarks/outputs/suite3a_dc_supermodes_3way.csv
@@ -30,12 +34,16 @@ benchmarks/outputs/*
 !benchmarks/outputs/suite6b_apodized_gc_3way.csv
 !benchmarks/outputs/suite7_mmi_ring_interconnect.csv
 !benchmarks/outputs/suite8_rf_electrodes_4way.csv
+!benchmarks/outputs/suite8_hfss_bragg220_3d.csv
 !benchmarks/outputs/suite9_si_pn_tcad_3way.csv
 !benchmarks/outputs/suite10_thermal_adv_3way.csv
 !benchmarks/outputs/suite11_fab_cd_bias_3way.csv
+!benchmarks/outputs/suite12_lowq_rings_3dfdtd.csv
+!benchmarks/outputs/suite13_mzi_3d_io.csv
 docs/images/*.svg
 !docs/images/commercial_validation_overview.svg
 !docs/images/commercial_validation_p2_overview.svg
+!docs/images/commercial_validation_p3_overview.svg
 .venv/
 venv/
 

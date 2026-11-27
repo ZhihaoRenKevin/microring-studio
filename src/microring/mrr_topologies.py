@@ -607,12 +607,18 @@ def _point_coupler_kappa_power_from_gap_curve(
         dphi_z = beta_bus * z_m - (beta_ring * r1_m) * theta_z
     else:
         r2_m = ring2_radius_um * 1e-6
-        g_z_um = g0_um + (
-            r1_m + r2_m
-            - np.sqrt(np.maximum(r1_m ** 2 - z_m ** 2, 0.0))
-            - np.sqrt(np.maximum(r2_m ** 2 - z_m ** 2, 0.0))
-        ) * 1e6
-        dphi_z = (beta_bus * r2_m) * np.arctan2(z_m, r2_m + 0.5 * d0_m) - (beta_ring * r1_m) * np.arctan2(z_m, r1_m + 0.5 * d0_m)
+        # Exact cylindrical coordinates of Ring 2 core (center at (0, r1 + r2 + d0)) as seen from Ring 1 (0, 0):
+        #   y2(z) = (r1 + r2 + d0) - sqrt(r2^2 - z^2),  r1_to_c2(z) = sqrt(z^2 + y2(z)^2)
+        #   Delta_phi(z) = (beta_2 * r2) * arcsin(z / r2) - (beta_1 * r1) * atan2(z, y2(z))
+        # Captures the azimuthal lever-arm phase slip between Ring 1's outer tail and Ring 2's core even for r1 == r2,
+        # and reduces identically to Little's straight-bus cylindrical formula in the limit r2 -> inf.
+        y2_z_m = (r1_m + r2_m + d0_m) - np.sqrt(np.maximum(r2_m ** 2 - z_m ** 2, 0.0))
+        r1_to_c2_m = np.sqrt(z_m ** 2 + y2_z_m ** 2)
+        g_z_um = g0_um + (r1_to_c2_m - (r1_m + d0_m)) * 1e6
+        dphi_z = (
+            (beta_bus * r2_m) * np.arcsin(np.clip(z_m / max(r2_m, 1e-12), -0.9999, 0.9999))
+            - (beta_ring * r1_m) * np.arctan2(z_m, y2_z_m)
+        )
 
     kd_z = np.interp(g_z_um, gaps_grid_um, kd_grid_per_m, left=kd_grid_per_m[0], right=0.0)
     # Exact unitary 2x2 coupled-mode transfer-matrix integration along the curved approach:
@@ -999,23 +1005,64 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
     quad_lat_um = float(np.clip(0.025 * wl_scale, 0.010, 0.060))
     n_top_scalar = float(mat_top_val.nx)
 
-    def _pulley_end_transition_deg(
+    def _build_pulley_3seg_evaluator(
         gap_um_val: float,
         bus_mode_obj: EigenmodeResult,
         bus_r_m: float,
         k_cyl_abs: float,
-        db_cyl_val: float,
-    ) -> float:
-        """Exact entry+exit outward-bend transition coupling equivalent angle [deg] for pulley couplers.
+    ):
+        """Exact 3-segment continuous cylindrical unitary pulley coupler evaluator (`Entry Bend + Arc + Exit Bend`).
 
-        At +/- theta/2 of a concentric wrap arc (radius R_bus), the bus departs outward along a smooth
-        exit bend of radius R_exit = R_ring, so local separation opens with exact relative curvature
-        1/R_eff = 1/R_bus + 1/R_exit -> g(s) = g0 + sqrt(R_eff^2 + s^2) - R_eff.
+        Uses O(1) 2x2 unitary matrix factorization U_tot(theta) = U_ex(theta) @ U_arc(theta) @ U_en(theta)
+        with exact polar radial separation r_bus(s) and ring azimuthal phase projection theta_ring(s)
+        along outward return bends of radius R_out = bus_r_m, plus conformal twin-core supermode
+        depolarization correction on high-contrast vertical sidewalls.
         """
-        if k_cyl_abs <= 1e-6 or bus_r_m <= 1e-9:
-            return 0.0
+        k_eff = float(k_cyl_abs)
+        if cfg.solver_backend != "fde" and cfg.upper_core_h_um <= 0.0 and cfg.cap_h_um <= 0.0:
+            ring_str_p = _solve_single_mode(
+                ring_spec, wl_m, math.inf, cfg.polarization, cfg.solver_backend, eff_mesh_um, export_grid=True
+            )
+            bus_str_p = (
+                ring_str_p
+                if abs(cfg.ring_width_um - cfg.bus_width_um) <= 1e-5
+                else _solve_single_mode(
+                    bus_spec, wl_m, math.inf, cfg.polarization, cfg.solver_backend, eff_mesh_um, export_grid=True
+                )
+            )
+            dr_p = _twin_core_supermode_depol_ratio(
+                ring_w_bottom_um=cfg.ring_width_um,
+                bus_w_bottom_um=cfg.bus_width_um,
+                film_h_um=cfg.film_height_um,
+                slab_h_um=cfg.slab_height_um,
+                sidewall_deg=cfg.sidewall_deg,
+                core_fn=core_fn,
+                clad_fn=clad_fn,
+                top_fn=top_fn,
+                n_core_xyz=n_core_xyz,
+                n_clad=n_clad_scalar,
+                n_top_clad=n_top_scalar,
+                wavelength_m=wl_m,
+                polarization=cfg.polarization,
+                ring_mode_str=ring_str_p,
+                bus_mode_str=bus_str_p,
+                gaps_grid_um=np.array([gap_um_val], dtype=float),
+                gap_focus_um=gap_um_val,
+                box_pad_um=box_pad_um,
+                eff_mesh_um=eff_mesh_um,
+                quad_step_um=quad_lat_um,
+            )
+            if dr_p is not None and len(dr_p) == 1:
+                k_eff = k_eff * float(dr_p[0])
+
+        k0_p = 2.0 * math.pi / wl_m
+        beta_b_p = k0_p * float(np.real(bus_mode_obj.n_eff))
+        beta_r_R_p = float(ring_bent_mode.m_azimuthal)
+        db_arc = beta_b_p - (beta_r_R_p / max(bus_r_m, 1e-12))
+        r_out_m = bus_r_m
+
         g_span = max(0.85 * wl_scale, gap_um_val + 0.55 * wl_scale)
-        g_loc = np.linspace(max(0.05, min(gap_um_val, 0.08 * wl_scale)), gap_um_val + g_span, 36)
+        g_loc = np.linspace(max(0.05, min(gap_um_val - 0.02, 0.08 * wl_scale)), gap_um_val + g_span, 40)
         kd_loc = _lateral_perturbation_kd_vs_gap(
             ring_bent_mode,
             bus_mode_obj,
@@ -1031,21 +1078,63 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             quad_step_um=quad_lat_um,
         )
         kd_at_g0 = float(np.interp(gap_um_val, g_loc, kd_loc))
-        if kd_at_g0 <= 1e-6:
-            return 0.0
-        kd_scaled = kd_loc * (k_cyl_abs / kd_at_g0)
-        r_exit_m = r1_m
-        r_eff_m = (bus_r_m * r_exit_m) / max(bus_r_m + r_exit_m, 1e-12)
-        s_max_m = min(0.75 * r_eff_m, math.sqrt(2.0 * r_eff_m * (g_span * 1e-6)))
-        if s_max_m <= 1e-9:
-            return 0.0
-        s_m = np.linspace(-s_max_m, s_max_m, 161)
-        ds_m = float(s_m[1] - s_m[0])
-        g_s_um = gap_um_val + (np.sqrt(r_eff_m ** 2 + s_m ** 2) - r_eff_m) * 1e6
-        kd_s = np.interp(g_s_um, g_loc, kd_scaled, left=kd_scaled[0], right=0.0)
-        theta_end_rad = abs(np.sum(kd_s * np.exp(1j * db_cyl_val * s_m)) * ds_m)
-        l_end_eq_m = theta_end_rad / k_cyl_abs
-        return float(math.degrees(l_end_eq_m / bus_r_m))
+        u_en0 = np.eye(2, dtype=complex)
+        u_ex0 = np.eye(2, dtype=complex)
+        if k_eff > 1e-6 and kd_at_g0 > 1e-6 and bus_r_m > 1e-9:
+            kd_scaled = kd_loc * (k_eff / kd_at_g0)
+            r_eff_m = (bus_r_m * r_out_m) / max(bus_r_m + r_out_m, 1e-12)
+            s_ext_m = min(0.75 * r_out_m, math.sqrt(2.0 * r_eff_m * (g_span * 1e-6)))
+            if s_ext_m > 1e-9:
+                n_seg = 160
+                dso = s_ext_m / n_seg
+                so_mid = (np.arange(n_seg, dtype=float) + 0.5) * dso
+                po = so_mid / r_out_m
+                r_cur = np.sqrt((bus_r_m + r_out_m) ** 2 + r_out_m ** 2 - 2.0 * (bus_r_m + r_out_m) * r_out_m * np.cos(po))
+                g_out_um = gap_um_val + (r_cur - bus_r_m) * 1e6
+                kd_out = np.interp(g_out_um, g_loc, kd_scaled, left=kd_scaled[0], right=0.0)
+                dth_out = np.arctan2(r_out_m * np.sin(po), bus_r_m + r_out_m * (1.0 - np.cos(po)))
+                dphi_exit = beta_b_p * so_mid - beta_r_R_p * dth_out
+                for kv, phv in zip(kd_out, dphi_exit):
+                    if kv <= 0.0:
+                        continue
+                    ang = float(kv) * dso
+                    c_v, s_v = math.cos(ang), math.sin(ang)
+                    ep = complex(math.cos(float(phv)), math.sin(float(phv)))
+                    u_ex0 = np.array([[c_v, -1j * s_v * ep], [-1j * s_v * ep.conjugate(), c_v]], dtype=complex) @ u_ex0
+                for kv, phv in zip(kd_out[::-1], -dphi_exit[::-1]):
+                    if kv <= 0.0:
+                        continue
+                    ang = float(kv) * dso
+                    c_v, s_v = math.cos(ang), math.sin(ang)
+                    ep = complex(math.cos(float(phv)), math.sin(float(phv)))
+                    u_en0 = np.array([[c_v, -1j * s_v * ep], [-1j * s_v * ep.conjugate(), c_v]], dtype=complex) @ u_en0
+
+        psi_arc = math.hypot(k_eff, 0.5 * db_arc)
+
+        def _eval_kp(theta_deg_val: float) -> float:
+            l_arc_m = bus_r_m * math.radians(max(float(theta_deg_val), 0.0))
+            ph_h = 0.5 * db_arc * l_arc_m
+            ep_h = complex(math.cos(0.5 * ph_h), math.sin(0.5 * ph_h))
+            em_h = ep_h.conjugate()
+            d_p = np.array([[ep_h, 0.0], [0.0, em_h]], dtype=complex)
+            d_m = np.array([[em_h, 0.0], [0.0, ep_h]], dtype=complex)
+            if psi_arc > 1e-12 and l_arc_m > 0.0:
+                c_a = math.cos(psi_arc * l_arc_m)
+                s_a = math.sin(psi_arc * l_arc_m)
+                m_rot = np.array(
+                    [
+                        [c_a - 1j * (0.5 * db_arc / psi_arc) * s_a, -1j * (k_eff / psi_arc) * s_a],
+                        [-1j * (k_eff / psi_arc) * s_a, c_a + 1j * (0.5 * db_arc / psi_arc) * s_a],
+                    ],
+                    dtype=complex,
+                )
+            else:
+                m_rot = np.eye(2, dtype=complex)
+            u_arc = d_p @ m_rot @ d_p
+            u_tot = (d_p @ u_ex0 @ d_m) @ u_arc @ (d_m @ u_en0 @ d_p)
+            return float(min(max(abs(u_tot[1, 0]) ** 2, 0.0), 0.999999))
+
+        return _eval_kp, k_eff
 
     if cfg.topology in ("pulley_ap", "pulley_ad"):
         bus_r_thru_m = (cfg.ring_radius_um + 0.5 * cfg.ring_width_um + cfg.gap_thru_um + 0.5 * cfg.bus_width_um) * 1e-6
@@ -1069,36 +1158,15 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             ring_azimuthal_m=ring_bent_mode.m_azimuthal,
             bus_neff=float(np.real(bus_mode_thru.n_eff)),
         )
-        dth_end_thru_deg = _pulley_end_transition_deg(
-            cfg.gap_thru_um, bus_mode_thru, bus_r_thru_m, abs(cc_dict["k_per_m"]), float(cc_dict["delta_beta_per_m"])
+        eval_thru_kp, k_eff_thru = _build_pulley_3seg_evaluator(
+            cfg.gap_thru_um, bus_mode_thru, bus_r_thru_m, abs(cc_dict["k_per_m"])
         )
-        tau_rt_s = (l_rt_um * 1e-6) * ng_rt / C0_M_PER_S
-        ch_thru = PulleyCMTChannel.from_couplings(
-            [cc_dict["k_per_m"]],
-            [cc_dict["delta_beta_per_m"]],
-            None,
-            frequency_hz=freq_hz,
-            roundtrip_time_s=tau_rt_s,
-            bus_radius_m=bus_r_thru_m,
-            label="pulley_thru",
-        )
-        # Scan only physically realizable drawn wrap angles theta_drawn in [0.5, 180.0] deg
-        # (corresponding to effective total coupling angle theta_eff = theta_drawn + dth_end_thru_deg)
-        scan = scan_pulley_single_bus(
-            ch_thru,
-            q_int=q_int,
-            low_deg=max(0.5, dth_end_thru_deg + 0.5),
-            high_deg=180.0 + dth_end_thru_deg,
-            step_deg=0.5,
-        )
-        rates_thru = ch_thru.coupling_rates([cfg.pulley_angle_thru_deg + dth_end_thru_deg])
-        kp_thru = float(rates_thru["full_power"][0])
+        kp_thru = eval_thru_kp(cfg.pulley_angle_thru_deg)
 
         if is_4port:
             bus_r_drop_m = (cfg.ring_radius_um + 0.5 * cfg.ring_width_um + cfg.gap_drop_um + 0.5 * cfg.bus_width_um) * 1e-6
             if abs(cfg.gap_drop_um - cfg.gap_thru_um) < 1e-6:
-                ch_drop = ch_thru
-                dth_end_drop_deg = dth_end_thru_deg
+                eval_drop_kp = eval_thru_kp
             else:
                 bus_mode_drop = _solve_single_mode(
                     bus_spec, wl_m, bus_r_drop_m, cfg.polarization, cfg.solver_backend, eff_mesh_um, export_grid=True
@@ -1120,33 +1188,40 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
                     ring_azimuthal_m=ring_bent_mode.m_azimuthal,
                     bus_neff=float(np.real(bus_mode_drop.n_eff)),
                 )
-                dth_end_drop_deg = _pulley_end_transition_deg(
-                    cfg.gap_drop_um, bus_mode_drop, bus_r_drop_m, abs(cc_d["k_per_m"]), float(cc_d["delta_beta_per_m"])
+                eval_drop_kp, _ = _build_pulley_3seg_evaluator(
+                    cfg.gap_drop_um, bus_mode_drop, bus_r_drop_m, abs(cc_d["k_per_m"])
                 )
-                ch_drop = PulleyCMTChannel.from_couplings(
-                    [cc_d["k_per_m"]],
-                    [cc_d["delta_beta_per_m"]],
-                    None,
-                    frequency_hz=freq_hz,
-                    roundtrip_time_s=tau_rt_s,
-                    bus_radius_m=bus_r_drop_m,
-                    label="pulley_drop",
-                )
-            kp_drop = float(ch_drop.coupling_rates([cfg.pulley_angle_drop_deg + dth_end_drop_deg])["full_power"][0])
+            kp_drop = eval_drop_kp(cfg.pulley_angle_drop_deg)
         else:
             kp_drop = 0.0
 
-        cc_eff_deg = float(scan["roots"][0]["angle_deg"]) if scan["roots"] else float(scan["Cp_max_angle_deg"])
-        cc_val = max(cc_eff_deg - dth_end_thru_deg, 0.5)
+        # Exact 3-segment sweep across drawn wrap angles theta_drawn in [0.5, 180.0] deg
+        ang_sweep = np.arange(0.5, 180.01, 0.5, dtype=float)
+        kp_sweep_p = np.array([eval_thru_kp(float(th)) for th in ang_sweep], dtype=float)
+        target_kp_p = 1.0 - (a_rt ** 2) * (1.0 - kp_drop)
+        q_ext_sweep_p = (2.0 * math.pi * ng_rt * (l_rt_um * 1e-6) / wl_m) / np.maximum(
+            -np.log1p(-np.clip(kp_sweep_p, 1e-12, 0.9999)), 1e-12
+        )
+        cp_sweep_p = kp_sweep_p / max(target_kp_p, 1e-12)
+        diff_p = kp_sweep_p - target_kp_p
+        cc_found_p = bool(np.any(diff_p[:-1] * diff_p[1:] <= 0.0))
+        if cc_found_p:
+            cc_val = float(ang_sweep[int(np.argmin(np.abs(diff_p)))])
+            for j_p in range(len(ang_sweep) - 1):
+                if diff_p[j_p] * diff_p[j_p + 1] <= 0.0:
+                    cc_val = float(brentq(lambda th: eval_thru_kp(th) - target_kp_p, float(ang_sweep[j_p]), float(ang_sweep[j_p + 1]), xtol=1e-3))
+                    break
+        else:
+            cc_val = float(ang_sweep[int(np.argmax(kp_sweep_p))])
         coupler_sweep = {
             "param_name": "pulley_angle_thru_deg",
             "param_unit": "deg",
-            "x_values": np.round(np.maximum(scan["angle_deg"] - dth_end_thru_deg, 0.5), 3).tolist(),
-            "Q_ext": np.round(np.minimum(scan["pump_Qext"], 1e11), 1).tolist(),
-            "coupling_ratio_Cp": np.round(scan["pump_Cp"], 4).tolist(),
+            "x_values": np.round(ang_sweep, 3).tolist(),
+            "Q_ext": np.round(np.minimum(q_ext_sweep_p, 1e11), 1).tolist(),
+            "coupling_ratio_Cp": np.round(cp_sweep_p, 4).tolist(),
             "critical_coupling_value": round(cc_val, 3),
-            "critical_coupling_found": len(scan["roots"]) > 0,
-            "k_per_m_abs": round(abs(cc_dict["k_per_m"]), 2),
+            "critical_coupling_found": cc_found_p,
+            "k_per_m_abs": round(k_eff_thru, 2),
             "delta_beta_per_m": round(float(cc_dict["delta_beta_per_m"]), 2),
         }
 
@@ -1337,9 +1412,16 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
                 ng_r2 = _compute_group_index_fast(
                     ring_spec, wl_m, r2_m, cfg.polarization, cfg.solver_backend, cfg.core_mesh_res_um, neff_r2
                 )
+            # Mirror Ring 2 laterally (x -> -x) so its centrifugally shifted outer tail physically faces Ring 1's outer edge
+            import copy
+            ring2_facing = copy.copy(ring2_mode)
+            ring2_facing.x_m = -ring2_mode.x_m[::-1]
+            ring2_facing.Ex = -ring2_mode.Ex[:, ::-1]
+            ring2_facing.Ey = ring2_mode.Ey[:, ::-1]
+            ring2_facing.Ez = ring2_mode.Ez[:, ::-1]
             kd_inter_grid = _lateral_perturbation_kd_vs_gap(
                 ring_bent_mode,
-                ring2_mode,
+                ring2_facing,
                 gaps_um=gaps_grid,
                 ring_w_bottom_um=cfg.ring_width_um,
                 bus_w_bottom_um=cfg.ring_width_um,
@@ -1347,9 +1429,12 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
                 slab_h_um=cfg.slab_height_um,
                 sidewall_deg=cfg.sidewall_deg,
                 n_core_xyz=n_core_xyz,
-                n_clad=n_clad_scalar,
+                n_clad=n_top_scalar,
                 wavelength_m=wl_m,
+                quad_step_um=quad_lat_um,
             )
+            if depol_vec is not None and abs(cfg.ring_width_um - cfg.bus_width_um) <= 1e-5:
+                kd_inter_grid = kd_inter_grid * depol_vec
             kp_thru = _point_coupler_kappa_power_from_gap_curve(
                 cfg.gap_thru_um, cfg.ring_radius_um, gaps_grid, kd_grid, beta_ring_c, beta_bus_c, w_sum_half_um=w_half_rb
             )

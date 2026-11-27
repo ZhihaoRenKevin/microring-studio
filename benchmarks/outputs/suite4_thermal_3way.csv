@@ -1,6 +1,6 @@
-# Solvers: MicroRing Studio v3.9.0 (scikit-fem Conformal 2D-FEM / Spatial CMT / 2D-FDFD) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + Heat Transfer ht + AC/DC Electrostatics es) | Ansys Lumerical 2026R1 HEAT
-case_id,R_th_core_K_per_mW_microring,R_th_core_K_per_mW_comsol,R_th_core_K_per_mW_lumerical_heat,R_th_core_rel_diff_mr_comsol_pct,R_th_peak_K_per_mW_microring,R_th_peak_K_per_mW_comsol,P_pi_mW_microring,P_pi_mW_comsol,P_pi_rel_diff_pct,t_rise_us_microring,t_rise_us_comsol,f_3dB_kHz_microring,f_3dB_kHz_comsol,crosstalk_20um_pct_microring,crosstalk_20um_pct_comsol,crosstalk_20um_pct_lumerical_heat
-SOI_220nm_Top_TiN_Heater,1.1438,1.1479,1.1451,0.36,2.0403,2.0551,17.007,16.766,1.44,11.64,14.549,31.05,23.99,0.583,0.5791,0.564
-SOI_220nm_Deep_Air_Trench,1.7355,1.7395,1.7626,0.23,2.7394,2.7542,11.207,11.062,1.31,20.79,24.505,17.2,13.78,0.077,0.0762,0.039
-Si3N4_400nm_Top_TiN_BOX2p0,1.0873,1.0914,,0.38,1.9716,1.9834,163.165,162.066,0.68,12.97,15.658,27.86,21.87,0.641,0.6355,
-Si3N4_400nm_Top_TiN_BOX3p5,1.4724,1.4768,,0.3,2.3357,2.3483,120.519,119.787,0.61,23.02,22.052,15.78,14.16,0.941,0.9318,
+# Solvers: MicroRing Studio v3.9.0 (scikit-fem Conformal 2D-FEM / Spatial CMT / 2D-FDFD) | COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + Heat Transfer ht + AC/DC Electrostatics es) (tstepsbdf=strict) | Ansys Lumerical 2026R1 DEVICE HEAT (Steady + Transient)
+case_id,R_th_core_K_per_mW_microring,R_th_core_K_per_mW_comsol,R_th_core_K_per_mW_lumerical_heat,R_th_core_rel_diff_mr_comsol_pct,R_th_peak_K_per_mW_microring,R_th_peak_K_per_mW_comsol,P_pi_mW_microring,P_pi_mW_comsol,P_pi_rel_diff_pct,t_rise_us_microring,t_rise_us_comsol_strict,t_rise_us_lumerical_heat,f_3dB_kHz_microring,f_3dB_kHz_comsol_strict,f_3dB_kHz_lumerical_heat,crosstalk_20um_pct_microring,crosstalk_20um_pct_comsol,crosstalk_20um_pct_lumerical_heat
+SOI_220nm_Top_TiN_Heater,1.1438,1.1479,1.1451,0.36,2.0403,2.0551,17.007,16.766,1.44,11.64,11.73,11.64,31.05,30.7,31.36,0.583,0.5791,0.564
+SOI_220nm_Deep_Air_Trench,1.7355,1.7395,1.7626,0.23,2.7394,2.7542,11.207,11.062,1.31,20.79,20.87,21.28,17.2,17.14,17.05,0.077,0.0762,0.039
+Si3N4_400nm_Top_TiN_BOX2p0,1.0873,1.0914,,0.38,1.9716,1.9834,163.165,162.066,0.68,12.97,13.05,,27.86,27.57,,0.641,0.6355,
+Si3N4_400nm_Top_TiN_BOX3p5,1.4724,1.4768,,0.3,2.3357,2.3483,120.519,119.787,0.61,23.02,23.07,,15.78,15.73,,0.941,0.9318,

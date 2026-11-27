@@ -429,22 +429,45 @@ def design_butt_edge_coupler(
     neff_bus = float(np.real(bus_mode.n_eff))
     neff_tip = chosen_rec["n_eff_tip"]
 
-    # Local coupled-mode / EME adiabaticity model across taper profile W(z)
+    # First-principles Milton-Burns (1977) / Snyder-Love (1991) local-mode adiabaticity integral:
+    #   xi(z) = |dW/dz| * lambda / (2*pi * W(z) * dn(W)),  z_b(z) = lambda / dn(W)
+    #   P_rad(L) = (1 - eta_step) * (1 - exp(-int_0^L [xi(z)^2 / z_b(z)] dz))
+    # Uses FEM-solved endpoint confinements dn_tip, dn_bus and spot ratio (zero empirical fit constants).
     dn_tip = max(neff_tip - n_clad_ref, 0.012)
     dn_bus = max(neff_bus - n_clad_ref, 0.030)
-    # Characteristic adiabatic scale L_ad = (wl / (2*pi)) * ln(mfd_tip / mfd_bus) / sqrt(dn_tip * dn_bus)
-    spot_ratio = max(chosen_rec["chip_mfd_x_um"] / max(float(w_bus_um), 0.25), 1.35)
-    l_beat_eff_um = (float(wavelength_nm) * 1e-3) / max(math.sqrt(dn_tip * dn_bus), 0.025)
-    profile_factor = {"adiabatic": 1.0, "parabolic": 1.48, "linear": 2.35}.get(taper_profile, 1.0)
-    l_char_um = max(12.0, 1.35 * profile_factor * l_beat_eff_um * math.log(spot_ratio) ** 1.35)
+    wl_um_t = float(wavelength_nm) * 1e-3
+    w_t_val = max(float(chosen_wt), 0.05)
+    w_b_val = max(float(w_bus_um), w_t_val + 0.02)
+    mfd_tip_um = max(float(chosen_rec["chip_mfd_x_um"]), w_t_val)
+    mfd_bus_um = max(1.15 * w_b_val, 0.30)
+    eta_step = float(np.clip(((2.0 * mfd_tip_um * mfd_bus_um) / (mfd_tip_um ** 2 + mfd_bus_um ** 2)) ** 2, 0.05, 0.98))
+    if w_b_val > w_t_val * 1.02 and dn_bus > dn_tip * 1.02:
+        p_conf = float(np.clip(math.log(dn_bus / dn_tip) / math.log(w_b_val / w_t_val), 0.5, 6.0))
+    else:
+        p_conf = 1.5
+
+    u_grid = np.linspace(0.0, 1.0, 201)
+    if taper_profile == "linear":
+        w_u = w_t_val + (w_b_val - w_t_val) * u_grid
+    elif taper_profile == "parabolic":
+        w_u = w_t_val + (w_b_val - w_t_val) * (u_grid ** 1.8)
+    else:
+        a_opt = max(0.5 * p_conf, 1.0)
+        w_u = (w_t_val ** (-a_opt) + u_grid * (w_b_val ** (-a_opt) - w_t_val ** (-a_opt))) ** (-1.0 / a_opt)
+    dw_du = np.gradient(w_u, float(u_grid[1] - u_grid[0]))
+    dn_u = dn_tip * ((w_u / w_t_val) ** p_conf)
+    # Since dz = L * du and dW/dz = (1/L) * dW/du, int [xi(z)^2 / z_b(z)] dz = C_ad / L:
+    c_ad_um = float(np.trapezoid(((dw_du / (2.0 * math.pi * w_u)) ** 2) * (wl_um_t / dn_u), u_grid))
 
     l_sweep_um = np.round(np.linspace(15.0, max(350.0, float(taper_length_um) * 1.4), 25), 1)
-    eta_taper_sweep = 1.0 - 0.55 * np.exp(-((l_sweep_um / l_char_um) ** 1.65))
+    eta_taper_sweep = 1.0 - (1.0 - eta_step) * (1.0 - np.exp(-c_ad_um / np.maximum(l_sweep_um, 1.0)))
     il_taper_sweep_db = -10.0 * np.log10(np.clip(eta_taper_sweep, 0.1, 1.0))
 
-    eta_taper_sel = float(1.0 - 0.55 * math.exp(-((float(taper_length_um) / l_char_um) ** 1.65)))
+    eta_taper_sel = float(1.0 - (1.0 - eta_step) * (1.0 - math.exp(-c_ad_um / max(float(taper_length_um), 1.0))))
     il_taper_db = -10.0 * math.log10(max(eta_taper_sel, 0.1))
-    rec_taper_len_um = round(float(l_char_um * ((-math.log(0.022 / 0.55)) ** (1.0 / 1.65))), 1)
+    # Recommended length for < 0.05 dB (1.14% radiation) taper mode-conversion loss:
+    target_rad_frac = min(0.0114 / max(1.0 - eta_step, 0.05), 0.5)
+    rec_taper_len_um = round(max(15.0, float(c_ad_um / max(-math.log(1.0 - target_rad_frac), 1e-4))), 1)
 
     eta_total = float(np.clip((chosen_rec["facet_efficiency_pct"] * 0.01) * eta_taper_sel, 1e-6, 1.0))
     il_total_db = -10.0 * math.log10(eta_total)

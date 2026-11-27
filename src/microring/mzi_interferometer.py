@@ -332,7 +332,7 @@ def design_directional_coupler_eme(
             n_guess=n_guess_seed,
             core_mesh_res_um=mesh_res,
             clad_mesh_res_um=max(mesh_res * 4.8, 0.22),
-            element_order=1,
+            element_order=2,
             export_grid=False,
         )
         pol_modes = _pick_pol_modes(modes, cfg.polarization, n_clad)
@@ -366,9 +366,42 @@ def design_directional_coupler_eme(
     l_pi_0_um = float((wl0_nm * 1e-3) / (2.0 * dn_samples[1]))
     kappa_0_per_um = math.pi / (2.0 * l_pi_0_um)
 
-    # S-bend transition coupling phase (2 symmetric S-bends separating from g_dc to arm_separation)
+    # S-bend transition coupling phase: extract true 2D vector FEM supermode decay rate gamma_fem
+    # from a second gap sample at g_dc + dg_probe (captures full 2D lateral cladding confinement!).
     k0_0 = 2.0 * math.pi / (wl0_nm * 1e-3)
     gamma_clad_per_um = k0_0 * math.sqrt(max(n_avg_samples[1] ** 2 - n_clad ** 2, 0.04))
+    dg_probe_um = round(0.15 * wl_scale, 4)
+    try:
+        twin_spec_probe = WaveguideCrossSectionSpec(
+            w_bottom_um=w_wg,
+            h_film_um=cfg.film_height_um,
+            h_slab_um=cfg.slab_height_um,
+            sidewall_deg=cfg.sidewall_deg,
+            core_material_fn=core_fn,
+            clad_material_fn=clad_fn,
+            top_clad_material_fn=top_fn,
+            twin_core_gap_um=g_dc + dg_probe_um,
+            domain_width_um=dom_w + dg_probe_um,
+            h_box_um=box_pad,
+            h_top_clad_um=box_pad,
+        )
+        m_probe = solve_modes_fem(
+            twin_spec_probe,
+            wl0_nm * 1e-9,
+            num_modes=5,
+            n_guess=even_neff_0 + 0.02,
+            core_mesh_res_um=mesh_res,
+            clad_mesh_res_um=max(mesh_res * 4.8, 0.22),
+            element_order=2,
+            export_grid=False,
+        )
+        pm_probe = _pick_pol_modes(m_probe, cfg.polarization, n_clad)
+        if len(pm_probe) >= 2:
+            dn_probe = float(np.real(pm_probe[0].n_eff) - np.real(pm_probe[1].n_eff))
+            if 0.0 < dn_probe < 0.95 * dn_samples[1]:
+                gamma_clad_per_um = math.log(dn_samples[1] / dn_probe) / dg_probe_um
+    except Exception:
+        pass
     dy_sep = max(float(cfg.arm_separation_um) - g_dc - w_wg, 1.5)
     l_sbend = max(float(cfg.dc_sbend_length_um), 4.0)
     z_sb = np.linspace(0.0, l_sbend, 81)

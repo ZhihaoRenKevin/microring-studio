@@ -1,0 +1,221 @@
+{
+  "solver": "MicroRing Studio v3.9.0 (scikit-fem Conformal 2D-FEM / Unitary Spatial CMT / 2D-FDFD / EME)",
+  "host": "Windows-AMD64 (Python 3.12.10)",
+  "total_wall_time_s": 238.26,
+  "suite12a_lowq_full_rings": [
+    {
+      "case_id": "SOI_LowQ_AddDrop_R5um_g100nm",
+      "topology": "point_circular_ad",
+      "alpha_modal_db_per_cm": 0.5,
+      "neff_ring": 2.312516,
+      "ng_ring": 4.32666,
+      "FSR_nm": 17.6751,
+      "kappa_power_thru": 0.08797,
+      "Q_loaded": 2986.0,
+      "Q_int": 1523403.0,
+      "FWHM_nm": 0.51909,
+      "ER_thru_dB": 54.15,
+      "IL_drop_dB": 0.02,
+      "wall_time_s": 0.04
+    },
+    {
+      "case_id": "SOI_LowQ_AddDrop_R5um_g120nm",
+      "topology": "point_circular_ad",
+      "alpha_modal_db_per_cm": 0.5,
+      "neff_ring": 2.312516,
+      "ng_ring": 4.32666,
+      "FSR_nm": 17.6751,
+      "kappa_power_thru": 0.06388,
+      "Q_loaded": 4162.0,
+      "Q_int": 1523403.0,
+      "FWHM_nm": 0.37243,
+      "ER_thru_dB": 51.27,
+      "IL_drop_dB": 0.02,
+      "wall_time_s": 0.01
+    },
+    {
+      "case_id": "SOI_LowQ_Lossy_AllPass_CC_R5um",
+      "topology": "point_circular_ap",
+      "alpha_modal_db_per_cm": 90.167,
+      "neff_ring": 2.312516,
+      "ng_ring": 4.32666,
+      "FSR_nm": 17.6751,
+      "kappa_power_thru": 0.06388,
+      "Q_loaded": 4198.0,
+      "Q_int": 8448.0,
+      "FWHM_nm": 0.36919,
+      "ER_thru_dB": 44.41,
+      "IL_drop_dB": null,
+      "wall_time_s": 8.41
+    },
+    {
+      "case_id": "SOI_LowQ_Racetrack_AD_R5um_Ls3um",
+      "topology": "racetrack_ad",
+      "alpha_modal_db_per_cm": 0.5,
+      "neff_ring": 2.312341,
+      "ng_ring": 4.327,
+      "FSR_nm": 14.8395,
+      "kappa_power_thru": 0.207,
+      "Q_loaded": 1413.0,
+      "Q_int": 1523522.0,
+      "FWHM_nm": 1.09658,
+      "ER_thru_dB": 60.61,
+      "IL_drop_dB": 0.01,
+      "wall_time_s": 0.02
+    },
+    {
+      "case_id": "SOI_LowQ_Pulley_AD_R5um_th20deg",
+      "topology": "pulley_ad",
+      "alpha_modal_db_per_cm": 0.5,
+      "neff_ring": 2.312516,
+      "ng_ring": 4.32666,
+      "FSR_nm": 17.6751,
+      "kappa_power_thru": 0.20668,
+      "Q_loaded": 1189.0,
+      "Q_int": 1523403.0,
+      "FWHM_nm": 1.30362,
+      "ER_thru_dB": 62.11,
+      "IL_drop_dB": 0.01,
+      "wall_time_s": 12.23
+    },
+    {
+      "case_id": "SOI_LowQ_DualRing_CROW_R5um",
+      "topology": "vernier_crow_ad",
+      "alpha_modal_db_per_cm": 0.5,
+      "neff_ring": 2.312516,
+      "ng_ring": 4.32666,
+      "FSR_nm": 17.6751,
+      "kappa_power_thru": 0.08797,
+      "Q_loaded": 2986.0,
+      "Q_int": 1523403.0,
+      "FWHM_nm": 0.51909,
+      "ER_thru_dB": 43.48,
+      "IL_drop_dB": 0.03,
+      "wall_time_s": 0.02,
+      "crow_kappa_inter_power": 0.04,
+      "crow_drop_peak_T": 0.9918,
+      "crow_drop_3db_bw_nm": 1.3204,
+      "crow_split_nm": 1.1093
+    },
+    {
+      "case_id": "SOI_LowQ_PCM_GSST_Switch_R5um",
+      "states": {
+        "GSST_amorphous": {
+          "neff_ring": 2.316296,
+          "ng_ring": 4.32687,
+          "FSR_nm": 17.6742,
+          "Q_loaded": 3535.0,
+          "Q_int": 1523478.0,
+          "FWHM_nm": 0.43845,
+          "ER_thru_dB": 52.68,
+          "IL_drop_dB": 0.02,
+          "kappa_power_thru": 0.07481,
+          "lambda0_nm": 1531.6181
+        },
+        "GSST_crystalline": {
+          "neff_ring": 2.324477,
+          "ng_ring": 4.33252,
+          "FSR_nm": 17.6511,
+          "Q_loaded": 685.0,
+          "Q_int": 850.0,
+          "FWHM_nm": 2.2613,
+          "ER_thru_dB": 1.82,
+          "IL_drop_dB": 14.34,
+          "kappa_power_thru": 0.07481,
+          "lambda0_nm": 1534.505
+        }
+      },
+      "delta_neff_c_minus_a": 0.008181,
+      "delta_lambda_shift_nm": 2.931,
+      "drop_extinction_contrast_dB": 14.32,
+      "wall_time_s": 0.03
+    }
+  ],
+  "suite12b_gds_export": {
+    "case_id": "GDS_Roundtrip_AddDrop_R5um",
+    "gds_path": "benchmarks/outputs/_p3_gds/GDS_Roundtrip_AddDrop_R5um.gds",
+    "cell_name": "MicroRing_point_circular_ad_Si",
+    "detected_topology": "point_circular_ad",
+    "extracted_radius_um": 4.999,
+    "extracted_ring_width_um": 0.45,
+    "extracted_gap_thru_um": 0.102,
+    "extracted_gap_drop_um": 0.102
+  },
+  "suite13_mzi_and_3d_io": {
+    "mmi_2x2_optimal": {
+      "case_id": "SOI_1550nm_MMI_2x2_OptLen",
+      "split_bar_pct": 44.83,
+      "split_cross_pct": 47.08,
+      "excess_loss_db": 0.367,
+      "imbalance_db": -0.213,
+      "phase_diff_deg": -91.53,
+      "wall_time_s": 54.22
+    },
+    "dc_2x2_full_sbend": {
+      "case_id": "SOI_1550nm_DC_2x2_FullSBend",
+      "split_bar_pct": 52.4,
+      "split_cross_pct": 46.62,
+      "excess_loss_db": 0.043,
+      "imbalance_db": 0.508,
+      "L_pi_um": 0.0,
+      "wall_time_s": 67.32
+    },
+    "lowq_ramzi": {
+      "case_id": "SOI_1550nm_LowQ_RAMZI_R5um",
+      "ER_bar_dB": 14.63,
+      "ER_cross_dB": 30.62,
+      "IL_min_dB": 0.235,
+      "ramzi_ring_FSR_nm": 17.68,
+      "wall_time_s": 65.2
+    },
+    "gc_3d_focusing": {
+      "case_id": "SOI_1550nm_3D_Focusing_GC",
+      "peak_wavelength_nm": 1555.33,
+      "peak_il_2dfdfd_db": 3.132,
+      "il_1550_2dfdfd_db": 3.208,
+      "eta_up_1550_pct": 53.29,
+      "s11_1550_db": -19.06,
+      "raw_metrics": {
+        "peak_il_db": 3.132,
+        "peak_efficiency_pct": 48.61,
+        "peak_wavelength_nm": 1555.33,
+        "center_il_db": 3.208,
+        "bw_1db_nm": 41.33,
+        "bw_3db_nm": 69.33,
+        "upward_directionality_pct": 53.29,
+        "substrate_loss_pct": 36.66,
+        "unradiated_thru_pct": 7.23,
+        "mode_match_1d_pct": 93.0,
+        "lateral_overlap_pct": 96.39,
+        "s11_db": -19.06,
+        "back_reflection_s11_db": -19.06,
+        "z_fiber_offset_from_start_um": 5.09
+      },
+      "wall_time_s": 29.94
+    },
+    "butt_3d_taper": {
+      "case_id": "SOI_1550nm_3D_Butt_Taper_30um",
+      "mode_overlap_pct": 87.28,
+      "facet_il_db": 0.591,
+      "taper_il_db": 0.029,
+      "total_il_db": 0.62,
+      "raw_metrics": {
+        "total_il_db": 0.62,
+        "total_efficiency_pct": 86.7,
+        "facet_il_db": 0.591,
+        "taper_il_db": 0.029,
+        "return_loss_db": 38.14,
+        "chip_mfd_x_um": 1.908,
+        "chip_mfd_y_um": 1.83,
+        "n_eff_tip": 1.480257,
+        "n_eff_bus": 2.340934,
+        "tol_1db_x_um": 0.539,
+        "tol_1db_y_um": 0.537,
+        "tol_3db_x_um": 0.947,
+        "tol_3db_y_um": 0.941,
+        "bw_1db_nm": 116.2
+      },
+      "wall_time_s": 1.21
+    }
+  }
+}
