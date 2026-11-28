@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.10.0"
+__version__ = "3.11.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -25,15 +25,64 @@ from .agent_tools import (
     agent_io_coupler,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
+    agent_inverse_adjoint,
     agent_nonlinear_lle,
+    agent_pcm_photonics,
     agent_pdk_drc,
+    agent_photodetector,
+    agent_photonic_computing,
+    agent_pic_netlist,
+    agent_polarization_mdm,
     agent_prism_optimize,
     agent_saw_sbs,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
+    agent_wbg_awg,
     agent_wdm_link,
     agent_width_cutoff,
+)
+from .photodetector_oeo import (
+    OEONeuronConfig,
+    WaveguidePDConfig,
+    ge_telecom_complex_index,
+    simulate_oeo_neuron,
+    simulate_waveguide_photodetector,
+)
+from .polarization_mdm import (
+    PBSMDMConfig,
+    PSRConfig,
+    simulate_pbs_or_mdm,
+    simulate_psr_rotator,
+)
+from .pcm_photonics import (
+    PCM_MATERIAL_CATALOG,
+    PCMMRRConfig,
+    PCMThermalPulseConfig,
+    pcm_effective_index_lorentz_lorenz,
+    simulate_pcm_mrr_switch,
+    simulate_pcm_thermal_pulse,
+)
+from .photonic_computing import (
+    MRRWeightBankConfig,
+    MZIMeshConfig,
+    simulate_mrr_weight_bank,
+    simulate_mzi_unitary_mesh,
+)
+from .wbg_and_awg import (
+    AWGConfig,
+    WaveguideBraggConfig,
+    simulate_awg_demux,
+    simulate_waveguide_bragg_grating,
+)
+from .pic_circuit_netlist import (
+    PICNetlistConfig,
+    build_preset_pic_netlist,
+    simulate_pic_circuit_netlist,
+)
+from .inverse_design_adjoint import (
+    AdjointInverseConfig,
+    optimize_inverse_photonic_device,
 )
 from .acousto_optic_saw import (
     ELASTIC_MATERIAL_PROPS,
@@ -323,6 +372,41 @@ __all__ = [
     "hbn_hyperbolic_tensor",
     "simulate_2d_material_mrr",
     "tmd_sheet_conductivity",
+    "agent_photodetector",
+    "agent_polarization_mdm",
+    "agent_pcm_photonics",
+    "agent_photonic_computing",
+    "agent_wbg_awg",
+    "agent_pic_netlist",
+    "agent_inverse_adjoint",
+    "WaveguidePDConfig",
+    "OEONeuronConfig",
+    "ge_telecom_complex_index",
+    "simulate_waveguide_photodetector",
+    "simulate_oeo_neuron",
+    "PSRConfig",
+    "PBSMDMConfig",
+    "simulate_psr_rotator",
+    "simulate_pbs_or_mdm",
+    "PCM_MATERIAL_CATALOG",
+    "PCMMRRConfig",
+    "PCMThermalPulseConfig",
+    "pcm_effective_index_lorentz_lorenz",
+    "simulate_pcm_mrr_switch",
+    "simulate_pcm_thermal_pulse",
+    "MRRWeightBankConfig",
+    "MZIMeshConfig",
+    "simulate_mrr_weight_bank",
+    "simulate_mzi_unitary_mesh",
+    "WaveguideBraggConfig",
+    "AWGConfig",
+    "simulate_waveguide_bragg_grating",
+    "simulate_awg_demux",
+    "PICNetlistConfig",
+    "build_preset_pic_netlist",
+    "simulate_pic_circuit_netlist",
+    "AdjointInverseConfig",
+    "optimize_inverse_photonic_device",
     "agent_saw_sbs",
     "agent_swg_phc",
     "SEIRA_MOLECULE_PRESETS",

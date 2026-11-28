@@ -137,6 +137,38 @@ from .twod_materials_mrr import (
     TwoDMaterialMRRConfig,
     simulate_2d_material_mrr,
 )
+from .photodetector_oeo import (
+    OEONeuronConfig,
+    WaveguidePDConfig,
+    simulate_oeo_neuron,
+    simulate_waveguide_photodetector,
+)
+from .polarization_mdm import (
+    PBSMDMConfig,
+    PSRConfig,
+    simulate_pbs_or_mdm,
+    simulate_psr_rotator,
+)
+from .pcm_photonics import (
+    PCMMRRConfig,
+    PCMThermalPulseConfig,
+    simulate_pcm_mrr_switch,
+    simulate_pcm_thermal_pulse,
+)
+from .photonic_computing import (
+    MRRWeightBankConfig,
+    MZIMeshConfig,
+    simulate_mrr_weight_bank,
+    simulate_mzi_unitary_mesh,
+)
+from .wbg_and_awg import (
+    AWGConfig,
+    WaveguideBraggConfig,
+    simulate_awg_demux,
+    simulate_waveguide_bragg_grating,
+)
+from .pic_circuit_netlist import PICNetlistConfig, simulate_pic_circuit_netlist
+from .inverse_design_adjoint import AdjointInverseConfig, optimize_inverse_photonic_device
 from .quantum_and_laser_mrr import (
     MRRLaserConfig,
     QuantumSFWMConfig,
@@ -1581,6 +1613,48 @@ def _advanced_frontier_sync(payload: dict) -> dict:
     if analysis in ("twod_material", "2d_material", "graphene", "tmd", "ws2", "hbn"):
         kw = _filter_dataclass_kwargs(TwoDMaterialMRRConfig, payload)
         return {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(**kw))}
+    if analysis in ("waveguide_pd", "ge_pd", "photodetector"):
+        kw = _filter_dataclass_kwargs(WaveguidePDConfig, payload)
+        return {"analysis": "waveguide_pd", **simulate_waveguide_photodetector(WaveguidePDConfig(**kw))}
+    if analysis in ("oeo_neuron", "oeo", "photonic_neuron"):
+        kw = _filter_dataclass_kwargs(OEONeuronConfig, payload)
+        return {"analysis": "oeo_neuron", **simulate_oeo_neuron(OEONeuronConfig(**kw))}
+    if analysis in ("psr", "polarization_rotator"):
+        kw = _filter_dataclass_kwargs(PSRConfig, payload)
+        return {"analysis": "psr", **simulate_psr_rotator(PSRConfig(**kw))}
+    if analysis in ("mdm", "mdm_te1", "mdm_te2", "pbs", "pbs_dc"):
+        kw = _filter_dataclass_kwargs(PBSMDMConfig, payload)
+        if analysis in ("mdm_te1", "mdm_te2", "pbs_dc") and "device_type" not in kw:
+            kw["device_type"] = analysis
+        elif analysis == "pbs" and "device_type" not in kw:
+            kw["device_type"] = "pbs_dc"
+        return {"analysis": analysis, **simulate_pbs_or_mdm(PBSMDMConfig(**kw))}
+    if analysis in ("pcm_mrr", "pcm", "pcm_switch"):
+        kw = _filter_dataclass_kwargs(PCMMRRConfig, payload)
+        return {"analysis": "pcm_mrr", **simulate_pcm_mrr_switch(PCMMRRConfig(**kw))}
+    if analysis in ("pcm_pulse", "set_reset"):
+        kw = _filter_dataclass_kwargs(PCMThermalPulseConfig, payload)
+        return {"analysis": "pcm_pulse", **simulate_pcm_thermal_pulse(PCMThermalPulseConfig(**kw))}
+    if analysis in ("mrr_weight_bank", "weight_bank"):
+        kw = _filter_dataclass_kwargs(MRRWeightBankConfig, payload)
+        return {"analysis": "mrr_weight_bank", **simulate_mrr_weight_bank(MRRWeightBankConfig(**kw))}
+    if analysis in ("mzi_mesh", "clements", "reck"):
+        kw = _filter_dataclass_kwargs(MZIMeshConfig, payload)
+        if analysis in ("clements", "reck") and "architecture" not in kw:
+            kw["architecture"] = analysis
+        return {"analysis": "mzi_mesh", **simulate_mzi_unitary_mesh(MZIMeshConfig(**kw))}
+    if analysis in ("wbg", "bragg_grating"):
+        kw = _filter_dataclass_kwargs(WaveguideBraggConfig, payload)
+        return {"analysis": "wbg", **simulate_waveguide_bragg_grating(WaveguideBraggConfig(**kw))}
+    if analysis in ("awg", "awg_demux"):
+        kw = _filter_dataclass_kwargs(AWGConfig, payload)
+        return {"analysis": "awg", **simulate_awg_demux(AWGConfig(**kw))}
+    if analysis in ("pic_netlist", "netlist", "circuit_netlist"):
+        kw = _filter_dataclass_kwargs(PICNetlistConfig, payload)
+        return {"analysis": "pic_netlist", **simulate_pic_circuit_netlist(PICNetlistConfig(**kw))}
+    if analysis in ("inverse_adjoint", "adjoint_y_branch", "inverse_design"):
+        kw = _filter_dataclass_kwargs(AdjointInverseConfig, payload)
+        return {"analysis": "inverse_adjoint", **optimize_inverse_photonic_device(AdjointInverseConfig(**kw))}
     return _nonlinear_lle_sync(payload)
 
 

@@ -396,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 21
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 28
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -2207,6 +2207,152 @@ def test_nanoantenna_tcmt_and_frontier_stage12_integration() -> None:
     assert len(json.dumps(agent_nanoantenna_tcmt({"regime": "mim_absorber"}))) < 620
 
 
+def test_photodetector_oeo_and_polarization_mdm() -> None:
+    from microring import (
+        OEONeuronConfig,
+        PBSMDMConfig,
+        PSRConfig,
+        WaveguidePDConfig,
+        simulate_oeo_neuron,
+        simulate_pbs_or_mdm,
+        simulate_psr_rotator,
+        simulate_waveguide_photodetector,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        pd_gds = tp / "ge_pd.gds"
+        pd_r = simulate_waveguide_photodetector(WaveguidePDConfig(export_gds_path=str(pd_gds)))
+        assert 0.65 < pd_r["metrics"]["responsivity_A_per_W"] < 1.25
+        assert pd_r["metrics"]["f_3dB_OE_GHz"] > 25.0 and pd_gds.is_file()
+
+        oeo = simulate_oeo_neuron(OEONeuronConfig())
+        assert oeo["metrics"]["optical_cascadable"] is True
+        assert oeo["metrics"]["neuron_bandwidth_GHz"] > 0.5
+
+        psr_gds = tp / "psr.gds"
+        psr = simulate_psr_rotator(PSRConfig(export_gds_path=str(psr_gds)))
+        assert 0.58 < psr["metrics"]["hybridization_width_um"] < 0.74
+        assert psr["metrics"]["conversion_efficiency_pct"] > 95.0 and psr_gds.is_file()
+
+        mdm_gds = tp / "mdm.gds"
+        mdm = simulate_pbs_or_mdm(PBSMDMConfig(device_type="mdm_te1", export_gds_path=str(mdm_gds)))
+        assert 0.80 < mdm["metrics"]["phase_matched_w_bus_um"] < 0.96
+        assert mdm["metrics"]["insertion_loss_dB"] < 0.5 and mdm["metrics"]["crosstalk_or_PER_dB"] < -20.0
+        assert mdm_gds.is_file()
+
+
+def test_pcm_photonics_and_pnn_computing() -> None:
+    from microring import (
+        MRRWeightBankConfig,
+        MZIMeshConfig,
+        PCMMRRConfig,
+        PCMThermalPulseConfig,
+        simulate_mrr_weight_bank,
+        simulate_mzi_unitary_mesh,
+        simulate_pcm_mrr_switch,
+        simulate_pcm_thermal_pulse,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        pcm_gds = tp / "sb2se3_mrr.gds"
+        pcm = simulate_pcm_mrr_switch(PCMMRRConfig(pcm_material="Sb2Se3", num_levels=5, export_gds_path=str(pcm_gds)))
+        assert 0.04 < pcm["metrics"]["delta_neff_a_to_c"] < 0.12
+        assert pcm["metrics"]["modal_FOM_dn_over_dk"] > 100.0 and pcm_gds.is_file()
+
+        pulse = simulate_pcm_thermal_pulse(PCMThermalPulseConfig(pcm_material="Sb2Se3"))
+        assert pulse["metrics"]["RESET_amorphization_pass"] is True
+        assert pulse["metrics"]["SET_crystallization_pass"] is True
+
+        wb = simulate_mrr_weight_bank(MRRWeightBankConfig(num_rows=4, num_cols=4))
+        assert wb["metrics"]["ENOB_bits_precompensated"] > wb["metrics"]["ENOB_bits_uncompensated"] + 4.0
+
+        mesh_gds = tp / "clements_6x6.gds"
+        clem = simulate_mzi_unitary_mesh(MZIMeshConfig(mesh_size_n=6, architecture="clements", export_gds_path=str(mesh_gds)))
+        reck = simulate_mzi_unitary_mesh(MZIMeshConfig(mesh_size_n=6, architecture="reck"))
+        assert clem["metrics"]["ideal_decomposition_fro_err"] < 1e-12
+        assert reck["metrics"]["ideal_decomposition_fro_err"] < 1e-12
+        assert clem["metrics"]["mean_unitary_fidelity"] > 0.98 and mesh_gds.is_file()
+
+
+def test_wbg_awg_and_pic_circuit_netlist() -> None:
+    from microring import (
+        AWGConfig,
+        PICNetlistConfig,
+        WaveguideBraggConfig,
+        simulate_awg_demux,
+        simulate_pic_circuit_netlist,
+        simulate_waveguide_bragg_grating,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        wbg_gds = tp / "wbg_pi.gds"
+        wbg = simulate_waveguide_bragg_grating(WaveguideBraggConfig(grating_type="pi_phase_shifted", export_gds_path=str(wbg_gds)))
+        assert wbg["metrics"]["peak_reflectivity_pct"] > 90.0
+        assert wbg["metrics"]["pi_defect_peak_T"] > 0.85 and wbg["metrics"]["pi_defect_Q"] > 500.0
+        assert wbg_gds.is_file()
+
+        awg_gds = tp / "awg_8ch.gds"
+        awg = simulate_awg_demux(AWGConfig(num_channels=8, export_gds_path=str(awg_gds)))
+        assert awg["metrics"]["adjacent_crosstalk_dB"] < -18.0 and awg["metrics"]["center_channel_IL_dB"] < 3.0
+        assert awg_gds.is_file()
+
+        snp_p = tp / "ramzi.s4p"
+        for preset in ("ramzi_linearized", "mzi_filter", "wbg_fabry_perot", "dual_ring_vernier"):
+            net = simulate_pic_circuit_netlist(PICNetlistConfig(preset=preset, export_snp_path=str(snp_p) if preset == "ramzi_linearized" else None))
+            assert net["metrics"]["passivity_verified"] is True and net["metrics"]["max_extinction_ratio_dB"] > 5.0
+        assert snp_p.is_file()
+
+
+def test_adjoint_inverse_design_and_v311_fullstack_integration() -> None:
+    from microring import (
+        AdjointInverseConfig,
+        optimize_inverse_photonic_device,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        inv_gds = tp / "inv_y.gds"
+        inv = optimize_inverse_photonic_device(AdjointInverseConfig(max_iterations=24, export_gds_path=str(inv_gds)))
+        assert inv["metrics"]["optimized_transmission_pct"] > 92.0
+        assert inv["metrics"]["optimized_IL_dB"] < 0.35
+        assert inv["metrics"]["IL_improvement_dB"] > 1.0 and inv_gds.is_file()
+
+        # Bilingual Copilot EN + ZH triggers for new v3.11.0 engines
+        c_en = process_chat_turn(create_initial_session(lang="en"), "Simulate Ge-on-Si waveguide photodetector", gds_export_dir=tp)
+        assert c_en["ui_view"] == "frontier" and c_en["frontier_result"]["analysis"] == "waveguide_pd"
+        c_zh = process_chat_turn(create_initial_session(lang="zh"), "仿真 Clements 幺正网格", gds_export_dir=tp, lang="zh")
+        assert c_zh["ui_view"] == "frontier" and c_zh["frontier_result"]["analysis"] == "mzi_mesh"
+
+        async def _check_v311_http() -> None:
+            for payload in (
+                {"analysis": "oeo_neuron"},
+                {"analysis": "mrr_weight_bank", "num_rows": 4, "num_cols": 4},
+                {"analysis": "pic_netlist", "preset": "mzi_filter"},
+                {"analysis": "wbg", "grating_type": "uniform", "num_periods": 60},
+            ):
+                st, body = await _asgi_request("POST", "/api/frontier_physics", json_body=payload)
+                assert st == 200 and "metrics" in json.loads(body)
+
+        asyncio.run(_check_v311_http())
+
+    for tool_name, args in [
+        ("microring_photodetector", {"analysis": "oeo_neuron"}),
+        ("microring_polarization_mdm", {"analysis": "pbs_dc"}),
+        ("microring_pcm_photonics", {"analysis": "pcm_pulse", "pcm_material": "Sb2Se3"}),
+        ("microring_photonic_computing", {"analysis": "clements", "mesh_size_n": 4}),
+        ("microring_wbg_awg", {"analysis": "wbg", "grating_type": "uniform", "num_periods": 60}),
+        ("microring_pic_netlist", {"preset": "mzi_filter"}),
+        ("microring_inverse_adjoint", {"max_iterations": 10}),
+    ]:
+        mcp_r = handle_mcp_request({"jsonrpc": "2.0", "id": 501, "method": "tools/call", "params": {"name": tool_name, "arguments": args}})
+        assert mcp_r is not None and not mcp_r["result"]["isError"]
+        txt = mcp_r["result"]["content"][0]["text"]
+        assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -2231,12 +2377,16 @@ def main() -> None:
         ("Quantum SFWM Photon-Pair Source (JSA Purity/Squeezing) & Active Gain MRR Lasers", test_quantum_sfwm_and_active_mrr_laser),
         ("SWG Ring, Photonic Crystal Ring (PhCR), Piezo SAW/Lamb & 2D Solid-Mechanics SBS", test_swg_phcr_and_piezo_saw_sbs),
         ("Nanoantenna/Metasurface TCMT (MIM/Fano/SEIRA/EP) & Stage-12 Frontier Integration", test_nanoantenna_tcmt_and_frontier_stage12_integration),
+        ("Ge-on-Si Waveguide Photodetector, O-E-O Neuron, PSR Rotator & PBS/MDM Couplers", test_photodetector_oeo_and_polarization_mdm),
+        ("Non-Volatile PCM MRR & SET/RESET Thermal Pulse FEM + PNN Weight Bank & Clements/Reck Mesh", test_pcm_photonics_and_pnn_computing),
+        ("Waveguide Bragg Gratings (WBG), Rowland-Circle AWG & Native Schur PIC Circuit Netlist", test_wbg_awg_and_pic_circuit_netlist),
+        ("2D-FDFD Adjoint Inverse Shape Optimizer & v3.11 Full-Stack HTTP/Copilot/28-MCP Integration", test_adjoint_inverse_design_and_v311_fullstack_integration),
     ]
     if len(sys.argv) > 1:
         toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]
         tests = [(lbl, fn) for lbl, fn in tests if any(tk in lbl.lower() or tk in fn.__name__.lower() for tk in toks)]
     print("=" * 72)
-    print("Running MicroRing Studio v3.10.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.11.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

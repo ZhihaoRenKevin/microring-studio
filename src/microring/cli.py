@@ -29,13 +29,20 @@ from .agent_tools import (
     agent_io_coupler,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
+    agent_inverse_adjoint,
     agent_nonlinear_lle,
+    agent_pcm_photonics,
     agent_pdk_drc,
+    agent_photodetector,
+    agent_photonic_computing,
+    agent_pic_netlist,
+    agent_polarization_mdm,
     agent_prism_optimize,
     agent_saw_sbs,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
+    agent_wbg_awg,
     agent_wdm_link,
     agent_width_cutoff,
 )
@@ -351,6 +358,49 @@ def main() -> None:
     p_2d.add_argument("--spacer", type=float, default=10.0, dest="spacer_ox_nm")
     p_2d.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_pd = ag_sub.add_parser("photodetector", help="Ge-on-Si PIN/MUTC waveguide PD & O-E-O photonic neuron")
+    p_pd.add_argument("--analysis", type=str, default="waveguide_pd")
+    p_pd.add_argument("--arch", type=str, default="vertical_pin", dest="pd_architecture")
+    p_pd.add_argument("--len", type=float, default=15.0, dest="ge_length_um")
+    p_pd.add_argument("--gds", action="store_true", dest="export_gds")
+    p_pd.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_pol = ag_sub.add_parser("polarization-mdm", help="PSR polarization rotator, PBS & MDM mode multiplexer")
+    p_pol.add_argument("--analysis", type=str, default="psr")
+    p_pol.add_argument("--gap", type=float, default=0.20, dest="coupler_gap_um")
+    p_pol.add_argument("--gds", action="store_true", dest="export_gds")
+    p_pol.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_pcm = ag_sub.add_parser("pcm-photonics", help="Non-volatile PCM (Sb2Se3/GSST/GST/VO2) MRR & SET/RESET pulse FEM")
+    p_pcm.add_argument("--analysis", type=str, default="pcm_mrr")
+    p_pcm.add_argument("--pcm", type=str, default="Sb2Se3", dest="pcm_material")
+    p_pcm.add_argument("--gds", action="store_true", dest="export_gds")
+    p_pcm.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_pnn = ag_sub.add_parser("photonic-computing", help="MRR Weight Bank & Clements/Reck unitary MZI mesh")
+    p_pnn.add_argument("--analysis", type=str, default="mrr_weight_bank")
+    p_pnn.add_argument("--n", type=int, default=6, dest="mesh_size_n")
+    p_pnn.add_argument("--gds", action="store_true", dest="export_gds")
+    p_pnn.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_wbg = ag_sub.add_parser("wbg-awg", help="Waveguide Bragg Grating (WBG) & Arrayed Waveguide Grating (AWG)")
+    p_wbg.add_argument("--analysis", type=str, default="wbg")
+    p_wbg.add_argument("--type", type=str, default="pi_phase_shifted", dest="grating_type")
+    p_wbg.add_argument("--ch", type=int, default=8, dest="num_channels")
+    p_wbg.add_argument("--gds", action="store_true", dest="export_gds")
+    p_wbg.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_net = ag_sub.add_parser("pic-netlist", help="Native frequency-domain PIC S-matrix circuit netlist simulator")
+    p_net.add_argument("--preset", type=str, default="ramzi_linearized")
+    p_net.add_argument("--snp", action="store_true", dest="export_snp")
+    p_net.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_inv = ag_sub.add_parser("inverse-adjoint", help="2D-FDFD exact Maxwell adjoint-gradient inverse shape optimizer")
+    p_inv.add_argument("--len", type=float, default=2.40, dest="design_length_um")
+    p_inv.add_argument("--iters", type=int, default=30, dest="max_iterations")
+    p_inv.add_argument("--gds", action="store_true", dest="export_gds")
+    p_inv.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -435,6 +485,20 @@ def main() -> None:
             _print_compact(agent_nanoantenna_tcmt(d))
         elif args.agent_cmd == "twod-material":
             _print_compact(agent_2d_material_mrr(d))
+        elif args.agent_cmd == "photodetector":
+            _print_compact(agent_photodetector(d))
+        elif args.agent_cmd == "polarization-mdm":
+            _print_compact(agent_polarization_mdm(d))
+        elif args.agent_cmd == "pcm-photonics":
+            _print_compact(agent_pcm_photonics(d))
+        elif args.agent_cmd == "photonic-computing":
+            _print_compact(agent_photonic_computing(d))
+        elif args.agent_cmd == "wbg-awg":
+            _print_compact(agent_wbg_awg(d))
+        elif args.agent_cmd == "pic-netlist":
+            _print_compact(agent_pic_netlist(d))
+        elif args.agent_cmd == "inverse-adjoint":
+            _print_compact(agent_inverse_adjoint(d))
 
 
 if __name__ == "__main__":

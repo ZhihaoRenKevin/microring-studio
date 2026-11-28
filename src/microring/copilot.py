@@ -147,6 +147,38 @@ from .twod_materials_mrr import (
     TwoDMaterialMRRConfig,
     simulate_2d_material_mrr,
 )
+from .photodetector_oeo import (
+    OEONeuronConfig,
+    WaveguidePDConfig,
+    simulate_oeo_neuron,
+    simulate_waveguide_photodetector,
+)
+from .polarization_mdm import (
+    PBSMDMConfig,
+    PSRConfig,
+    simulate_pbs_or_mdm,
+    simulate_psr_rotator,
+)
+from .pcm_photonics import (
+    PCMMRRConfig,
+    PCMThermalPulseConfig,
+    simulate_pcm_mrr_switch,
+    simulate_pcm_thermal_pulse,
+)
+from .photonic_computing import (
+    MRRWeightBankConfig,
+    MZIMeshConfig,
+    simulate_mrr_weight_bank,
+    simulate_mzi_unitary_mesh,
+)
+from .wbg_and_awg import (
+    AWGConfig,
+    WaveguideBraggConfig,
+    simulate_awg_demux,
+    simulate_waveguide_bragg_grating,
+)
+from .pic_circuit_netlist import PICNetlistConfig, simulate_pic_circuit_netlist
+from .inverse_design_adjoint import AdjointInverseConfig, optimize_inverse_photonic_device
 
 # Foundry-standard starting presets per core material
 PLATFORM_PRESETS: dict[str, dict] = {
@@ -1083,6 +1115,18 @@ def parse_photonics_intent(message: str) -> dict:
     # 10. Direct Action Triggers
     # Frontier Physics Modules (LLE/FWM/SHG/Bistability/CROW/SCISSOR/Euler/Sensor/TD-CMT/MZI-MRR/Molecule/Quantum/Laser/SWG/PhCR/SAW/SBS/Nanoantenna TCMT)
     frontier_map = [
+        ("inverse_adjoint", r"adjoint|inverse[-_\s]*design|topology[-_\s]*opt|逆向设计|伴随梯度"),
+        ("pic_netlist", r"netlist|circuit[-_\s]*sim|s[-_\s]*matrix[-_\s]*circuit|schur|光子网表|光路仿真"),
+        ("awg", r"\bawg\b|arrayed[-_\s]*waveguide[-_\s]*grating|阵列波导光栅"),
+        ("wbg", r"\bwbg\b|waveguide[-_\s]*bragg|pi[-_\s]*phase[-_\s]*shift|apodized[-_\s]*bragg|波导布拉格光栅"),
+        ("mzi_mesh", r"clements|\breck\b|unitary[-_\s]*mesh|mzi[-_\s]*mesh|幺正网格"),
+        ("mrr_weight_bank", r"weight[-_\s]*bank|broadcast[-_\s]*and[-_\s]*weight|photonic[-_\s]*mvm|微环权重阵列|光子权重"),
+        ("pcm_pulse", r"pcm[-_\s]*pulse|set[-_\s]*reset|melt[-_\s]*quench|jmak|amorphiz|相变脉冲|晶化|非晶化"),
+        ("pcm_mrr", r"\bsb2se3\b|\bsb2s3\b|\bgsst\b|\bgst\b|\bvo2\b|phase[-_\s]*change[-_\s]*mrr|non[-_\s]*volatile[-_\s]*mrr|相变微环"),
+        ("psr", r"\bpsr\b|polarization[-_\s]*rotator|polarization[-_\s]*splitter|mode[-_\s]*hybrid|偏振旋转|偏振分束"),
+        ("mdm_te1", r"\bmdm\b|mode[-_\s]*multiplex|\bpbs\b|te0[-_\s]*te1|模式复用"),
+        ("oeo_neuron", r"o[-_\s]*e[-_\s]*o|photonic[-_\s]*neuron|nonlinear[-_\s]*activation|光子神经元|非线性激活"),
+        ("waveguide_pd", r"photodetector|ge[-_\s]*on[-_\s]*si|\bmutc\b|responsivity|光电探测器|锗探测器"),
         ("twod_material", r"graphene|\bws2\b|\bmos2\b|\bwse2\b|\bmose2\b|\bhbn\b|\btmd\b|black[-_\s]*phosphorus|2d[-_\s]*material|kubo|pauli[-_\s]*block|石墨烯|二维材料|二硫化钨|二硫化钼|六方氮化硼|黑磷"),
         ("nanoantenna_tcmt", r"nanoantenna|metasurface|\bseira\b|mim[-_\s]*absorber|q[-_\s]*bic|fano[-_\s]*tcmt|\btcmt\b|纳米天线|超表面|分子增强红外"),
         ("saw", r"\bsaw\b|lamb[-_\s]*wave|acousto[-_\s]*optic|piezo[-_\s]*acoustic|rayleigh[-_\s]*wave|声表面波|声光调制|兰姆波"),
@@ -2495,6 +2539,35 @@ def _process_chat_turn_core(
                 f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="hBN", core_material="Ge", clad_material="CaF2", top_clad_material="Air", film_height_um=1.2, ring_width_um=2.0, ring_radius_um=60.0, wavelength_nm=6800.0, v_gate_sweep_v=(0.0,)))}
             else:
                 f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d=mat2d, capacitor_type=cap))}
+        elif f_kind == "waveguide_pd":
+            f_res = {"analysis": "waveguide_pd", **simulate_waveguide_photodetector(WaveguidePDConfig())}
+        elif f_kind == "oeo_neuron":
+            f_res = {"analysis": "oeo_neuron", **simulate_oeo_neuron(OEONeuronConfig())}
+        elif f_kind == "psr":
+            f_res = {"analysis": "psr", **simulate_psr_rotator(PSRConfig())}
+        elif f_kind == "mdm_te1":
+            low_m = user_message.lower()
+            dt = "pbs_dc" if "pbs" in low_m else ("mdm_te2" if "te2" in low_m else "mdm_te1")
+            f_res = {"analysis": dt, **simulate_pbs_or_mdm(PBSMDMConfig(device_type=dt))}
+        elif f_kind == "pcm_mrr":
+            low_m = user_message.lower()
+            pm = "GSST" if "gsst" in low_m else ("GST" if "gst" in low_m else ("Sb2S3" if "sb2s3" in low_m else ("VO2" if "vo2" in low_m else "Sb2Se3")))
+            f_res = {"analysis": "pcm_mrr", **simulate_pcm_mrr_switch(PCMMRRConfig(pcm_material=pm))}
+        elif f_kind == "pcm_pulse":
+            f_res = {"analysis": "pcm_pulse", **simulate_pcm_thermal_pulse(PCMThermalPulseConfig())}
+        elif f_kind == "mrr_weight_bank":
+            f_res = {"analysis": "mrr_weight_bank", **simulate_mrr_weight_bank(MRRWeightBankConfig())}
+        elif f_kind == "mzi_mesh":
+            arch = "reck" if "reck" in user_message.lower() else "clements"
+            f_res = {"analysis": "mzi_mesh", **simulate_mzi_unitary_mesh(MZIMeshConfig(architecture=arch))}
+        elif f_kind == "wbg":
+            f_res = {"analysis": "wbg", **simulate_waveguide_bragg_grating(WaveguideBraggConfig())}
+        elif f_kind == "awg":
+            f_res = {"analysis": "awg", **simulate_awg_demux(AWGConfig())}
+        elif f_kind == "pic_netlist":
+            f_res = {"analysis": "pic_netlist", **simulate_pic_circuit_netlist(PICNetlistConfig())}
+        elif f_kind == "inverse_adjoint":
+            f_res = {"analysis": "inverse_adjoint", **optimize_inverse_photonic_device(AdjointInverseConfig())}
         else:
             f_res = {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig())}
 

@@ -6,7 +6,7 @@
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.10.0](https://img.shields.io/badge/release-v3.10.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.10.0)
+[![Release: v3.11.0](https://img.shields.io/badge/release-v3.11.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.11.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./docs/VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./docs/tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -39,6 +39,7 @@ Every solver engine in **MicroRing Studio (`v3.9.0`)** is a standalone first-pri
 | **LLE** | Generalized SSFM LLE Microcombs (Brasch `Si3N4`, Guidry `4H-SiC`, NIST `RW1000_H430` Dual-DW) | **NIST `usnistgov/pyLLE`** (`ComputeLLE.jl`) | Peak power within `0.58%–1.68%`, FWHM within `0.08%–1.00%`, `81–215` comb lines median `0.11–0.31 dB` (`r = 0.9954–1.0000`), exact Cherenkov DW mode `+119 vs +119` (`50–77x` faster) |
 | **F-C** | Piezo SAW/Lamb (`AlN`, `ScAlN`, `X-TFLN`), 2D/3D `Si` SBS & `Graphene` Surface Current | **COMSOL 6.4** (`solid`+`es`+`pze`, `ewfd`) | SAW/Lamb $v_{\mathrm{open}}$ within **`0.0003%–0.0005%`**, exact 3-decimal $K_{\mathrm{eff}}^2$ (`0.547%`, `0.621%`, `1.587%`); Forward/Backward SBS **`8.4886 vs 8.4886 GHz` (`0.0004%`)** & **`16.7573 vs 16.7580 GHz` (`0.0044%`)**; `Graphene`-on-SOI $\alpha(\mu_c=0)$ `778.82 vs 777.17 dB/cm` (**`0.21%`**) |
 | **F-L** | 3D `SWG` Biosensor, 3D `PhCR` Mode Splitting & Mid-IR `MIM` / `SEIRA` TCMT | **Lumerical `3D FDTD`** (RTX 5090 GPU) | `SWG` water $S_{\mathrm{bulk}}$ `450.7 vs 461.2 nm/RIU` (**`2.27%`**), `SiO2` $n_g$ `4.85%`; `PhCR` (`Si3N4 A=40 nm`) split **`103.21 vs 103.71 GHz` (`0.48%`)**, Bragg center `1549.992 nm`; `SEIRA PMMA` blind TCMT inverse fit **`R^2 = 0.99896, RMSE = 0.0088`** |
+| **V11** | `Ge`-on-`Si` PD, `PSR` Hybridization, `Sb2Se3`/`GSST` PCM (`ewfd`+`ht`), `MDM` & Adjoint `.GDS` Y-Branch | **COMSOL 6.4** & **Lumerical `3D FDTD`** (GPU) | `Ge`-on-`Si` PD $\alpha$ **`2.2484 vs 2.2485 dB/µm` (`0.00%`)**, $\Delta n = -1\times 10^{-5}$; `PSR` $\Delta n_{\mathrm{hyb}}$ **`0.26%`**; `Sb2Se3`/`GSST` PCM $\Delta n$ **`0.03%`/`0.00%`**, $\alpha_c$ **`0.01%`**, `RESET` $\Delta T$ `4.13%`; 3D FDTD `MDM TE0->TE1` **`99.04%` (`0.04 dB`, `XT -35.7 dB`)**; blind `.GDS` Adjoint `2.4 µm` Y-Branch **`97.78%` (`0.098 dB` IL)** |
 
 <details>
 <summary><b>View 18-Panel Commercial Validation Figures (Suites 1–13: MicroRing vs. Lumerical, COMSOL & HFSS 3D)</b></summary>
@@ -61,6 +62,13 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
 3. **Layout-to-circuit disconnect**: A `.gds` mask drawn in KLayout or `gdsfactory` has to be manually re-measured for simulation, while device sweeps rarely export directly into `127 um` fiber-array test loops or `Ansys Lumerical INTERCONNECT` circuit compact models.
 
 **MicroRing Studio (`v3.9.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app, **validated head-to-head across all 13 physical suites against [Ansys Lumerical 2026 R1 (`MODE`/`FDTD`/`EME`/`CHARGE`/`HEAT`/`INTERCONNECT`), COMSOL Multiphysics 6.4 (`ewfd`/`emw`/`es`/`ht`/3D), and Ansys HFSS 2026 R1 (`10–340 GHz` 3D RF) (`14/14` physics audits `PASS`)](./docs/COMMERCIAL_SOLVER_VALIDATION_REPORT.md) and [369 unique 1-to-1 DOI peer-reviewed experimental publications (`367/369 PASS`, `99.5%`)](./docs/PUBLICATION_VALIDATION_LEDGER.md)** across 8 physical domains from `450 nm` Visible to `4200 nm` Mid-IR (see also [Verification & Benchmarks](./docs/VERIFICATION_AND_BENCHMARKS.md)):
+- **Full-Stack PIC Photodetectors, Polarization/MDM, Non-Volatile PCM, Photonic Computing, WBG/AWG, Circuit Netlist & Adjoint Inverse Design (`v3.11.0`, `28` MCP Tools)**:
+  - **On-Chip `Ge`-on-`Si` Waveguide Photodetectors & `O-E-O` Neurons (`photodetector_oeo.py`)**: 2D conformal vector FEM complex strained-Ge absorption (`0.00%` vs COMSOL `ewfd`), multi-mode EME launch, `R(λ)`, Lucovsky transit-time + `RC` 3-dB bandwidth, dark current, `NEP`, `O-E-O` PD->MRM nonlinear activation curves (`sigmoid`/`relu`/`rbf_gaussian`, `fJ/op`), and `.GDS`.
+  - **Polarization Splitter-Rotator (`PSR`), `PBS` & Mode-Division Multiplexer (`MDM`) (`polarization_mdm.py`)**: Exact 2D-FEM `TM0 <-> TE1` mode-hybridization anti-crossing (`0.26%` vs COMSOL `ewfd`) + Landau-Zener adiabatic taper (`98.8%` conversion), and auto-phase-matched asymmetric twin-core `MDM TE0 <-> TE1/TE2` (`99.04%` / `0.04 dB` / `-35.7 dB` XT in 3D FDTD) & `PBS` + `.GDS`.
+  - **Non-Volatile Phase-Change Material (`PCM`) MRR & Transient `SET`/`RESET` FEM (`pcm_photonics.py`)**: Lorentz-Lorenz multi-level 2D-FEM switching across `Sb2Se3`, `Sb2S3`, `GSST`, `GST`, and `VO2` (`0.00%–0.03%` vs COMSOL `ewfd`), coupled with 2D Crank-Nicolson transient thermal `RESET` melt-quench & JMAK `SET` crystallization pulse FEM + `.GDS`.
+  - **Photonic Neural Network (`PNN`) Matrix Engine (`photonic_computing.py`)**: `N×M` Broadcast-and-Weight MRR Weight Bank with physical 2D thermal crosstalk matrix $\mathbf{H}_{\mathrm{th}}$, $\mathbf{H}_{\mathrm{th}}^{-1}$ pre-compensation (`ENOB: 0.14 -> 8.06 bits`), `fJ/MAC`, `TOPS/mm^2`, plus exact `1e-15` `N×N` **Clements (2016) & Reck (1994)** unitary MZI mesh decomposition with hardware Monte-Carlo fidelity + `.GDS`.
+  - **Waveguide Bragg Gratings (`WBG`) & Arrayed Waveguide Gratings (`AWG`) (`wbg_and_awg.py`)**: Uniform, Gaussian-apodized, $\pi$-phase-shifted cavity (`Q > 10^3`), and chirped dispersion `WBG` + `.GDS`, plus `1×8`/`1×16` Rowland-circle Kirchhoff-Huygens `AWG` WDM demux + `.GDS`.
+  - **Native S-Matrix PIC Circuit Netlist (`pic_circuit_netlist.py`) & 2D-FDFD Adjoint Inverse Optimizer (`inverse_design_adjoint.py`)**: Exact Schur-complement arbitrary-graph photonic circuit simulator (license-free INTERCONNECT inside Python + Touchstone `.sNp`), and 2-solve/iter exact Maxwell adjoint shape optimizer generating a `2.4 µm` compact SOI Y-branch verified at **`0.098 dB` IL (`97.78%`)** via blind `.GDS` import in Lumerical 3D FDTD!
 - **Frontier Photonic Physics (`🔬 Frontier` Stage 12, 6 Dedicated First-Principles Modules, `21` MCP Tools)**:
   - **High-Order `CROW`/`SCISSOR`, Euler Bends, Bio/Gas Sensors & Athermal Cladding, Large-Signal `TD-CMT`, `MZI-MRR` & Photonic Molecules / `PT-EP` (`advanced_mrr.py`)**: Exact 4-entry unitary Redheffer `CROW`/`SCISSOR` Butterworth/Chebyshev synthesis with group delay/GDD, Euler clothoid bend junction optimization + GDS, aqueous/gas sensing + negative-$dn/dT$ `TiO2` athermal cap synthesis, RK4 large-signal detuning vs chirp-free coupling `TD-CMT` modulators, `MZI`-coupled tunable-$\kappa$ rings, and dual-ring photonic molecules / $\mathcal{PT}$-symmetric Exceptional Point $\sqrt{\varepsilon}$ splitting.
   - **Quantum `SFWM` Sources & Active Gain MRR Lasers (`quantum_and_laser_mrr.py`)**: Spontaneous FWM photon-pair rate, CAR, $g_H^{(2)}(0)$, dual-$Q$ JSA SVD Schmidt spectral purity (`0.856 -> 0.976`), and squeezed vacuum (`dB`), plus rare-earth (`Er:TFLN`, `Er:Si3N4`) and heterogeneous `InGaAsP` MQW microring lasers (L-I, Schawlow-Townes linewidth, SMSR, $f_{\mathrm{RO}}$, RIN).
@@ -289,7 +297,7 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. Fit CW/CCW split-doublet & multi-FSR experimental spectra via CMT:
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# Run all 22 automated verification suites + 369-paper experimental publication validation:
+# Run all 26 automated verification suites + 369-paper experimental publication validation:
 python tests/test_microring_all.py
 python benchmarks/run_publication_validation.py
 ```
@@ -382,6 +390,13 @@ uv run microring agent swg-phc --analysis phcr --mat Si3N4 --h 0.50 --w-ring 1.2
 uv run microring agent saw-sbs --analysis saw --mat AlN --idt-um 2.0
 uv run microring agent nanoantenna --regime seira_molecular --analyte PMMA
 uv run microring agent twod-material --mat-2d Graphene --cap SLG --spacer-nm 10
+uv run microring agent photodetector --analysis waveguide_pd --arch vertical_pin --len 15 --gds
+uv run microring agent polarization-mdm --analysis mdm_te1 --gap 0.20 --gds
+uv run microring agent pcm-photonics --analysis pcm_mrr --pcm Sb2Se3 --gds
+uv run microring agent photonic-computing --analysis clements --n 6 --gds
+uv run microring agent wbg-awg --analysis awg --ch 8 --gds
+uv run microring agent pic-netlist --preset ramzi_linearized --snp
+uv run microring agent inverse-adjoint --len 2.4 --iters 30 --gds
 ```
 
 ---
@@ -407,6 +422,13 @@ microring-studio/
 │   ├── acousto_optic_saw.py               Multi-layer Piezo SAW/Lamb P2 FEM & 2D solid-mechanics Forward/Backward SBS
 │   ├── nanoantenna_tcmt.py                Energy-conserving Suh-Wang-Fan MIM/Fano/qBIC/SEIRA/EP TCMT & fitter
 │   ├── twod_materials_mrr.py              Graphene Kubo SLG/DLG, WS2/MoS2/WSe2/MoSe2 TMDs, hyperbolic hBN & BP on MRR
+│   ├── photodetector_oeo.py               2D-FEM Ge-on-Si PIN/MUTC waveguide PD & O-E-O PD->MRM photonic neuron
+│   ├── polarization_mdm.py                2D-FEM PSR (TM0<->TE1 hybridization), PBS & MDM (TE0<->TE1/TE2) + GDS
+│   ├── pcm_photonics.py                   Multi-level Sb2Se3/Sb2S3/GSST/GST/VO2 PCM MRR & 2D transient SET/RESET FEM
+│   ├── photonic_computing.py              PNN N×M MRR Weight Bank (crosstalk H_th) & exact Clements/Reck MZI mesh
+│   ├── wbg_and_awg.py                     Waveguide Bragg Gratings (π-shifted/apodized/chirped) & Rowland-circle AWG
+│   ├── pic_circuit_netlist.py             Native Schur-complement S-matrix PIC circuit simulator + Touchstone .sNp
+│   ├── inverse_design_adjoint.py          2D-FDFD exact Maxwell adjoint-gradient inverse shape optimizer + GDS
 │   ├── mzi_interferometer.py              2D-FEM/EME MZI splitters (DC/MMI/Y-Branch), modulators & GDS/IC
 │   ├── eom_electrode.py                   Sub-THz 300+ GHz T-Rail / CPW EOM electrode, Wafer Cut, .S2P & GDS
 │   ├── multiphysics_tcad.py               2D Poisson-Boltzmann Si PN TCAD, PN Heat-Sinking & Thermal FEM
@@ -428,7 +450,7 @@ microring-studio/
 ├── examples/                              13 self-contained cookbook scripts (Visible -> 1310/1550 -> Mid-IR)
 ├── benchmarks/                            FEM vs Yee-FDE audit, 369-paper corpus & hero figure generator
 ├── docs/                                  Chinese README, tutorials, benchmarks, contributing & llms.txt
-└── tests/                                 22-suite automated verification tests
+└── tests/                                 26-suite automated verification tests
 ```
 
 ---

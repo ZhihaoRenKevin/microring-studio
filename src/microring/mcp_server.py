@@ -28,13 +28,20 @@ from .agent_tools import (
     agent_io_coupler,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
+    agent_inverse_adjoint,
     agent_nonlinear_lle,
+    agent_pcm_photonics,
     agent_pdk_drc,
+    agent_photodetector,
+    agent_photonic_computing,
+    agent_pic_netlist,
+    agent_polarization_mdm,
     agent_prism_optimize,
     agent_saw_sbs,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
+    agent_wbg_awg,
     agent_wdm_link,
     agent_width_cutoff,
 )
@@ -453,6 +460,96 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_photodetector",
+        "description": "First-principles 2D-FEM Ge-on-Si PIN/MUTC waveguide photodetector (R, QE, f_3dB, I_dark, GDS) & O-E-O PD->MRM photonic neuron.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "waveguide_pd | oeo_neuron"},
+                "pd_architecture": {"type": "string", "description": "vertical_pin | lateral_pin | mutc"},
+                "ge_length_um": {"type": "number"},
+                "wavelength_nm": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_polarization_mdm",
+        "description": "First-principles 2D-FEM Polarization Splitter-Rotator (PSR TM0<->TE1 hybridization), PBS & MDM (TE0<->TE1/TE2) + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "psr | mdm_te1 | mdm_te2 | pbs_dc"},
+                "taper_length_um": {"type": "number"},
+                "coupler_gap_um": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_pcm_photonics",
+        "description": "Non-volatile Phase-Change Material (Sb2Se3/Sb2S3/GSST/GST/VO2) multi-level 2D-FEM MRR switch & 2D transient Crank-Nicolson SET/RESET thermal pulse FEM.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "pcm_mrr | pcm_pulse"},
+                "pcm_material": {"type": "string", "description": "Sb2Se3 | Sb2S3 | GSST | GST | VO2"},
+                "pcm_thickness_nm": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_photonic_computing",
+        "description": "Photonic Neural Network matrix engine: N x M MRR Weight Bank (thermal crosstalk Green's matrix & ENOB) & exact N x N Clements/Reck unitary MZI mesh + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "mrr_weight_bank | clements | reck"},
+                "mesh_size_n": {"type": "integer"},
+                "num_rows": {"type": "integer"},
+                "num_cols": {"type": "integer"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_wbg_awg",
+        "description": "2D-FEM Waveguide Bragg Gratings (uniform/apodized/pi-shifted/chirped) & Rowland-circle Arrayed Waveguide Grating (AWG 1x8/1x16 WDM) + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "wbg | awg"},
+                "grating_type": {"type": "string", "description": "uniform | gaussian_apodized | pi_phase_shifted | chirped"},
+                "num_channels": {"type": "integer"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_pic_netlist",
+        "description": "Native license-free frequency-domain PIC S-matrix circuit netlist solver (Schur-complement arbitrary graph, passivity check & Touchstone .sNp export).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "preset": {"type": "string", "description": "ramzi_linearized | mzi_filter | wbg_fabry_perot | dual_ring_vernier"},
+                "export_snp": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_inverse_adjoint",
+        "description": "Native 2D-FDFD exact Maxwell adjoint-gradient inverse photonic shape optimizer (ultra-compact <0.1 dB Y-branch) + foundry GDS export.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "design_length_um": {"type": "number"},
+                "max_iterations": {"type": "integer"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -477,6 +574,13 @@ _DISPATCH = {
     "microring_saw_sbs": agent_saw_sbs,
     "microring_nanoantenna_tcmt": agent_nanoantenna_tcmt,
     "microring_2d_material_mrr": agent_2d_material_mrr,
+    "microring_photodetector": agent_photodetector,
+    "microring_polarization_mdm": agent_polarization_mdm,
+    "microring_pcm_photonics": agent_pcm_photonics,
+    "microring_photonic_computing": agent_photonic_computing,
+    "microring_wbg_awg": agent_wbg_awg,
+    "microring_pic_netlist": agent_pic_netlist,
+    "microring_inverse_adjoint": agent_inverse_adjoint,
 }
 
 

@@ -56,6 +56,38 @@ from .nanoantenna_tcmt import (
     fit_nanoantenna_tcmt_spectrum,
     simulate_nanoantenna_tcmt,
 )
+from .photodetector_oeo import (
+    OEONeuronConfig,
+    WaveguidePDConfig,
+    simulate_oeo_neuron,
+    simulate_waveguide_photodetector,
+)
+from .polarization_mdm import (
+    PBSMDMConfig,
+    PSRConfig,
+    simulate_pbs_or_mdm,
+    simulate_psr_rotator,
+)
+from .pcm_photonics import (
+    PCMMRRConfig,
+    PCMThermalPulseConfig,
+    simulate_pcm_mrr_switch,
+    simulate_pcm_thermal_pulse,
+)
+from .photonic_computing import (
+    MRRWeightBankConfig,
+    MZIMeshConfig,
+    simulate_mrr_weight_bank,
+    simulate_mzi_unitary_mesh,
+)
+from .wbg_and_awg import (
+    AWGConfig,
+    WaveguideBraggConfig,
+    simulate_awg_demux,
+    simulate_waveguide_bragg_grating,
+)
+from .pic_circuit_netlist import PICNetlistConfig, simulate_pic_circuit_netlist
+from .inverse_design_adjoint import AdjointInverseConfig, optimize_inverse_photonic_device
 from .fab_tolerance import (
     export_fab_bias_array_gds,
     run_fabrication_error_analysis,
@@ -1483,6 +1515,135 @@ def agent_2d_material_mrr(params: dict) -> dict:
         "E_fJ": m["energy_per_bit_fJ"],
         "ms": res["elapsed_ms"],
     }
+
+
+def agent_photodetector(params: dict) -> dict:
+    """First-principles Ge-on-Si Waveguide PD & O-E-O Photonic Neuron solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "waveguide_pd").lower().strip()
+    if analysis in ("oeo", "oeo_neuron", "neuron"):
+        valid = {f.name for f in fields(OEONeuronConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        res = simulate_oeo_neuron(OEONeuronConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "oeo_neuron", "shape": m["activation_shape"], "gain": m["max_differential_gain_dPout_dPin"], "cascadable": m["optical_cascadable"], "BW_GHz": m["neuron_bandwidth_GHz"], "E_fJ": m["energy_total_fJ_per_op"], "ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(WaveguidePDConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"ge_si_pd_{kw.get('pd_architecture', 'vertical_pin')}.gds")
+    res = simulate_waveguide_photodetector(WaveguidePDConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": "waveguide_pd", "arch": m["pd_architecture"], "R_AW": m["responsivity_A_per_W"], "QE_pct": m["quantum_efficiency_pct"], "alpha_dB_um": m["effective_modal_alpha_dB_per_um"], "f_3dB_GHz": m["f_3dB_OE_GHz"], "I_dark_nA": m["dark_current_nA"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_polarization_mdm(params: dict) -> dict:
+    """First-principles PSR Polarization Rotator, PBS & MDM Mode Multiplexer solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "psr").lower().strip()
+    if analysis in ("mdm", "mdm_te1", "mdm_te2", "pbs", "pbs_dc"):
+        valid = {f.name for f in fields(PBSMDMConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("mdm_te1", "mdm_te2", "pbs_dc") and "device_type" not in kw:
+            kw["device_type"] = analysis
+        elif analysis == "pbs" and "device_type" not in kw:
+            kw["device_type"] = "pbs_dc"
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"{kw.get('device_type', 'mdm_te1')}.gds")
+        res = simulate_pbs_or_mdm(PBSMDMConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": m["device_type"], "W_bus_um": m["phase_matched_w_bus_um"], "L_pi_um": m["coupling_length_L_pi_um"], "IL_dB": m["insertion_loss_dB"], "XT_dB": m["crosstalk_or_PER_dB"], "BW_1dB_nm": m["bw_1dB_nm"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(PSRConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / "psr_rotator.gds")
+    res = simulate_psr_rotator(PSRConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": "psr", "W_hyb_um": m["hybridization_width_um"], "dn_hyb": m["anticrossing_gap_dn"], "conv_pct": m["conversion_efficiency_pct"], "PER_dB": m["PER_dB"], "L99_um": m["L_taper_99pct_um"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_pcm_photonics(params: dict) -> dict:
+    """First-principles Non-Volatile PCM (Sb2Se3/Sb2S3/GSST/GST/VO2) MRR & SET/RESET Thermal Pulse FEM (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "pcm_mrr").lower().strip()
+    if analysis in ("pcm_pulse", "pulse", "thermal_pulse", "set_reset"):
+        valid = {f.name for f in fields(PCMThermalPulseConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        res = simulate_pcm_thermal_pulse(PCMThermalPulseConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "pcm_pulse", "pcm": m["pcm_material"], "R_th": m["R_th_PCM_K_per_mW"], "RST_T_K": m["RESET_T_peak_K"], "quench_K_ns": m["RESET_quench_rate_K_per_ns"], "RST_ok": m["RESET_amorphization_pass"], "SET_T_K": m["SET_T_peak_K"], "SET_X": m["SET_crystallized_fraction"], "SET_ok": m["SET_crystallization_pass"], "ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(PCMMRRConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"pcm_{kw.get('pcm_material', 'Sb2Se3')}_mrr.gds")
+    res = simulate_pcm_mrr_switch(PCMMRRConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": "pcm_mrr", "pcm": m["pcm_material"], "dn": m["delta_neff_a_to_c"], "FOM": m["modal_FOM_dn_over_dk"], "L_pi_um": m["L_pi_um"], "shift_nm": m["resonance_shift_a_to_c_nm"], "ER_dB": m["MRR_switching_ER_dB"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_photonic_computing(params: dict) -> dict:
+    """First-principles Photonic Neural Network Matrix Engine: MRR Weight Bank & Clements/Reck MZI Mesh (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "mrr_weight_bank").lower().strip()
+    if analysis in ("mzi_mesh", "clements", "reck", "unitary_mesh"):
+        valid = {f.name for f in fields(MZIMeshConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("clements", "reck") and "architecture" not in kw:
+            kw["architecture"] = analysis
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mzi_mesh_{kw.get('architecture', 'clements')}_N{kw.get('mesh_size_n', 6)}.gds")
+        res = simulate_mzi_unitary_mesh(MZIMeshConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "mzi_mesh", "arch": m["architecture"], "N": m["mesh_size_N"], "MZIs": m["num_MZIs"], "fro_err": m["ideal_decomposition_fro_err"], "fidelity": m["mean_unitary_fidelity"], "IL_dB": m["mean_insertion_loss_dB"], "TOPS": m["throughput_TOPS"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(MRRWeightBankConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    res = simulate_mrr_weight_bank(MRRWeightBankConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": "mrr_weight_bank", "shape": m["matrix_shape"], "xt_pct": m["nearest_neighbor_crosstalk_pct"], "ENOB_raw": m["ENOB_bits_uncompensated"], "ENOB_comp": m["ENOB_bits_precompensated"], "TOPS_mm2": m["compute_density_TOPS_per_mm2"], "fJ_MAC": m["energy_efficiency_fJ_per_MAC"], "ms": res["elapsed_ms"]}
+
+
+def agent_wbg_awg(params: dict) -> dict:
+    """First-principles Waveguide Bragg Grating (WBG) & Arrayed Waveguide Grating (AWG) solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "wbg").lower().strip()
+    if analysis in ("awg", "awg_demux"):
+        valid = {f.name for f in fields(AWGConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"awg_1x{kw.get('num_channels', 8)}.gds")
+        res = simulate_awg_demux(AWGConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "awg", "ch": m["num_channels"], "m_ord": m["diffraction_order_m"], "R_FPR_um": m["FPR_focal_length_um"], "FSR_nm": m["FSR_nm"], "IL_dB": m["center_channel_IL_dB"], "XT_dB": m["adjacent_crosstalk_dB"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(WaveguideBraggConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"wbg_{kw.get('grating_type', 'pi_phase_shifted')}.gds")
+    res = simulate_waveguide_bragg_grating(WaveguideBraggConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": "wbg", "type": m["grating_type"], "period_nm": m["bragg_period_nm"], "R_pct": m["peak_reflectivity_pct"], "SB_nm": m["stopband_3dB_nm"], "SLSR_dB": m["sidelobe_suppression_dB"], "pi_Q": m["pi_defect_Q"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_pic_netlist(params: dict) -> dict:
+    """Native License-Free Frequency-Domain Photonic IC S-Matrix Circuit Netlist Solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    valid = {f.name for f in fields(PICNetlistConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_snp") and not kw.get("export_snp_path"):
+        kw["export_snp_path"] = str(AGENT_OUT_DIR / f"pic_{kw.get('preset', 'ramzi_linearized')}.s4p")
+    res = simulate_pic_circuit_netlist(PICNetlistConfig(**kw))
+    m = res["metrics"]
+    return {"circuit": m["circuit_name"], "comps": m["num_components"], "ports": m["num_external_ports"], "passive": m["passivity_verified"], "min_IL_dB": m["min_insertion_loss_dB"], "max_ER_dB": m["max_extinction_ratio_dB"], "tau_ps": m["peak_group_delay_ps"], "snp": m["snp_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_inverse_adjoint(params: dict) -> dict:
+    """Native 2D-FDFD Exact Adjoint-Gradient Inverse Photonic Shape Optimizer (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    valid = {f.name for f in fields(AdjointInverseConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / "adjoint_inverse_y_branch.gds")
+    res = optimize_inverse_photonic_device(AdjointInverseConfig(**kw))
+    m = res["metrics"]
+    return {"device": m["device_type"], "T_init_pct": m["initial_transmission_pct"], "IL_init_dB": m["initial_IL_dB"], "T_opt_pct": m["optimized_transmission_pct"], "IL_opt_dB": m["optimized_IL_dB"], "gain_dB": m["IL_improvement_dB"], "evals": m["adjoint_evaluations"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
 
 
 

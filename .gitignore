@@ -28,6 +28,7 @@ benchmarks/outputs/*
 !benchmarks/outputs/nist_pylle_validation.json
 !benchmarks/outputs/frontier_comsol_validation.json
 !benchmarks/outputs/frontier_lumerical_validation.json
+!benchmarks/outputs/v311_commercial_validation.json
 !benchmarks/outputs/suite1_eigenmode_3way.csv
 !benchmarks/outputs/suite2_coupler_3dfdtd_gpu.csv
 !benchmarks/outputs/suite3a_dc_supermodes_3way.csv

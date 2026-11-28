@@ -1942,6 +1942,18 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
                 <option value="sbs">🌊 2D Solid-Mechanics Forward &amp; Backward SBS Brillouin Gain</option>
                 <option value="nanoantenna_tcmt">📡 Nanoantenna / Metasurface TCMT (MIM / Fano / SEIRA / EP)</option>
                 <option value="twod_material">🧪 2D Materials on MRR (Graphene Kubo · WS₂/MoS₂ · hBN · BP)</option>
+                <option value="waveguide_pd">⚡ On-Chip Ge-on-Si PIN / MUTC Waveguide Photodetector</option>
+                <option value="oeo_neuron">🧠 On-Chip O-E-O Photodetector → MRM Nonlinear Neuron</option>
+                <option value="psr">🔄 Adiabatic Polarization Splitter-Rotator (PSR: TM₀↔TE₁)</option>
+                <option value="mdm_te1">🔀 Mode-Division Multiplexer &amp; PBS (MDM TE₀↔TE₁/TE₂)</option>
+                <option value="pcm_mrr">💾 Non-Volatile PCM MRR Switch (Sb₂Se₃ / GSST / GST / VO₂)</option>
+                <option value="pcm_pulse">🔥 PCM 2D Transient Thermal SET/RESET Pulse FEM</option>
+                <option value="mrr_weight_bank">🧮 Photonic Neural Net: N×M MRR Weight Bank + Crosstalk</option>
+                <option value="mzi_mesh">🕸️ Coherent Unitary MZI Mesh (Exact Clements / Reck)</option>
+                <option value="wbg">📶 Waveguide Bragg Grating (π-Shifted / Apodized / Chirped)</option>
+                <option value="awg">🌈 Arrayed Waveguide Grating (AWG 1×8 / 1×16 WDM Demux)</option>
+                <option value="pic_netlist">🔌 Native PIC S-Matrix Circuit Netlist (License-Free INTERCONNECT)</option>
+                <option value="inverse_adjoint">🧬 2D-FDFD Exact Adjoint Inverse-Design Y-Branch Optimizer</option>
               </select>
             </div>
             <div class="form-row" style="margin:0;">
@@ -6787,6 +6799,66 @@ function onFrontierModeChange(skipRun) {
     setOpts([['Graphene_SLG', 'Graphene SLG (Exact Kubo)'], ['Graphene_DLG', 'Graphene DLG Capacitor'], ['WS2', 'Monolayer WS₂ Exciton Gating'], ['MoS2', 'Monolayer MoS₂'], ['WSe2', 'Monolayer WSe₂'], ['hBN', 'Mid-IR Hyperbolic hBN'], ['Black_Phosphorus', 'Black Phosphorus (Mid-IR)']]);
     lblP1.textContent = 'Wavelength [nm]'; p1.value = '1550';
     lblP2.textContent = 'Spacer t_ox [nm]'; p2.value = '10';
+  } else if (mode === 'waveguide_pd') {
+    lblSub.textContent = 'PD Architecture';
+    setOpts([['vertical_pin', 'Vertical Ge-on-Si PIN'], ['lateral_pin', 'Lateral Ge-on-Si PIN'], ['mutc', 'High-Speed MUTC PD']]);
+    lblP1.textContent = 'Ge Length [µm]'; p1.value = '15';
+    lblP2.textContent = 'Reverse Bias [V]'; p2.value = '2.0';
+  } else if (mode === 'oeo_neuron') {
+    lblSub.textContent = 'Activation Function';
+    setOpts([['sigmoid', 'Sigmoid (Thru-Port MRM)'], ['relu', 'Soft-ReLU'], ['rbf_gaussian', 'Radial Basis (Drop-Port)']]);
+    lblP1.textContent = 'Load R_L [Ω]'; p1.value = '2000';
+    lblP2.textContent = 'Probe Power [mW]'; p2.value = '2.0';
+  } else if (mode === 'psr') {
+    lblSub.textContent = 'Cladding Asymmetry';
+    setOpts([['Air', 'Air-Clad Strip (Dai OE 2011)'], ['SiO2', 'SiO₂-Clad Bi-Level Rib']]);
+    lblP1.textContent = 'Taper L [µm]'; p1.value = '45';
+    lblP2.textContent = 'Slab H [µm]'; p2.value = '0.0';
+  } else if (mode === 'mdm_te1') {
+    lblSub.textContent = 'Device Type';
+    setOpts([['mdm_te1', 'MDM TE₀ ↔ TE₁'], ['mdm_te2', 'MDM TE₀ ↔ TE₂'], ['pbs_dc', 'Directional Coupler PBS']]);
+    lblP1.textContent = 'Access W [µm]'; p1.value = '0.42';
+    lblP2.textContent = 'Gap [µm]'; p2.value = '0.20';
+  } else if (mode === 'pcm_mrr') {
+    lblSub.textContent = 'PCM Material';
+    setOpts([['Sb2Se3', 'Sb₂Se₃ (Low-Loss Phase-Only)'], ['Sb2S3', 'Sb₂S₃ (Wide-Bandgap)'], ['GSST', 'GSST (Ge₂Sb₂Se₄Te₁)'], ['GST', 'GST (Ge₂Sb₂Te₅)'], ['VO2', 'VO₂ (Mott IMT 68°C)']]);
+    lblP1.textContent = 'PCM Thick [nm]'; p1.value = '30';
+    lblP2.textContent = 'PCM Arc L [µm]'; p2.value = '8.0';
+  } else if (mode === 'pcm_pulse') {
+    lblSub.textContent = 'PCM & Heater';
+    setOpts([['Sb2Se3', 'Sb₂Se₃ (Doped-Si PIN)'], ['GSST', 'GSST (Ge₂Sb₂Se₄Te₁)'], ['GST', 'GST (Ge₂Sb₂Te₅)']]);
+    lblP1.textContent = 'RESET Power [mW]'; p1.value = '48';
+    lblP2.textContent = 'SET Power [mW]'; p2.value = '16.5';
+  } else if (mode === 'mrr_weight_bank') {
+    lblSub.textContent = 'Isolation Mode';
+    setOpts([['precomp', 'Standard + H_th⁻¹ Pre-Comp'], ['trench', 'Deep Air-Trench + Pre-Comp'], ['raw', 'Uncompensated Crosstalk']]);
+    lblP1.textContent = 'Matrix Size N'; p1.value = '4';
+    lblP2.textContent = 'Ring Pitch [µm]'; p2.value = '35';
+  } else if (mode === 'mzi_mesh') {
+    lblSub.textContent = 'Unitary Architecture';
+    setOpts([['clements', 'Clements Rectangular (Depth N)'], ['reck', 'Reck Triangular (Depth 2N-3)']]);
+    lblP1.textContent = 'Matrix Size N'; p1.value = '6';
+    lblP2.textContent = 'IL / MZI [dB]'; p2.value = '0.25';
+  } else if (mode === 'wbg') {
+    lblSub.textContent = 'Grating Profile';
+    setOpts([['pi_phase_shifted', 'π-Phase-Shifted Cavity'], ['gaussian_apodized', 'Gaussian Apodized'], ['uniform', 'Uniform Mirror'], ['chirped', 'Linearly Chirped Dispersion']]);
+    lblP1.textContent = 'Corrugation dW [nm]'; p1.value = '40';
+    lblP2.textContent = 'Periods N'; p2.value = '120';
+  } else if (mode === 'awg') {
+    lblSub.textContent = 'Platform';
+    setOpts([['Si', '220 nm SOI AWG'], ['Si3N4', '400 nm Si₃N₄ AWG']]);
+    lblP1.textContent = 'Channels N_ch'; p1.value = '8';
+    lblP2.textContent = 'Spacing [GHz]'; p2.value = '200';
+  } else if (mode === 'pic_netlist') {
+    lblSub.textContent = 'Circuit Netlist Preset';
+    setOpts([['ramzi_linearized', 'RAMZI (Ring-Assisted MZI)'], ['mzi_filter', 'Unbalanced 2×2 MZI Filter'], ['wbg_fabry_perot', 'Dual-WBG Fabry-Perot Cavity'], ['dual_ring_vernier', 'Dual-Ring Vernier Add-Drop']]);
+    lblP1.textContent = 'λ_start [nm]'; p1.value = '1540';
+    lblP2.textContent = 'λ_stop [nm]'; p2.value = '1560';
+  } else if (mode === 'inverse_adjoint') {
+    lblSub.textContent = 'Target Device';
+    setOpts([['compact_y_branch', 'Ultra-Compact 1×2 Y-Branch (2D-FDFD Adjoint)']]);
+    lblP1.textContent = 'Footprint L [µm]'; p1.value = '2.4';
+    lblP2.textContent = 'Max Iters'; p2.value = '24';
   } else {
     lblSub.textContent = 'Nanoantenna Mode';
     setOpts([['seira_molecular', 'SEIRA Molecular (Au MIM + PMMA 1730 cm⁻¹)'], ['mim_absorber', '1-Port MIM Perfect Absorber'], ['fano_eit_qbic', '2-Mode Fano / EIT / q-BIC Metasurface'], ['metasurface_ep', 'Exceptional Point Coupled Metasurface']]);
@@ -6857,6 +6929,32 @@ async function runFrontierPhysicsUI() {
     else { body.material_2d = sub1; }
     body.wavelength_nm = v1; body.spacer_ox_nm = v2;
     if (sub1 === 'hBN' && v1 < 4000) { body.wavelength_nm = 6800; body.core_material = 'Ge'; body.clad_material = 'CaF2'; body.top_clad_material = 'Air'; body.film_height_um = 1.2; body.ring_width_um = 2.0; body.ring_radius_um = 60.0; }
+  } else if (mode === 'waveguide_pd') {
+    body.pd_architecture = sub1; body.ge_length_um = v1; body.reverse_bias_v = v2;
+  } else if (mode === 'oeo_neuron') {
+    body.activation_shape = sub1; body.load_resistance_ohm = v1; body.probe_power_mw = v2;
+  } else if (mode === 'psr') {
+    body.top_clad_material = sub1; body.taper_length_um = v1; body.slab_height_um = sub1 === 'SiO2' ? Math.max(v2, 0.07) : v2;
+  } else if (mode === 'mdm_te1') {
+    body.device_type = sub1; body.w_access_um = v1; body.coupler_gap_um = v2;
+  } else if (mode === 'pcm_mrr') {
+    body.pcm_material = sub1; body.pcm_thickness_nm = v1; body.pcm_length_um = v2;
+  } else if (mode === 'pcm_pulse') {
+    body.pcm_material = sub1; body.reset_power_mw = v1; body.set_power_mw = v2;
+  } else if (mode === 'mrr_weight_bank') {
+    body.num_rows = Math.max(2, Math.round(v1)); body.num_cols = Math.max(2, Math.round(v1)); body.ring_pitch_um = v2;
+    body.deep_trench_isolation = (sub1 === 'trench'); body.precompensate_crosstalk = (sub1 !== 'raw');
+  } else if (mode === 'mzi_mesh') {
+    body.architecture = sub1; body.mesh_size_n = Math.max(3, Math.round(v1)); body.il_per_mzi_db = v2;
+  } else if (mode === 'wbg') {
+    body.grating_type = sub1; body.corrugation_dw_nm = v1; body.num_periods = Math.max(20, Math.round(v2));
+  } else if (mode === 'awg') {
+    body.core_material = sub1; body.film_height_um = sub1 === 'Si3N4' ? 0.40 : 0.22; body.array_wg_width_um = sub1 === 'Si3N4' ? 1.00 : 0.50;
+    body.num_channels = Math.max(4, Math.round(v1)); body.channel_spacing_ghz = v2;
+  } else if (mode === 'pic_netlist') {
+    body.preset = sub1; body.wavelength_start_nm = v1; body.wavelength_stop_nm = v2;
+  } else if (mode === 'inverse_adjoint') {
+    body.device_type = sub1; body.design_length_um = v1; body.max_iterations = Math.max(6, Math.round(v2));
   }
 
   try {

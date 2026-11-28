@@ -32,6 +32,13 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **Piezo SAW/Lamb Acousto-Optic MRR & 2D Solid-Mechanics Forward/Backward SBS** | `uv run microring agent saw-sbs --analysis saw --mat AlN --idt-um 2.0` |
 | **Nanoantenna / Metasurface TCMT (MIM, Fano/qBIC, SEIRA, EP)** | `uv run microring agent nanoantenna --regime seira_molecular --analyte PMMA` |
 | **2D Materials on MRR (Graphene SLG/DLG Kubo, WS2/MoS2/WSe2/MoSe2 TMDs, hBN, BP)** | `uv run microring agent twod-material --mat-2d Graphene --cap SLG --spacer-nm 10` |
+| **Ge-on-Si Waveguide Photodetector (PIN/MUTC) & O-E-O Photonic Neuron** | `uv run microring agent photodetector --analysis waveguide_pd --arch vertical_pin --len 15 --gds` |
+| **Polarization Splitter-Rotator (PSR), PBS & Mode-Division Multiplexer (MDM)** | `uv run microring agent polarization-mdm --analysis mdm_te1 --gap 0.20 --gds` |
+| **Non-Volatile PCM (Sb2Se3/GSST/GST/VO2) MRR & Transient SET/RESET Pulse FEM** | `uv run microring agent pcm-photonics --analysis pcm_mrr --pcm Sb2Se3 --gds` |
+| **PNN Matrix Engine (N×M MRR Weight Bank & Exact Clements/Reck MZI Mesh)** | `uv run microring agent photonic-computing --analysis clements --n 6 --gds` |
+| **Waveguide Bragg Grating (WBG) & Rowland-Circle AWG WDM Demux** | `uv run microring agent wbg-awg --analysis awg --ch 8 --gds` |
+| **Native License-Free PIC S-Matrix Circuit Netlist Simulator (+ .sNp)** | `uv run microring agent pic-netlist --preset ramzi_linearized --snp` |
+| **2D-FDFD Exact Maxwell Adjoint-Gradient Inverse Shape Optimizer (+ GDS)** | `uv run microring agent inverse-adjoint --len 2.4 --iters 30 --gds` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

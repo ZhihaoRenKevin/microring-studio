@@ -1,0 +1,117 @@
+{
+  "solvers": [
+    "COMSOL Multiphysics 6.4.0.293 (Wave Optics ewfd + Heat Transfer ht strict BDF)",
+    "Ansys Lumerical 2026 R1 (3D FDTD on NVIDIA RTX 5090 GPU)"
+  ],
+  "host": "Windows-AMD64",
+  "total_wall_time_s": 238.74,
+  "comsol_64_suites": {
+    "ge_on_si_pd": {
+      "comsol_64": {
+        "suite": "ge_pd",
+        "neff_real": 4.017103282441483,
+        "keff_imag": 0.06386000401563315,
+        "alpha_dB_per_um": 2.2484923725206416
+      },
+      "microring_2dfem": {
+        "neff_real": 4.01709,
+        "keff_imag": 0.063859,
+        "alpha_dB_per_um": 2.2484
+      },
+      "delta_neff": -1e-05,
+      "rel_err_alpha_pct": 0.0
+    },
+    "psr_mode_hybridization": {
+      "comsol_64": {
+        "suite": "psr_hyb",
+        "neff_TE0": 2.5807745429561995,
+        "neff_hyb_hi": 1.7242233843996397,
+        "neff_hyb_lo": 1.620600777894546,
+        "dn_hyb": 0.1036226065050938
+      },
+      "microring_2dfem": {
+        "hybridization_width_um": 0.6575,
+        "dn_hyb": 0.10389
+      },
+      "rel_err_dn_hyb_pct": 0.26
+    },
+    "pcm_sb2se3": {
+      "comsol_64": {
+        "suite": "pcm_sb2se3",
+        "neff_a": 2.4996981538452623,
+        "neff_c": 2.568400479434735,
+        "delta_neff": 0.06870232558947276
+      },
+      "microring_2dfem": {
+        "neff_a": 2.49973,
+        "neff_c": 2.56845,
+        "delta_neff": 0.06872
+      },
+      "rel_err_delta_neff_pct": 0.03
+    },
+    "pcm_gsst": {
+      "comsol_64": {
+        "suite": "pcm_gsst",
+        "neff_a": 2.5027383438709903,
+        "neff_c": 2.7104625000490987,
+        "delta_neff": 0.20772415617810847,
+        "alpha_c_dB_per_um": 2.259333857292294
+      },
+      "microring_2dfem": {
+        "neff_a": 2.50278,
+        "neff_c": 2.71051,
+        "delta_neff": 0.20773,
+        "alpha_c_dB_per_um": 2.2591
+      },
+      "rel_err_delta_neff_pct": 0.0,
+      "rel_err_alpha_c_pct": 0.01
+    },
+    "pcm_reset_transient_ht": {
+      "comsol_64_T_peak_K": 964.53,
+      "microring_fem_T_peak_K": 937.1,
+      "rel_err_dT_pct": 4.13
+    }
+  },
+  "lumerical_3d_fdtd_suites": {
+    "adjoint_y_branch_3d_fdtd": {
+      "microring_2dfdfd_adjoint": {
+        "initial_IL_dB": 2.133,
+        "optimized_IL_dB": 0.047,
+        "IL_improvement_dB": 2.086
+      },
+      "lumerical_3d_fdtd_gdsimport": {
+        "linear_ref": {
+          "T_total_3d_fdtd_pct": 95.52,
+          "IL_3d_fdtd_dB": 0.199,
+          "wall_time_s": 5.88
+        },
+        "adjoint_opt": {
+          "T_total_3d_fdtd_pct": 97.78,
+          "IL_3d_fdtd_dB": 0.098,
+          "wall_time_s": 6.05
+        }
+      },
+      "3d_fdtd_IL_improvement_dB": 0.101
+    },
+    "mdm_te0_to_te1_3d_fdtd": {
+      "microring_2dfem": {
+        "device_type": "mdm_te1",
+        "w_access_um": 0.42,
+        "phase_matched_w_bus_um": 0.8744,
+        "neff_phase_match": 2.28442,
+        "supermode_dn_eff": 0.03151,
+        "coupling_length_L_pi_um": 24.595,
+        "insertion_loss_dB": -0.0,
+        "crosstalk_or_PER_dB": -31.04,
+        "bw_1dB_nm": 95.83,
+        "gds_path": null
+      },
+      "lumerical_3d_fdtd": {
+        "T_bus_TE1_conversion_pct": 99.04,
+        "IL_TE1_dB": 0.042,
+        "T_bus_TE0_crosstalk_dB": -35.68,
+        "wall_time_s": 16.58
+      }
+    }
+  }
+}
