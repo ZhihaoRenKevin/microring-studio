@@ -348,6 +348,10 @@ class EOMElectrodeConfig:
     custom_eps_rf_c: float | None = None    # c-axis RF relative permittivity eps_33
     custom_tan_delta_rf: float | None = None  # microwave loss tangent tan(delta)
     metal_rms_roughness_nm: float | None = None  # unit: nm (None -> catalog electroplated RMS roughness; 0 -> smooth conductor)
+    # Optional cleanroom adhesion seed layer & GSG probe-pad parasitics (default 0 -> ideal bare waveguide)
+    adhesion_layer_material: str = "None"     # "None" | "Ti" | "Cr" (bottom metal-dielectric seed layer)
+    adhesion_layer_nm: float = 0.0            # unit: nm (e.g. 10-30 nm Ti/Cr adhesion layer under Au/Cu)
+    probe_pad_capacitance_ff: float = 0.0     # unit: fF (per-port input/output GSG pad shunt parasitic capacitance)
 
 
 # ==============================================================================
@@ -1866,6 +1870,7 @@ def _solve_optical_mode_and_metal_loss(
     gap_eff_um: float,
     duty_eo: float = 1.0,
     rot_state: dict | None = None,
+    pb_res_cache: dict | None = None,
 ) -> dict:
     """Solve 2D Vector Maxwell optical mode (`n_eff`, `n_g`, coupled `V_pi*L`, & metal absorption)."""
     wl0_nm = float(cfg.wavelength_nm)
@@ -1990,31 +1995,34 @@ def _solve_optical_mode_and_metal_loss(
 
     if cfg.core_material == "Si" and not _has_custom_eo:
         # Exact 2D Nonlinear Poisson-Boltzmann FEM Silicon Lateral PN Depletion Modulator around operating bias V_dc
-        from .multiphysics_tcad import PNDopingTCADConfig, solve_2d_pn_poisson_boltzmann_fem
-
         v_dc_mag = abs(min(cfg.dc_reverse_bias_v, 0.0))
-        v_bias_0 = -v_dc_mag
-        v_bias_1 = -(v_dc_mag + 1.0)
-        d_cont_c = max(float(cfg.pn_contact_offset_um), 0.5 * cfg.waveguide_width_um + 0.25)
-        pb_cfg = PNDopingTCADConfig(
-            junction_type="lateral_pn",
-            wavelength_nm=wl0_nm,
-            polarization=cfg.polarization,
-            film_height_um=max(cfg.film_height_um, 0.15),
-            slab_height_um=max(cfg.slab_height_um, 0.07),
-            waveguide_width_um=cfg.waveguide_width_um,
-            sidewall_deg=cfg.sidewall_deg,
-            na_core_cm3=max(cfg.na_p_cm3, 1e16),
-            nd_core_cm3=max(cfg.nd_n_cm3, 1e16),
-            na_inter_cm3=max(cfg.na_p_cm3, 1e16),
-            nd_inter_cm3=max(cfg.nd_n_cm3, 1e16),
-            n_heavy_contact_cm3=5.0e19,
-            pn_offset_nm=0.0,
-            inter_implant_offset_um=max(0.5 * cfg.waveguide_width_um + 0.12, 0.65 * d_cont_c),
-            heavy_contact_offset_um=d_cont_c,
-            bias_voltages_v=(0.0, v_bias_0, v_bias_1) if v_dc_mag > 1e-6 else (0.0, -1.0),
-        )
-        pb_res = solve_2d_pn_poisson_boltzmann_fem(pb_cfg, mesh_core_um=0.016, compute_capacitance_dv=True)
+        if pb_res_cache is not None:
+            pb_res = pb_res_cache
+        else:
+            from .multiphysics_tcad import PNDopingTCADConfig, solve_2d_pn_poisson_boltzmann_fem
+
+            v_bias_0 = -v_dc_mag
+            v_bias_1 = -(v_dc_mag + 1.0)
+            d_cont_c = max(float(cfg.pn_contact_offset_um), 0.5 * cfg.waveguide_width_um + 0.25)
+            pb_cfg = PNDopingTCADConfig(
+                junction_type="lateral_pn",
+                wavelength_nm=wl0_nm,
+                polarization=cfg.polarization,
+                film_height_um=max(cfg.film_height_um, 0.15),
+                slab_height_um=max(cfg.slab_height_um, 0.07),
+                waveguide_width_um=cfg.waveguide_width_um,
+                sidewall_deg=cfg.sidewall_deg,
+                na_core_cm3=max(cfg.na_p_cm3, 1e16),
+                nd_core_cm3=max(cfg.nd_n_cm3, 1e16),
+                na_inter_cm3=max(cfg.na_p_cm3, 1e16),
+                nd_inter_cm3=max(cfg.nd_n_cm3, 1e16),
+                n_heavy_contact_cm3=5.0e19,
+                pn_offset_nm=0.0,
+                inter_implant_offset_um=max(0.5 * cfg.waveguide_width_um + 0.12, 0.65 * d_cont_c),
+                heavy_contact_offset_um=d_cont_c,
+                bias_voltages_v=(0.0, v_bias_0, v_bias_1) if v_dc_mag > 1e-6 else (0.0, -1.0),
+            )
+            pb_res = solve_2d_pn_poisson_boltzmann_fem(pb_cfg, mesh_core_um=0.016, compute_capacitance_dv=True)
         pb_sols = pb_res["bias_solutions"]
         pb_fns = pb_res["perturbation_fns"]
         i_dc = 1 if v_dc_mag > 1e-6 else 0
@@ -2333,16 +2341,36 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         nrf = C0_M_PER_S * math.sqrt(cs["l_ext_h_per_m"] * cs["c_diel_f_per_m"])
         return z0, nrf, cs
 
-    # Pre-estimate Si PN junction capacitance if core_material == "Si" so auto-50-Ohm includes PN loading!
+    # Pre-solve exact 2D Nonlinear Poisson-Boltzmann FEM Silicon PN junction up front so auto-50-Ohm
+    # width synthesis uses exact 2D junction capacitance C_j(V_dc) (cached and reused in optical solve).
     c_pn_est_f_m = 0.0
+    pb_res_cache: dict | None = None
     if cfg.core_material == "Si" and not _has_custom_eo:
-        q_e = 1.602176634e-19
-        eps_si = EPS0_F_PER_M * 11.7
-        na_m3 = max(cfg.na_p_cm3, 1e16) * 1e6
-        nd_m3 = max(cfg.nd_n_cm3, 1e16) * 1e6
-        v_tot = 0.72 + abs(min(cfg.dc_reverse_bias_v, 0.0))
-        w_dep_m = math.sqrt(2.0 * eps_si * v_tot * (na_m3 + nd_m3) / (q_e * na_m3 * nd_m3))
-        cj_1 = eps_si * (max(cfg.film_height_um, 0.15) * 1e-6) / max(w_dep_m, 25e-9)
+        from .multiphysics_tcad import PNDopingTCADConfig, solve_2d_pn_poisson_boltzmann_fem
+
+        v_dc_mag_pre = abs(min(cfg.dc_reverse_bias_v, 0.0))
+        d_cont_pre = max(float(cfg.pn_contact_offset_um), 0.5 * cfg.waveguide_width_um + 0.25)
+        pb_cfg_pre = PNDopingTCADConfig(
+            junction_type="lateral_pn",
+            wavelength_nm=float(cfg.wavelength_nm),
+            polarization=cfg.polarization,
+            film_height_um=max(cfg.film_height_um, 0.15),
+            slab_height_um=max(cfg.slab_height_um, 0.07),
+            waveguide_width_um=cfg.waveguide_width_um,
+            sidewall_deg=cfg.sidewall_deg,
+            na_core_cm3=max(cfg.na_p_cm3, 1e16),
+            nd_core_cm3=max(cfg.nd_n_cm3, 1e16),
+            na_inter_cm3=max(cfg.na_p_cm3, 1e16),
+            nd_inter_cm3=max(cfg.nd_n_cm3, 1e16),
+            n_heavy_contact_cm3=5.0e19,
+            pn_offset_nm=0.0,
+            inter_implant_offset_um=max(0.5 * cfg.waveguide_width_um + 0.12, 0.65 * d_cont_pre),
+            heavy_contact_offset_um=d_cont_pre,
+            bias_voltages_v=(0.0, -v_dc_mag_pre, -(v_dc_mag_pre + 1.0)) if v_dc_mag_pre > 1e-6 else (0.0, -1.0),
+        )
+        pb_res_cache = solve_2d_pn_poisson_boltzmann_fem(pb_cfg_pre, mesh_core_um=0.016, compute_capacitance_dv=True)
+        i_dc_pre = 1 if v_dc_mag_pre > 1e-6 else 0
+        cj_1 = float(pb_res_cache["bias_solutions"][i_dc_pre]["cj_ff_per_um"]) * 1e-9
         c_pn_est_f_m = 0.5 * cj_1 if elec_top in ("gsg_cpw", "t_rail_cpw", "lumped_ring_gsg") else cj_1
 
     # Auto-synthesize signal_width_um (and t_rail_length_um for t_rail_cpw) for Z_0 -> target_impedance_ohm
@@ -2554,6 +2582,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         gap_eff_um=g_inner_um,
         duty_eo=duty_eo,
         rot_state=rot_state,
+        pb_res_cache=pb_res_cache,
     )
 
     # Frequency-domain Telegrapher + Periodic Bloch-Floquet + Cherenkov Radiation & Bidirectional EO S21(f)
@@ -2622,13 +2651,36 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         u_safe = np.where(small, 1e-6 + 0j, u_c)
         return np.where(small, 1.0 + 0.5 * u_c, (np.exp(u_safe) - 1.0) / u_safe)
 
+    _adh_rho_map = {"Ti": 4.20e-7, "Cr": 1.29e-7, "TiW": 6.50e-7, "Ta": 1.31e-7}
+    adh_mat = str(getattr(cfg, "adhesion_layer_material", "None") or "None").strip()
+    t_adh_m = max(float(getattr(cfg, "adhesion_layer_nm", 0.0)), 0.0) * 1e-9
+    rho_adh_m = _adh_rho_map.get(adh_mat, 0.0)
+    use_adhesion = (t_adh_m > 0.0) and (rho_adh_m > 0.0)
+    eps_eff_line = max(c_diel_m / max(float(rf_cs.get("c_vac_f_per_m", c_diel_m)), 1e-15), 1.0)
+    eps_eff_sub = max(2.0 * eps_eff_line - 1.0, 1.0)
+    eta_bot_adh = 0.95 if elec_top == "vertical_microstrip" else (eps_eff_sub / (eps_eff_sub + 1.0))
+    c_pad_f = max(float(getattr(cfg, "probe_pad_capacitance_ff", 0.0)), 0.0) * 1e-15
+
     def _eval_eo_raw(fg_ghz: np.ndarray) -> dict[str, np.ndarray]:
         fg_hz = fg_ghz * 1e9
         om = 2.0 * math.pi * fg_hz
         # Hammerstad-Jensen (IEEE MTT-S 1980) conductor surface-roughness skin-resistance enhancement K_rough(f)
         delta_skin_m = np.sqrt(rho_m / np.maximum(math.pi * fg_hz * MU0_H_PER_M, 1.0))
         k_rough_f = 1.0 + (2.0 / math.pi) * np.arctan(1.4 * ((rq_rough_m / np.maximum(delta_skin_m, 1e-9)) ** 2))
-        rs_f = np.sqrt(math.pi * fg_hz * MU0_H_PER_M * rho_m) * k_rough_f
+        rs_bulk = np.sqrt(math.pi * fg_hz * MU0_H_PER_M * rho_m)
+        if use_adhesion:
+            # Exact 1D two-layer Maxwell surface impedance Z_s,bot through bottom Ti/Cr adhesion seed layer
+            delta_adh_m = np.sqrt(rho_adh_m / np.maximum(math.pi * fg_hz * MU0_H_PER_M, 1.0))
+            rs_adh = np.sqrt(math.pi * fg_hz * MU0_H_PER_M * rho_adh_m)
+            eta_adh_c = (1.0 + 1j) * rs_adh
+            zs_bulk_c = (1.0 + 1j) * rs_bulk
+            th_adh = np.tanh((1.0 + 1j) * (t_adh_m / np.maximum(delta_adh_m, 1e-12)))
+            zs_bot_c = eta_adh_c * (zs_bulk_c + eta_adh_c * th_adh) / (eta_adh_c + zs_bulk_c * th_adh)
+            rs_f = ((1.0 - eta_bot_adh) * rs_bulk + eta_bot_adh * np.real(zs_bot_c)) * k_rough_f
+            dl_int_adh_m = eta_bot_adh * (np.imag(zs_bot_c) - rs_bulk) * dl_dn / np.maximum(om * MU0_H_PER_M, 1.0)
+        else:
+            rs_f = rs_bulk * k_rough_f
+            dl_int_adh_m = 0.0
         rhf_m = (rs_f / MU0_H_PER_M) * dl_dn
         # Exact 1D finite-thickness conducting-slab skin transition:
         #   R(f)   uses xi_R    = R_hf / R_dc   -> exact R_dc as f->0 and R_hf as f->inf
@@ -2651,7 +2703,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             (1.0 / np.maximum(xi_p, 1e-12)) + 1j * (2.0 / 3.0) * xi_p,
             (1.0 + 1j) * ((1.0 + ez_p) / np.where(small_p, 1.0, 1.0 - ez_p)),
         )
-        lint_m = (rhf_m * np.imag(f_p_c)) / np.maximum(om, 1.0)
+        lint_m = (rhf_m * np.imag(f_p_c)) / np.maximum(om, 1.0) + dl_int_adh_m
         ltot_m = l_ext_m + lint_m
 
         # Frequency-dependent polar-phonon / ferroelectric dielectric loss tangent tan_delta(f)
@@ -2739,11 +2791,20 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         else:
             alpha_rad_np_m = np.zeros_like(fg_hz)
 
-        gam_ld = np.ones_like(zc_c) if is_open else (zl_val - zc_c) / (zl_val + zc_c)
+        if c_pad_f > 0.0:
+            y_pad = 1j * om * c_pad_f
+            if is_open:
+                gam_ld = (1.0 - y_pad * zc_c) / (1.0 + y_pad * zc_c)
+            else:
+                zl_eff = zl_val / (1.0 + y_pad * zl_val)
+                gam_ld = (zl_eff - zc_c) / (zl_eff + zc_c)
+        else:
+            gam_ld = np.ones_like(zc_c) if is_open else (zl_val - zc_c) / (zl_val + zc_c)
         em1 = np.exp(-np.minimum(np.real(gam_rf) * l_m, 50.0) - 1j * np.imag(gam_rf) * l_m)
         em2 = em1 ** 2
         d_zin = 1.0 - gam_ld * em2
-        zin_c = zc_c * (1.0 + gam_ld * em2) / np.where(np.abs(d_zin) < 1e-15, 1e-15 + 0j, d_zin)
+        zin_line = zc_c * (1.0 + gam_ld * em2) / np.where(np.abs(d_zin) < 1e-15, 1e-15 + 0j, d_zin)
+        zin_c = zin_line / (1.0 + (1j * om * c_pad_f) * zin_line) if c_pad_f > 0.0 else zin_line
         s11_c = (zin_c - zs) / (zin_c + zs)
 
         if is_open:
@@ -2752,7 +2813,14 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
             ep1 = np.exp(np.minimum(np.real(gam_rf) * l_m, 40.0) + 1j * np.imag(gam_rf) * l_m)
             ch_v = 0.5 * (ep1 + em1)
             sh_v = 0.5 * (ep1 - em1)
-            den_a = ch_v * zl_val + zc_c * sh_v + zs * (sh_v * zl_val / zc_c + ch_v)
+            if c_pad_f > 0.0:
+                y_pad = 1j * om * c_pad_f
+                a_t = ch_v + zc_c * sh_v * y_pad
+                b_t = zc_c * sh_v
+                c_t = (sh_v / zc_c) + 2.0 * ch_v * y_pad + zc_c * sh_v * (y_pad ** 2)
+                den_a = a_t * zl_val + b_t + c_t * zs * zl_val + a_t * zs
+            else:
+                den_a = ch_v * zl_val + zc_c * sh_v + zs * (sh_v * zl_val / zc_c + ch_v)
             s21_rf_c = 2.0 * math.sqrt(zs * zl_val) / np.where(np.abs(den_a) < 1e-18, 1e-18 + 0j, den_a)
             s21_rf_d = 20.0 * np.log10(np.clip(np.abs(s21_rf_c), 1e-6, 1.0))
 
@@ -2883,7 +2951,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
 
     c_line_pf_cm = float(c_tot_f_m[idx_10g]) * 1e10
     l_line_nh_cm = float(l_tot_h_m[idx_10g]) * 1e7
-    c_device_ff = float(c_tot_f_m[idx_10g]) * l_m * 1e15 + 12.0
+    c_device_ff = float(c_tot_f_m[idx_10g]) * l_m * 1e15 + (2.0 * float(cfg.probe_pad_capacitance_ff) if c_pad_f > 0.0 else 12.0)
     v_pi_val = float(opt["v_pi_v"])
     e_bit_fj = 0.25 * (c_device_ff * 1e-15) * (min(v_pi_val, 8.0) ** 2) * 1e15
 

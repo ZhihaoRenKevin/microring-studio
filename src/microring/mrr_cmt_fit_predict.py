@@ -384,10 +384,15 @@ def fit_single_resonance_cmt(
     elif model_type == "auto":
         res_lor = _run_lorentzian()
         res_dbl = _run_doublet()
-        # Require a meaningful BIC improvement (> 10) and non-trivial splitting to prefer doublet
+        res_fano = _run_fano()
+        # Require strong BIC improvement and genuine physical signature before selecting higher-DOF models
         mu_fit = float(res_dbl.best_values["mu_split_ghz"])
         kt_dbl = float(res_dbl.best_values["kappa_int_ghz"] + res_dbl.best_values["kappa_ext_ghz"])
-        if (res_lor.bic - res_dbl.bic) > 10.0 and mu_fit > 0.12 * kt_dbl:
+        fano_asym = abs(math.sin(float(res_fano.best_values["fano_phase_rad"]))) * float(res_fano.best_values["bg_refl_amp"])
+        if (res_lor.bic - res_fano.bic) > 14.0 and (res_dbl.bic - res_fano.bic) > 6.0 and fano_asym > 0.04:
+            chosen_name = "fano"
+            res = res_fano
+        elif (res_lor.bic - res_dbl.bic) > 10.0 and mu_fit > 0.12 * kt_dbl:
             chosen_name = "split_doublet"
             res = res_dbl
         else:

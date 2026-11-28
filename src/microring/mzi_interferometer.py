@@ -1323,7 +1323,7 @@ def simulate_mzi(
             ng_mzi = float(arm1_disp["ng_0"])
             l_mzi_m = max(l_act_eff_um, 10.0) * 1e-6
             if mech_used == "si_pn_depletion":
-                cj_u = float(gp.get("cj_0v_ff_per_um") or 0.28) * 0.78
+                cj_u = float(gp.get("cj_bias_ff_per_um") or (float(gp.get("cj_0v_ff_per_um") or 0.28) * 0.78))
                 rs_ocm = float(gp.get("r_series_ohm_cm") or 0.90)
                 cj_m = (cj_u * 1e-9) / (2.0 if use_push_pull else 1.0)
                 rs_m = (rs_ocm * 1e-2) * (2.0 if use_push_pull else 1.0)

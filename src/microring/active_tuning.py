@@ -1291,6 +1291,7 @@ def run_active_tuning_analysis(
             "w_dep_0v_nm": round(w_dep_0_um * 1e3, 2),
             "w_dep_max_nm": round(w_dep_max_um * 1e3, 2),
             "r_series_ohm": round(r_series_ohm, 2),
+            "r_series_ohm_cm": round(float(b_mid["r_series_ohm_cm"]), 4),
             "cj_0v_ff_per_um": round(cj_0v_ff_per_um, 4),
             "cj_bias_ff_per_um": round(cj_mid_ff_per_um, 4),
             "c_total_ff": round(c_tot_ff, 2),
@@ -1310,56 +1311,178 @@ def run_active_tuning_analysis(
             perturbation_fns.append(fn_v)
 
     elif mech == "si_pin_injection":
+        # Exact 2D Nonlinear Ambipolar Diffusion + SRH + Auger Continuity FEM on actual Si rib+slab cross-section:
+        #   -div(D_a * grad N) + N / tau_SRH + C_Auger * N^3 = 0  in Omega_Si
+        #   N = N_bc at P++/N++ ohmic slab edges (x = +- d_c), dN/dn = 0 on all Si/SiO2 interfaces,
+        #   matching exact terminal recombination current I = q * L_act * int(N/tau_SRH + C_Auger * N^3) dA.
+        from scipy.optimize import brentq
+        from scipy.sparse import diags as _sp_diags
+        from scipy.sparse.linalg import spsolve as _sp_solve
+
         tau_s = max(float(carrier_lifetime_ns), 0.05) * 1e-9
         d_cont_um = max(float(heavy_contact_offset_um), 0.25)
-        w_i_um = work_cfg.ring_width_um + 2.0 * d_cont_um
-        # Ambipolar diffusion length L_a ~ sqrt(D_a * tau_c) in c-Si (D_a ~ 18 cm^2/s)
-        l_amb_um = math.sqrt(18.0e-4 * tau_s) * 1e6
-        v_eff_cm3 = (
-            (work_cfg.ring_width_um * work_cfg.film_height_um + 2.0 * d_cont_um * work_cfg.slab_height_um)
-            * 1e-8
-            * (l_act_um * 1e-4)
-        )
-        f_pin_ghz = 1.0 / (2.0 * math.pi * tau_s) * 1e-9
-        f_opt_ghz = (C0_M_PER_S / (wl_m * max(q_loaded_passive, 1.0))) * 1e-9
-        f_eo_3db = 1.0 / math.hypot(1.0 / max(f_pin_ghz, 1e-6), 1.0 / max(f_opt_ghz, 1e-6))
+        w_ring_um = float(work_cfg.ring_width_um)
+        h_film_um = float(work_cfg.film_height_um)
+        h_slab_um = float(work_cfg.slab_height_um)
+        inv_tan_sw = 0.0 if work_cfg.sidewall_deg == 90.0 else 1.0 / math.tan(math.radians(work_cfg.sidewall_deg))
+        w_top_um = max(0.08, w_ring_um - 2.0 * max(h_film_um - h_slab_um, 0.0) * inv_tan_sw)
+        w_i_um = w_ring_um + 2.0 * d_cont_um
+        x_pp_edge = -0.5 * w_ring_um - d_cont_um
+        x_nn_edge = +0.5 * w_ring_um + d_cont_um
+        d_a_um2_s = 18.0e8                  # Ambipolar diffusivity D_a = 18 cm^2/s = 1.8e9 um^2/s in c-Si
+        c_auger_cm6_s = 3.8e-31             # Dziewior & Schmid (APL 31, 346, 1977) c-Si C_n + C_p
+        l_amb_um = math.sqrt(d_a_um2_s * tau_s)
+        l_a_sq = l_amb_um * l_amb_um
 
-        geometry_physics.update({
-            "solver": "2D Silicon PIN Ambipolar Injection + 2D Vector FEM Eigenmode (Zero COMSOL)",
-            "slab_height_um": work_cfg.slab_height_um,
-            "slab_auto_promoted_from_strip": slab_auto_promoted,
-            "intrinsic_width_um": round(w_i_um, 3),
-            "heavy_contact_offset_um": round(d_cont_um, 3),
-            "carrier_lifetime_ns": round(float(carrier_lifetime_ns), 3),
-            "ambipolar_diffusion_length_um": round(l_amb_um, 2),
-            "f_carrier_ghz": round(f_pin_ghz, 3),
-            "f_3db_eo_ghz": round(f_eo_3db, 3),
-        })
+        # Build structured 2D triangular mesh restricted strictly to the Si rib + slab cross-section
+        x_l = np.linspace(x_pp_edge, -0.5 * w_ring_um, max(10, int(round(d_cont_um / 0.055)) + 1))
+        x_c = np.linspace(-0.5 * w_ring_um, +0.5 * w_ring_um, max(15, int(round(w_ring_um / 0.025)) + 1))
+        x_r = np.linspace(+0.5 * w_ring_um, x_nn_edge, max(10, int(round(d_cont_um / 0.055)) + 1))
+        xs_pin = np.unique(np.concatenate([x_l, x_c, x_r]))
+        y_s = np.linspace(0.0, h_slab_um, max(5, int(round(h_slab_um / 0.022)) + 1))
+        y_r = np.linspace(h_slab_um, h_film_um, max(7, int(round(max(h_film_um - h_slab_um, 0.05) / 0.024)) + 1))
+        ys_pin = np.unique(np.concatenate([y_s, y_r]))
 
-        x_pp_edge = -0.5 * work_cfg.ring_width_um - d_cont_um
-        x_nn_edge = +0.5 * work_cfg.ring_width_um + d_cont_um
+        m_full = MeshTri.init_tensor(xs_pin, ys_pin)
+        px_f, py_f = m_full.p[0], m_full.p[1]
+        cx_t = px_f[m_full.t].mean(axis=0)
+        cy_t = py_f[m_full.t].mean(axis=0)
+        # Inside slab OR inside trapezoidal rib
+        half_w_at_y = 0.5 * w_ring_um - np.maximum(cy_t - h_slab_um, 0.0) * inv_tan_sw
+        in_si_tri = (cy_t <= h_slab_um + 1e-9) | (np.abs(cx_t) <= half_w_at_y + 1e-9)
+        t_si_raw = m_full.t[:, in_si_tri]
+        used_nodes, inv_map = np.unique(t_si_raw, return_inverse=True)
+        p_si = m_full.p[:, used_nodes]
+        t_si = inv_map.reshape(t_si_raw.shape)
+        m_si = MeshTri(p_si, t_si)
+        b_si = Basis(m_si, ElementTriP1())
+
+        @BilinearForm
+        def _pin_stiff(u, v, _w):
+            return l_a_sq * (u.grad[0] * v.grad[0] + u.grad[1] * v.grad[1])
+
+        @BilinearForm
+        def _pin_mass(u, v, _w):
+            return u * v
+
+        @LinearForm
+        def _pin_lump(v, _w):
+            return 1.0 * v
+
+        k_mat = _pin_stiff.assemble(b_si).tocsr()
+        m_mat = _pin_mass.assemble(b_si).tocsr()
+        km_mat = (k_mat + m_mat).tocsr()
+        w_area = np.asarray(_pin_lump.assemble(b_si), dtype=float)  # nodal lumped area [um^2]
+
+        # Dirichlet ohmic contact boundary nodes at x = x_pp_edge and x = x_nn_edge (within slab)
+        tol_x = 1e-6
+        bc_mask = (np.abs(p_si[0] - x_pp_edge) <= tol_x) | (np.abs(p_si[0] - x_nn_edge) <= tol_x)
+        bc_dofs = np.flatnonzero(bc_mask)
+        free_dofs = np.flatnonzero(~bc_mask)
+        km_ff = km_mat[free_dofs][:, free_dofs].tocsc()
+        km_fb = km_mat[free_dofs][:, bc_dofs]
+        w_free = w_area[free_dofs]
+
+        # Unit linear SRH solution (psi_lin = 1 on contacts)
+        n_nodes_si = p_si.shape[1]
+        psi_lin = np.ones(n_nodes_si, dtype=float)
+        if len(free_dofs) > 0:
+            psi_lin[free_dofs] = _sp_solve(km_ff, -km_fb @ np.ones(len(bc_dofs), dtype=float))
+        psi_lin = np.clip(psi_lin, 0.0, 1.0)
+
+        # Core mask for reporting rib-core average injected density
+        core_node_mask = (np.abs(p_si[0]) <= 0.5 * w_ring_um + 1e-6)
+        w_core_sum = max(float(np.sum(w_area[core_node_mask])), 1e-12)
+        n0_scale = 1.0e18
+        gamma_aug = c_auger_cm6_s * tau_s * (n0_scale ** 2)
+        i_pref_a = Q_E_C * (l_act_um * 1e-12) * (n0_scale / tau_s)  # A per (norm-density * um^2)
+
+        def _solve_pin_for_nbc(nbc_norm: float) -> tuple[np.ndarray, float, float]:
+            """Solve strictly convex 2D nonlinear SRH+Auger continuity FEM for given boundary N_bc / 1e18."""
+            u = psi_lin * nbc_norm
+            if gamma_aug > 0.0 and len(free_dofs) > 0 and nbc_norm > 0.0:
+                rhs_bc = km_fb @ np.full(len(bc_dofs), nbc_norm, dtype=float)
+                uf = u[free_dofs].copy()
+                for _it in range(14):
+                    res = km_ff @ uf + rhs_bc + gamma_aug * w_free * (uf ** 3)
+                    if float(np.linalg.norm(res, ord=np.inf)) < 1e-11 * max(nbc_norm, 1.0):
+                        break
+                    jac = km_ff + _sp_diags(3.0 * gamma_aug * w_free * (uf ** 2), format="csc")
+                    du = _sp_solve(jac, -res)
+                    uf = np.maximum(uf + du, 0.0)
+                    if float(np.max(np.abs(du))) < 1e-10 * max(nbc_norm, 1.0):
+                        break
+                u[free_dofs] = uf
+            i_recomb_a = i_pref_a * float(np.sum(w_area * (u + gamma_aug * (u ** 3))))
+            q_stored_c = Q_E_C * (l_act_um * 1e-12) * n0_scale * float(np.sum(w_area * u))
+            return u, i_recomb_a, q_stored_c
+
+        # Map Si FEM nodal array back to a dense (len(ys_pin), len(xs_pin)) RegularGridInterpolator
+        nx_p, ny_p = len(xs_pin), len(ys_pin)
+        ix_si = np.searchsorted(xs_pin, p_si[0])
+        iy_si = np.searchsorted(ys_pin, p_si[1])
+
+        def _build_pin_interpolator(n_cm3_nodes: np.ndarray) -> RegularGridInterpolator:
+            grid = np.full((ny_p, nx_p), np.nan, dtype=float)
+            grid[iy_si, ix_si] = n_cm3_nodes
+            # Fill non-Si corners smoothly from nearest valid Si column at the same height y
+            for j in range(ny_p):
+                valid = np.flatnonzero(np.isfinite(grid[j]))
+                if len(valid) == 0:
+                    grid[j, :] = grid[max(j - 1, 0), :]
+                elif len(valid) < nx_p:
+                    grid[j, :valid[0]] = grid[j, valid[0]]
+                    grid[j, valid[-1] + 1:] = grid[j, valid[-1]]
+            return RegularGridInterpolator((ys_pin, xs_pin), grid, bounds_error=False, fill_value=None)
+
+        i_lin_unit_a = i_pref_a * float(np.sum(w_area * psi_lin))
+        pin_tau_eff_list: list[float] = []
+
         for i_val in all_states_vals:
             i_ma = max(float(i_val), 0.0)
+            i_target_a = i_ma * 1e-3
             v_diode = 0.72 + 0.052 * math.log1p(i_ma / 0.05) if i_ma > 1e-6 else 0.0
-            n_inj_est = ((i_ma * 1e-3) * tau_s) / (Q_E_C * max(v_eff_cm3, 1e-18))
+            if i_target_a <= 1e-12:
+                u_sol = np.zeros(n_nodes_si, dtype=float)
+                tau_eff_s = tau_s
+                n_core_avg = 0.0
+            else:
+                # Strictly monotone root on log(N_bc / 1e18) bracketed around linear SRH value
+                nbc_hi = max(i_target_a / max(i_lin_unit_a, 1e-30), 1e-8)
+                nbc_lo = nbc_hi * 0.1
+                while _solve_pin_for_nbc(nbc_lo)[1] > i_target_a and nbc_lo > 1e-12:
+                    nbc_lo *= 0.2
+                while _solve_pin_for_nbc(nbc_hi)[1] < i_target_a and nbc_hi < 1e4:
+                    nbc_hi *= 2.5
+                log_nbc = float(brentq(
+                    lambda lv: _solve_pin_for_nbc(math.exp(lv))[1] - i_target_a,
+                    math.log(nbc_lo),
+                    math.log(nbc_hi),
+                    xtol=1e-7,
+                ))
+                u_sol, i_chk_a, q_st_c = _solve_pin_for_nbc(math.exp(log_nbc))
+                tau_eff_s = q_st_c / max(i_chk_a, 1e-30)
+                n_core_avg = float(np.sum(w_area[core_node_mask] * u_sol[core_node_mask]) / w_core_sum) * n0_scale
+
+            pin_tau_eff_list.append(tau_eff_s)
+            n_cm3_sol = u_sol * n0_scale
+            interp_n = _build_pin_interpolator(n_cm3_sol)
+
             state_aux_meta.append({
                 "power_mw": round(i_ma * v_diode, 4),
-                "delta_N_cm3": float(f"{n_inj_est:.3e}"),
+                "delta_N_cm3": float(f"{n_core_avg:.3e}"),
+                "tau_eff_ns": round(tau_eff_s * 1e9, 4),
                 "e_core_v_per_um": 0.0,
             })
 
-            def _mk_pin_fn(curr_ma: float):
-                n_inj_peak = ((curr_ma * 1e-3) * tau_s) / (Q_E_C * max(v_eff_cm3, 1e-18))
-
+            def _mk_pin_fn(interp_obj: RegularGridInterpolator):
                 def _fn(x_um: np.ndarray, y_um: np.ndarray, reg_name: str):
-                    _ = y_um
                     if reg_name not in ("core", "slab"):
                         z = np.zeros_like(x_um, dtype=complex)
                         return z, z, z
-                    profile = np.cosh(np.clip(x_um / max(l_amb_um, 0.2), -4.0, 4.0)) / math.cosh(
-                        min(0.5 * w_i_um / max(l_amb_um, 0.2), 4.0)
-                    )
-                    n_inj = n_inj_peak * profile
+                    xq = np.clip(x_um, x_pp_edge, x_nn_edge)
+                    yq = np.clip(y_um, 0.0, h_film_um)
+                    n_inj = np.maximum(interp_obj(np.column_stack([yq, xq])), 0.0)
                     p_loc = n_inj.copy()
                     n_loc = n_inj.copy()
                     if reg_name == "slab":
@@ -1370,7 +1493,26 @@ def run_active_tuning_analysis(
                     return c_pert, c_pert, c_pert
                 return _fn
 
-            perturbation_fns.append(_mk_pin_fn(i_ma))
+            perturbation_fns.append(_mk_pin_fn(interp_n))
+
+        # Report effective carrier lifetime & bandwidth at peak injected current (capturing Auger speedup)
+        tau_eff_peak_s = min(pin_tau_eff_list) if pin_tau_eff_list else tau_s
+        f_pin_ghz = 1.0 / (2.0 * math.pi * max(tau_eff_peak_s, 1e-12)) * 1e-9
+        f_opt_ghz = (C0_M_PER_S / (wl_m * max(q_loaded_passive, 1.0))) * 1e-9
+        f_eo_3db = 1.0 / math.hypot(1.0 / max(f_pin_ghz, 1e-6), 1.0 / max(f_opt_ghz, 1e-6))
+
+        geometry_physics.update({
+            "solver": "2D Nonlinear Ambipolar SRH+Auger Continuity FEM + 2D Vector FEM Eigenmode (Zero COMSOL)",
+            "slab_height_um": work_cfg.slab_height_um,
+            "slab_auto_promoted_from_strip": slab_auto_promoted,
+            "intrinsic_width_um": round(w_i_um, 3),
+            "heavy_contact_offset_um": round(d_cont_um, 3),
+            "carrier_lifetime_ns": round(float(carrier_lifetime_ns), 3),
+            "tau_eff_peak_ns": round(tau_eff_peak_s * 1e9, 4),
+            "ambipolar_diffusion_length_um": round(l_amb_um, 2),
+            "f_carrier_ghz": round(f_pin_ghz, 3),
+            "f_3db_eo_ghz": round(f_eo_3db, 3),
+        })
     else:
         raise ValueError(f"Unknown tuning mechanism '{mech}'")
 

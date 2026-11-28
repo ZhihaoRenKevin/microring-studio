@@ -114,7 +114,7 @@ def audit_mrr_and_pn_physics_closure(
 
         rows = solve_perturbed_neff_sweep_fem(
             spec, wl_m, [None, _pert_both, _pert_core_only, _pert_slab_only],
-            polarization=pn_cfg.polarization, core_mesh_res_um=0.038, element_order=1,
+            polarization=pn_cfg.polarization, core_mesh_res_um=0.048, clad_mesh_res_um=0.34, element_order=2,
         )
         n0 = float(rows[0]["neff_real"])
         dneff_full = float(rows[1]["neff_real"]) - n0

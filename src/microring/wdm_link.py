@@ -135,11 +135,14 @@ def simulate_wdm_microring_link(
     dlambda_eo_pm = float(dm["dlambda_EO_swing_pm"])
     df_eo_ghz = f_0_ghz * (dlambda_eo_pm * 1e-3 / c.wavelength_nm)
 
-    # Thermo-optic shift of SOI ring (~78 pm/K) and closed-loop PI heater locking
-    dlambda_dt_pm_per_k = 78.0
-    drift_shift_pm = dlambda_dt_pm_per_k * dt_amb_k
+    # Exact 2D-FEM full-ring thermo-optic shift (pm/K) and transient thermal time constant from the co-integrated FEM solver
     heat_slope_pm_per_mw = max(float(dm["heater_tuning_pm_per_mW"]), 1.0)
-    tau_th_us = 18.0  # typical SOI thermal time constant
+    dlambda_dt_pm_per_k = float(dm.get("dlambda_dT_pm_per_K", 0.0))
+    if dlambda_dt_pm_per_k <= 1.0:
+        dlambda_dt_pm_per_k = 78.0
+    drift_shift_pm = dlambda_dt_pm_per_k * dt_amb_k
+    t_rise_fem = float(dm.get("t_rise_10_90_us", 0.0))
+    tau_th_us = max(t_rise_fem / math.log(9.0), 1.0) if t_rise_fem > 0.1 else 18.0
 
     # Closed-loop thermal controller trajectory (`0 -> 120 us`)
     t_lock_us = np.linspace(0.0, 120.0, 61)

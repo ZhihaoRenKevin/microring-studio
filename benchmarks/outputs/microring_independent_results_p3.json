@@ -157,7 +157,7 @@
       "split_cross_pct": 46.88,
       "excess_loss_db": 0.043,
       "imbalance_db": 0.46,
-      "L_pi_um": 0.0,
+      "L_pi_um": 23.49,
       "wall_time_s": 57.11
     },
     "lowq_ramzi": {

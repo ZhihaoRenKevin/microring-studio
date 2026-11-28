@@ -314,7 +314,7 @@ def run_suite13(specs: dict) -> dict:
         "split_cross_pct": round(float(sp2["split_cross_pct_at_wl0"]), 2),
         "excess_loss_db": round(float(sp2["excess_loss_db"]), 3),
         "imbalance_db": round(float(sp2["imbalance_at_wl0_db"]), 3),
-        "L_pi_um": round(float(sp2.get("L_pi_um", 0.0)), 3),
+        "L_pi_um": round(float(sp2.get("beat_length_lpi_um", sp2.get("L_pi_um", 0.0))), 3),
         "wall_time_s": round(time.perf_counter() - t0, 2),
     }
     print(f"[MR Suite 13B] Full S-Bend 2x2 DC: {out['dc_2x2_full_sbend']}")
