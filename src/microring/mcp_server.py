@@ -22,6 +22,7 @@ from .agent_tools import (
     agent_design_mzi,
     agent_eam_soa,
     agent_eom_multiphysics,
+    agent_eom_rf_eye,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_gnlse_ppln,
@@ -669,6 +670,27 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_eom_rf_eye",
+        "description": "Live HFSS-class EOM RF packaging ABCD (GSG pad/taper, 3D wirebond, flip-chip bump, thin-film load) -> complex S11/S21_RF/S21_EO + 100G-400G NRZ/PAM4 eye diagram, BER, IEEE TDECQ & MMSE FFE + Touchstone .s2p.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "core_material": {"type": "string", "description": "LN_Xcut | Si | BTO | AlN | ScAlN_20 | 4H-SiC"},
+                "electrode_topology": {"type": "string", "description": "t_rail_cpw | gsg_cpw | gs_coplanar | vertical_microstrip | lumped_ring_gsg"},
+                "substrate_type": {"type": "string", "description": "quartz | hr_si | undercut_si | std_si | sapphire"},
+                "launch_type": {"type": "string", "description": "gsg_probe | wirebond | flip_chip_bump"},
+                "wirebond_length_um": {"type": "number"},
+                "bump_height_um": {"type": "number"},
+                "modulation_format": {"type": "string", "description": "PAM4 | NRZ"},
+                "baud_rate_gbaud": {"type": "number"},
+                "v_pp_drive_v": {"type": "number"},
+                "ffe_taps": {"type": "integer"},
+                "fiber_length_km": {"type": "number"},
+                "export_s2p": {"type": "boolean"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -707,6 +729,7 @@ _DISPATCH = {
     "microring_gnlse_ppln": agent_gnlse_ppln,
     "microring_routing_crossings": agent_routing_crossings,
     "microring_isolator_mems": agent_isolator_mems,
+    "microring_eom_rf_eye": agent_eom_rf_eye,
 }
 
 

@@ -376,6 +376,21 @@ All six `v3.12.0` live first-principles engines were validated blindly against *
 
 ---
 
+## 7F. Independent v3.13.0 Ansys HFSS 2026 R1 3D RF Packaging & EOM Eye/BER/TDECQ Validation
+
+The end-to-end EOM RF packaging ABCD engine and high-speed `NRZ`/`PAM4` eye-diagram / `BER` / `TDECQ` / `MMSE FFE` engine (`src/microring/eom_rf_link_eye.py`) were validated blindly against **3 full-wave 3D Ansys HFSS 2026 R1 (`2026.1.0`) Driven Modal** models (zero fitted empirical multipliers) via [`benchmarks/run_v313_hfss_eom_validation.py`](../benchmarks/run_v313_hfss_eom_validation.py) $\rightarrow$ [`benchmarks/outputs/v313_hfss_eom_validation.json`](../benchmarks/outputs/v313_hfss_eom_validation.json):
+
+| Benchmark Case | Ansys HFSS 2026 R1 (`3D Modal`) / Standard | `MicroRing Studio v3.13.0` (100% Live Solver) | Independent Agreement |
+| :--- | :--- | :--- | :---: |
+| **B1**: 3D GSG Probe Pad (`65/30 µm`) $\rightarrow$ `160 µm` Linear CPW Taper on `X-Cut TFLN / Quartz` (`10–110 GHz`) | `S21`: `-0.042` to `-0.419 dB`; $\angle S_{21}$: `-6.54°` to `-69.23°` | 16-section multilayer conformal CPW ABCD cascade | `|S21|` MAE **`0.1118 dB` (`1.28%`)**, phase MAE **`2.92°`** |
+| **B2**: 3D Arched GSG `Au` Wirebond Launch (`L = 350 µm`, `h = 120 µm`, `d = 25 µm`, `s = 150 µm`, `5–65 GHz`) | $L_{\mathrm{eff}} = 0.3210\text{ nH}$, `S21@40G = -1.554 dB`, `S11@40G = -5.46 dB` | Exact 3-wire Neumann/Rosa loop ABCD ($L_{\mathrm{eff}} = 0.3335\text{ nH}$) | $L_{\mathrm{eff}}$ **`3.90%`**, `|S21|` MAE **`0.173 dB`**, `|S11|` MAE `0.614 dB` |
+| **B3**: 3D Vertical Flip-Chip GSG `SnAg` Micro-Bump (`h = 40 µm`, `D = 50 µm`, underfill $\varepsilon_r = 3.4$, `10–110 GHz`) | `S21@65G = -0.103 dB`, `S21@100G = -0.181 dB`, `S11@50G = -31.49 dB` | Exact 3-cylinder Neumann + UBM fringe ABCD (`-0.080 / -0.119 dB`, `-31.51 dB`) | `|S21|` MAE **`0.026 dB`** across `10–110 GHz` |
+| **B4**: End-to-End `224 Gbps PAM4` (`112 GBaud`) & `100 Gbps NRZ` `X-Cut TFLN` Link + `5-Tap MMSE FFE` | IEEE 802.3bs Zero-ISI `TDECQ = 0.0000 dB`, KP4-FEC `< 2.4e-4` | Zero-ISI `TDECQ = 0.0000 dB`; Flip-Chip `TDECQ = 2.64 dB` (`BER = 1.38e-7` PASS) vs `350 µm` Wirebond `42.0 GHz` (`BER = 2.80e-3`) | **EXACT** IEEE identity + physical launch hierarchy |
+
+- **HFSS 3D Scope Boundary**: Chip-level CPW/T-Rail electrodes, GSG pad/taper transitions, GSG wirebonds, flip-chip bumps, and distributed thin-film loads close accurately locally; irregular `> 100 GHz` metallic enclosure box modes and multi-lane package connector radiation crosstalk still require full-wave 3D HFSS.
+
+---
+
 ## 8. Physical Scope Boundaries
 
 - **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + EME + 2D Multiphysics FEM)**:

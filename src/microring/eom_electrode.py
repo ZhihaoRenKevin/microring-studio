@@ -2808,6 +2808,7 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         s11_c = (zin_c - zs) / (zin_c + zs)
 
         if is_open:
+            s21_rf_c = np.full_like(fg_ghz, 1e-3 + 0j, dtype=complex)
             s21_rf_d = np.full_like(fg_ghz, -60.0)
         else:
             ep1 = np.exp(np.minimum(np.real(gam_rf) * l_m, 40.0) + 1j * np.imag(gam_rf) * l_m)
@@ -2847,10 +2848,14 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         rad_only_db = 20.0 * np.log10(np.maximum((1.0 - np.exp(-al_rad_np_l)) / al_rad_np_l, 1e-5))
         return {
             "m_abs": np.abs(m_tot),
+            "m_tot": m_tot,
             "loss_lin": loss_lin,
             "s21_rf_db": s21_rf_d,
+            "s21_rf": s21_rf_c,
             "s11_rf_db": 20.0 * np.log10(np.maximum(np.abs(s11_c), 1e-5)),
             "s11_rf": s11_c,
+            "gam_rf": gam_rf,
+            "zc_c": zc_c,
             "alpha_rf_db_cm": np.real(gam_rf) * 8.6858896 * 1e-2,
             "alpha_cherenkov_db_cm": alpha_rad_np_m * 8.6858896 * 1e-2,
             "n_rf_vec": (np.imag(gam_rf) * C0_M_PER_S) / om,
@@ -2868,17 +2873,25 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
     f_ref_eo_ghz = 0.05 if is_open else 1.50
     ref_pt = _eval_eo_raw(np.array([f_ref_eo_ghz], dtype=float))
     m_ref_eo = max(float(ref_pt["m_abs"][0]), 1e-15)
+    m_ref_eo_c = complex(ref_pt["m_tot"][0])
+    if abs(m_ref_eo_c) < 1e-15:
+        m_ref_eo_c = complex(m_ref_eo, 0.0)
     loss_ref_eo = 1.0 if is_open else max(float(ref_pt["loss_lin"][0]), 1e-15)
 
     def _eval_eo_spectrum_on_grid(fg_ghz: np.ndarray) -> dict[str, np.ndarray]:
         raw = _eval_eo_raw(fg_ghz)
         heo_n = raw["m_abs"] / m_ref_eo
+        h_eo_c = raw["m_tot"] / m_ref_eo_c
         loss_only_db = 20.0 * np.log10(np.maximum(raw["loss_lin"] / loss_ref_eo, 1e-5))
         return {
             "s21_eo_dbe": 20.0 * np.log10(np.maximum(heo_n, 1e-5)),
+            "h_eo_c": h_eo_c,
             "s21_rf_db": raw["s21_rf_db"],
+            "s21_rf": raw["s21_rf"],
             "s11_rf_db": raw["s11_rf_db"],
             "s11_rf": raw["s11_rf"],
+            "gam_rf": raw["gam_rf"],
+            "zc_c": raw["zc_c"],
             "alpha_rf_db_cm": raw["alpha_rf_db_cm"],
             "alpha_cherenkov_db_cm": raw["alpha_cherenkov_db_cm"],
             "n_rf_vec": raw["n_rf_vec"],
@@ -2895,9 +2908,13 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
     f_ghz = np.linspace(0.10, max(float(cfg.max_freq_ghz), 10.0), max(int(cfg.num_freq_points), 32))
     sp_plot = _eval_eo_spectrum_on_grid(f_ghz)
     s21_eo_dbe = sp_plot["s21_eo_dbe"]
+    h_eo_c = sp_plot["h_eo_c"]
     s21_rf_db = sp_plot["s21_rf_db"]
+    s21_rf = sp_plot["s21_rf"]
     s11_rf_db = sp_plot["s11_rf_db"]
     s11_rf = sp_plot["s11_rf"]
+    gam_rf_plot = sp_plot["gam_rf"]
+    zc_plot = sp_plot["zc_c"]
     alpha_rf_db_cm = sp_plot["alpha_rf_db_cm"]
     n_rf_vec = sp_plot["n_rf_vec"]
     z0_re_vec = sp_plot["z0_re_vec"]
@@ -3182,11 +3199,16 @@ def design_eom_electrode(cfg: EOMElectrodeConfig) -> dict:
         "frequency_response": {
             "freq_GHz": np.round(f_ghz, 3).tolist(),
             "S21_EO_dBe": np.round(s21_eo_dbe, 3).tolist(),
+            "S21_EO_ang_deg": np.round(np.degrees(np.angle(h_eo_c)), 2).tolist(),
             "S21_RF_dB": np.round(s21_rf_db, 3).tolist(),
+            "S21_RF_ang_deg": np.round(np.degrees(np.angle(s21_rf)), 2).tolist(),
             "S11_RF_dB": np.round(s11_rf_db, 3).tolist(),
             "Z0_ohm": np.round(z0_re_vec, 2).tolist(),
+            "Z0_im_ohm": np.round(np.imag(zc_plot), 3).tolist(),
             "n_RF": np.round(n_rf_vec, 4).tolist(),
             "alpha_RF_dB_per_cm": np.round(alpha_rf_db_cm, 3).tolist(),
+            "gamma_RF_re_np_m": np.round(np.real(gam_rf_plot), 4).tolist(),
+            "gamma_RF_im_rad_m": np.round(np.imag(gam_rf_plot), 4).tolist(),
             "S11_mag": np.round(np.abs(s11_rf), 6).tolist(),
             "S11_ang_deg": np.round(np.degrees(np.angle(s11_rf)), 2).tolist(),
         },

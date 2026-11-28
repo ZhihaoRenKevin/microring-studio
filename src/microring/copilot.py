@@ -157,6 +157,7 @@ from .eam_and_soa import EAMConfig, OpticalAmplifierConfig, simulate_eam_modulat
 from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnlse_supercontinuum, simulate_ppln_qpm
 from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
 from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
+from .eom_rf_link_eye import EOMRFLinkConfig, simulate_eom_eye_ber_link
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1134,6 +1135,7 @@ def parse_photonics_intent(message: str) -> dict:
         ("gnlse_ppln", r"\bgnlse\b|supercontinuum|dispersive[-_\s]*wave|single[-_\s]*pass[-_\s]*ppln|periodically[-_\s]*poled|超连续谱|色散波|周期极化"),
         ("routing_crossings", r"waveguide[-_\s]*crossing|mmi[-_\s]*crossing|adiabatic[-_\s]*taper|milton[-_\s]*burns|auto[-_\s]*rout|length[-_\s]*match|波导交叉|绝热锥形|自动布线|等长延时"),
         ("isolator_mems", r"optical[-_\s]*isolator|ce:?yig|magneto[-_\s]*optic|\bnrps\b|spatiotemporal[-_\s]*iso|photonic[-_\s]*mems|pull[-_\s]*in|光隔离器|磁光隔离|悬臂开关|微机电"),
+        ("eom_rf_eye", r"\btdecq\b|wirebond|bond[-_\s]*wire|flip[-_\s]*chip|micro[-_\s]*bump|rf[-_\s]*packag|gsg[-_\s]*taper|\beom\b.*\b(?:eye|ber|pam4|ffe)\b|\b(?:eye|ber|pam4|ffe)\b.*\beom\b|\b(?:100g|112g|200g|224g|400g)\b.*\b(?:eom|tfln|modulator|pam4)\b|金丝键合|倒装封装|封装.*眼图|调制器.*眼图|眼图.*误码率.*(?:eom|调制|金丝|倒装)"),
         ("mrr_ep", r"exceptional[-_\s]*surface|chiral[-_\s]*ep|anti[-_\s]*pt|\bep2\b|\bep3\b|\bep4\b|ep[-_\s]*encircl|petermann|mrr[-_\s]*ep|ring[-_\s]*ep|奇异面|高阶奇异点|手性奇异点|反pt|环绕奇异点|微环.*ep|微环.*奇异点"),
         ("awg", r"\bawg\b|arrayed[-_\s]*waveguide[-_\s]*grating|阵列波导光栅"),
         ("wbg", r"\bwbg\b|waveguide[-_\s]*bragg|pi[-_\s]*phase[-_\s]*shift|apodized[-_\s]*bragg|波导布拉格光栅"),
@@ -1143,7 +1145,7 @@ def parse_photonics_intent(message: str) -> dict:
         ("pcm_mrr", r"\bsb2se3\b|\bsb2s3\b|\bgsst\b|\bgst\b|\bvo2\b|phase[-_\s]*change[-_\s]*mrr|non[-_\s]*volatile[-_\s]*mrr|相变微环"),
         ("psr", r"\bpsr\b|polarization[-_\s]*rotator|polarization[-_\s]*splitter|mode[-_\s]*hybrid|偏振旋转|偏振分束"),
         ("mdm_te1", r"\bmdm\b|mode[-_\s]*multiplex|\bpbs\b|te0[-_\s]*te1|模式复用"),
-        ("oeo_neuron", r"o[-_\s]*e[-_\s]*o|photonic[-_\s]*neuron|nonlinear[-_\s]*activation|光子神经元|非线性激活"),
+        ("oeo_neuron", r"\bo[-_\s]*e[-_\s]*o\b|photonic[-_\s]*neuron|nonlinear[-_\s]*activation|光子神经元|非线性激活"),
         ("waveguide_pd", r"photodetector|ge[-_\s]*on[-_\s]*si|\bmutc\b|responsivity|光电探测器|锗探测器"),
         ("twod_material", r"graphene|bilayer[-_\s]*graphene|\bws2\b|\bmos2\b|\bwse2\b|\bmose2\b|\bmote2\b|\bptse2\b|\bpdse2\b|\bres2\b|\bhbn\b|h10bn|moo3|v2o5|\btmd\b|black[-_\s]*phosphorus|b[-_\s]*asp|tellurene|mxene|ti3c2|nb2c|bi2se3|wte2|nbocl2|in2se3|cuinp2s6|\bcips\b|\bgase\b|2d[-_\s]*material|vdw|kubo|pauli[-_\s]*block|石墨烯|双层石墨烯|二维材料|二硫化钨|二硫化钼|二碲化钼|二硒化铂|六方氮化硼|三氧化钼|五氧化二钒|黑磷|碲烯|拓扑绝缘体|外尔半金属|范德华"),
         ("nanoantenna_tcmt", r"nanoantenna|metasurface|\bseira\b|mim[-_\s]*absorber|q[-_\s]*bic|fano[-_\s]*tcmt|\btcmt\b|纳米天线|超表面|分子增强红外"),
@@ -2687,6 +2689,16 @@ def _process_chat_turn_core(
             else:
                 it = "spatiotemporal_eo" if ("spatiotemporal" in low_m or "时空" in low_m) else "magneto_optic_ceyig"
                 f_res = {"analysis": "optical_isolator", **simulate_optical_isolator(OpticalIsolatorConfig(iso_type=it))}
+        elif f_kind == "eom_rf_eye":
+            low_m = user_message.lower()
+            lt = "wirebond" if ("wirebond" in low_m or "bond" in low_m or "金丝" in low_m) else (
+                "flip_chip_bump" if ("flip" in low_m or "bump" in low_m or "倒装" in low_m) else "gsg_probe"
+            )
+            fmt = "NRZ" if ("nrz" in low_m and "pam" not in low_m) else "PAM4"
+            baud = 112.0 if ("224g" in low_m or "112 gbaud" in low_m or "112gbaud" in low_m) else (
+                100.0 if (fmt == "NRZ" and "100g" in low_m) else 56.0
+            )
+            f_res = {"analysis": "eom_rf_eye", **simulate_eom_eye_ber_link(EOMRFLinkConfig(launch_type=lt, modulation_format=fmt, baud_rate_gbaud=baud))}
         else:
             f_res = {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig())}
 

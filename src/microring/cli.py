@@ -23,6 +23,7 @@ from .agent_tools import (
     agent_design_mzi,
     agent_eam_soa,
     agent_eom_multiphysics,
+    agent_eom_rf_eye,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_gnlse_ppln,
@@ -463,6 +464,16 @@ def main() -> None:
     p_iso.add_argument("--gds", action="store_true", dest="export_gds")
     p_iso.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_eye = ag_sub.add_parser("eom-rf-eye", help="Live EOM RF packaging ABCD (pad/taper/wirebond/flip-chip) + NRZ/PAM4 eye diagram, BER, TDECQ & FFE")
+    p_eye.add_argument("--launch", type=str, default="gsg_probe", dest="launch_type", help="gsg_probe | wirebond | flip_chip_bump")
+    p_eye.add_argument("--fmt", type=str, default="PAM4", dest="modulation_format", help="PAM4 | NRZ")
+    p_eye.add_argument("--baud", type=float, default=56.0, dest="baud_rate_gbaud")
+    p_eye.add_argument("--vpp", type=float, default=2.5, dest="v_pp_drive_v")
+    p_eye.add_argument("--wb-um", type=float, default=350.0, dest="wirebond_length_um")
+    p_eye.add_argument("--ffe", type=int, default=5, dest="ffe_taps")
+    p_eye.add_argument("--s2p", action="store_true", dest="export_s2p")
+    p_eye.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -575,6 +586,8 @@ def main() -> None:
             _print_compact(agent_routing_crossings(d))
         elif args.agent_cmd == "isolator-mems":
             _print_compact(agent_isolator_mems(d))
+        elif args.agent_cmd == "eom-rf-eye":
+            _print_compact(agent_eom_rf_eye(d))
 
 
 if __name__ == "__main__":

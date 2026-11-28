@@ -147,6 +147,7 @@ from .eam_and_soa import EAMConfig, OpticalAmplifierConfig, simulate_eam_modulat
 from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnlse_supercontinuum, simulate_ppln_qpm
 from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
 from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
+from .eom_rf_link_eye import EOMRFLinkConfig, simulate_eom_eye_ber_link, simulate_eom_rf_packaging
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1718,6 +1719,11 @@ def _advanced_frontier_sync(payload: dict) -> dict:
             return {"analysis": "photonic_mems", **simulate_photonic_mems_switch(PhotonicMEMSConfig(**kw))}
         kw = _filter_dataclass_kwargs(OpticalIsolatorConfig, payload)
         return {"analysis": "optical_isolator", **simulate_optical_isolator(OpticalIsolatorConfig(**kw))}
+    if analysis in ("eom_rf_eye", "eom_eye", "eom_packaging", "wirebond", "flip_chip_bump", "pam4_eye", "tdecq"):
+        kw = _filter_dataclass_kwargs(EOMRFLinkConfig, payload)
+        if analysis in ("wirebond", "flip_chip_bump") and "launch_type" not in kw:
+            kw["launch_type"] = analysis
+        return {"analysis": "eom_rf_eye", **simulate_eom_eye_ber_link(EOMRFLinkConfig(**kw))}
     return _nonlinear_lle_sync(payload)
 
 

@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.12.0"
+__version__ = "3.13.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -19,6 +19,7 @@ from .agent_tools import (
     agent_design_mzi,
     agent_eam_soa,
     agent_eom_multiphysics,
+    agent_eom_rf_eye,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_gnlse_ppln,
@@ -198,6 +199,15 @@ from .eom_electrode import (
     export_eom_electrode_gds,
     export_eom_rf_interconnect_bundle,
 )
+from .eom_rf_link_eye import (
+    LAUNCH_TYPE_CATALOG,
+    EOMRFLinkConfig,
+    compute_gsg_flip_chip_bump_abcd,
+    compute_gsg_wirebond_abcd,
+    simulate_eom_eye_ber_link,
+    simulate_eom_rf_packaging,
+    solve_multilayer_cpw_section,
+)
 from .foundry_pdk import (
     FOUNDRY_PDK_CATALOG,
     DRCViolation,
@@ -347,7 +357,15 @@ __all__ = [
     "agent_design_mrr",
     "agent_design_mzi",
     "agent_eom_multiphysics",
+    "agent_eom_rf_eye",
     "agent_fab_tolerance",
+    "LAUNCH_TYPE_CATALOG",
+    "EOMRFLinkConfig",
+    "compute_gsg_flip_chip_bump_abcd",
+    "compute_gsg_wirebond_abcd",
+    "simulate_eom_eye_ber_link",
+    "simulate_eom_rf_packaging",
+    "solve_multilayer_cpw_section",
     "ELECTRODE_METAL_CATALOG",
     "EO_WAFER_CUT_CATALOG",
     "EOM_ELECTRODE_CATALOG",

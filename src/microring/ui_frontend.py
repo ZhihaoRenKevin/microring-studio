@@ -1962,6 +1962,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
                 <option value="gnlse_ppln">💥 Single-Pass Waveguide Nonlinear: RK4IP GNLSE Supercontinuum &amp; PPLN QPM</option>
                 <option value="routing_crossings">✚ 2D-FDFD MMI Waveguide Crossing, Milton-Burns Taper &amp; PIC Auto-Router</option>
                 <option value="isolator_mems">🧲 Non-Reciprocal Ce:YIG/Spatiotemporal Isolator &amp; Photonic MEMS Pull-In Switch</option>
+                <option value="eom_rf_eye">👁️ EOM RF Packaging (GSG Taper / Wirebond / Flip-Chip) + 100G–400G Eye/BER/TDECQ/FFE</option>
               </select>
             </div>
             <div class="form-row" style="margin:0;">
@@ -6944,6 +6945,16 @@ function onFrontierModeChange(skipRun) {
     setOpts([['magneto_optic_ceyig', 'Ce:YIG-on-Si Magneto-Optic 2D-FEM NRPS Isolator'], ['spatiotemporal_eo', 'Magnet-Free Spatiotemporal EO/AO Isolator'], ['cantilever', 'Photonic MEMS Electrostatic Cantilever Switch'], ['doubly_clamped', 'Photonic MEMS Doubly-Clamped Bridge Switch']]);
     lblP1.textContent = 'Beam L [µm] / Mod L [mm]'; p1.value = '28';
     lblP2.textContent = 'Initial Gap g₀ [µm] / f_RF [GHz]'; p2.value = '0.45';
+  } else if (mode === 'eom_rf_eye') {
+    lblSub.textContent = 'RF Launch & Modulation';
+    setOpts([
+      ['gsg_probe_pam4', 'On-Wafer GSG Probe + Pad/Taper · PAM4 + 5-Tap FFE'],
+      ['flip_chip_bump_pam4', '3D Flip-Chip GSG Micro-Bump · PAM4 + 5-Tap FFE'],
+      ['wirebond_pam4', '3D GSG Arched Au Wirebond (350 µm) · PAM4 + 5-Tap FFE'],
+      ['gsg_probe_nrz', 'On-Wafer GSG Probe + Pad/Taper · NRZ'],
+    ]);
+    lblP1.textContent = 'Symbol Rate [GBaud]'; p1.value = '112';
+    lblP2.textContent = 'Drive V_pp [V]'; p2.value = '2.5';
   } else {
     lblSub.textContent = 'Nanoantenna Mode';
     setOpts([['seira_molecular', 'SEIRA Molecular (Au MIM + PMMA 1730 cm⁻¹)'], ['mim_absorber', '1-Port MIM Perfect Absorber'], ['fano_eit_qbic', '2-Mode Fano / EIT / q-BIC Metasurface'], ['metasurface_ep', 'Exceptional Point Coupled Metasurface']]);
@@ -7082,6 +7093,13 @@ async function runFrontierPhysicsUI() {
   } else if (mode === 'isolator_mems') {
     if (sub1 === 'cantilever' || sub1 === 'doubly_clamped') { body.sub_mode = sub1; body.beam_length_um = v1; body.initial_gap_um = v2; }
     else { body.sub_mode = 'isolator'; body.iso_type = sub1; if (sub1 === 'spatiotemporal_eo') { body.mod_length_mm = Math.min(v1, 15); body.mod_freq_ghz = Math.max(v2, 5); } }
+  } else if (mode === 'eom_rf_eye') {
+    const isNrz = sub1.endsWith('_nrz');
+    body.launch_type = sub1.replace(/_(pam4|nrz)$/, '');
+    body.modulation_format = isNrz ? 'NRZ' : 'PAM4';
+    body.baud_rate_gbaud = Math.max(10, Math.min(240, v1));
+    body.v_pp_drive_v = Math.max(0.4, Math.min(10.0, v2));
+    body.ffe_taps = isNrz ? 0 : 5;
   }
 
   try {
@@ -7143,7 +7161,14 @@ function renderFrontierResult(d) {
       x: p1.x, y: (d.spectrum || d.curves || d.traces || d)[yk] || p1.x.map(() => 0), color: palette[idx % 4], label: yk
     })), p1.xk, p1.ys[0]);
   }
-  if (p2) {
+  if (d.eye_diagram_eq && Array.isArray(d.eye_diagram_eq.traces_mA) && d.eye_diagram_eq.traces_mA.length) {
+    const tUi = d.eye_diagram_eq.t_ui || [];
+    const trs = d.eye_diagram_eq.traces_mA.slice(0, 36).map((tr, idx) => ({
+      x: tUi, y: tr, color: idx % 2 === 0 ? 'rgba(56,189,248,0.55)' : 'rgba(52,211,153,0.45)', label: idx === 0 ? 'Equalized Eye (2-UI)' : ''
+    }));
+    document.getElementById('fr-plot2-title').textContent = `${d.analysis || 'EOM Eye'} · 2-UI Equalized Eye Diagram (TDECQ=${m.TDECQ_dB ?? '—'} dB)`;
+    drawLinePlot('cv-frontier-aux', trs, 'Time [UI]', 'Photocurrent [mA]');
+  } else if (p2) {
     const src2 = (d.dispersion && d.dispersion[p2.ys[0]]) ? d.dispersion : ((d.time_domain && d.time_domain[p2.ys[0]]) ? d.time_domain : ((d.sweep && d.sweep[p2.ys[0]]) ? d.sweep : ((d.mode_profile && d.mode_profile[p2.ys[0]]) ? d.mode_profile : (d.spectrum || d.curves || d.traces || d))));
     document.getElementById('fr-plot2-title').textContent = `${d.analysis || 'Frontier'} · ${p2.ys[0]}`;
     drawLinePlot('cv-frontier-aux', p2.ys.slice(0, 2).map((yk, idx) => ({

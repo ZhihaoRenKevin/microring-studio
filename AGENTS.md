@@ -46,6 +46,7 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **Single-Pass GNLSE Supercontinuum & PPLN QPM (SHG/SFG/DFG + Poled GDS)** | `uv run microring agent gnlse-ppln --analysis ppln --process shg --gds` |
 | **2D TE-FDFD MMI Waveguide Crossing, Milton-Burns Taper & PIC Auto-Router** | `uv run microring agent routing-crossings --analysis crossing --gds` |
 | **Ce:YIG / Spatiotemporal Optical Isolator & Photonic MEMS Pull-In Switch** | `uv run microring agent isolator-mems --analysis isolator --iso-type magneto_optic_ceyig --gds` |
+| **EOM RF Packaging ABCD (Pad/Taper/Wirebond/Flip-Chip) + 100G–400G Eye/BER/TDECQ/FFE** | `uv run microring agent eom-rf-eye --launch flip_chip_bump --fmt PAM4 --baud 112 --ffe 5 --s2p` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

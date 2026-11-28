@@ -396,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 35
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 36
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -2228,6 +2228,7 @@ def test_nanoantenna_tcmt_and_frontier_stage12_integration() -> None:
         assert mcp_r is not None and not mcp_r["result"]["isError"]
         txt = mcp_r["result"]["content"][0]["text"]
         assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
+
     assert len(json.dumps(agent_nanoantenna_tcmt({"regime": "mim_absorber"}))) < 620
 
 
@@ -2544,6 +2545,56 @@ def test_crossings_router_isolator_mems_and_v312_fullstack() -> None:
         assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
 
 
+def test_eom_rf_packaging_eye_ber_tdecq_and_36mcp() -> None:
+    from microring import (
+        EOMRFLinkConfig,
+        simulate_eom_eye_ber_link,
+        simulate_eom_rf_packaging,
+    )
+
+    # 1. Exact live packaging hierarchy: Flip-Chip / GSG Probe >> 350 um Wirebond > 700 um Wirebond
+    r_gsg = simulate_eom_eye_ber_link(EOMRFLinkConfig(launch_type="gsg_probe", baud_rate_gbaud=112.0, modulation_format="PAM4", ffe_taps=5))
+    r_fc = simulate_eom_eye_ber_link(EOMRFLinkConfig(launch_type="flip_chip_bump", baud_rate_gbaud=112.0, modulation_format="PAM4", ffe_taps=5))
+    r_wb350 = simulate_eom_eye_ber_link(EOMRFLinkConfig(launch_type="wirebond", wirebond_length_um=350.0, baud_rate_gbaud=112.0, modulation_format="PAM4", ffe_taps=5))
+    r_wb700 = simulate_eom_eye_ber_link(EOMRFLinkConfig(launch_type="wirebond", wirebond_length_um=700.0, baud_rate_gbaud=112.0, modulation_format="PAM4", ffe_taps=5))
+    r_nrz = simulate_eom_eye_ber_link(EOMRFLinkConfig(launch_type="gsg_probe", baud_rate_gbaud=100.0, modulation_format="NRZ", ffe_taps=0))
+
+    assert r_gsg["metrics"]["f_3dBo_packaged_GHz"] > r_wb350["metrics"]["f_3dBo_packaged_GHz"] > r_wb700["metrics"]["f_3dBo_packaged_GHz"]
+    assert r_fc["metrics"]["f_3dBo_packaged_GHz"] > r_wb350["metrics"]["f_3dBo_packaged_GHz"] + 25.0
+    # 5-tap MMSE FFE must significantly reduce BER at 224 Gbps PAM4
+    assert r_gsg["eye_metrics"]["eq_BER"] < 0.01 * r_gsg["eye_metrics"]["raw_BER"]
+    assert r_gsg["eye_metrics"]["pass_kp4_fec"] and r_fc["eye_metrics"]["pass_kp4_fec"]
+    assert r_gsg["eye_metrics"]["TDECQ_dB"] < 3.6 and r_fc["eye_metrics"]["TDECQ_dB"] < 3.4
+    assert r_nrz["eye_metrics"]["pass_error_free"] and len(r_gsg["eye_diagram_eq"]["traces_mA"]) >= 20
+    assert "# GHz S RI R" in r_gsg["rf_packaging"]["touchstone_s2p"]
+
+    # On-chip distributed thin-film termination mode works cleanly
+    r_tf = simulate_eom_rf_packaging(EOMRFLinkConfig(termination_mode="onchip_50ohm_tin", launch_type="flip_chip_bump", include_m2_bridge=True))
+    assert r_tf["packaging_geometry"]["m2_bridge"]["enabled"] and r_tf["packaging_geometry"]["termination"]["mode"] == "onchip_50ohm_tin"
+
+    # 2. Bilingual Copilot + HTTP /api/frontier_physics + MCP tool #36 (< 620 chars)
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        c_en = process_chat_turn(create_initial_session(lang="en"), "Simulate 224G PAM4 TFLN EOM eye diagram and TDECQ with flip-chip bump", gds_export_dir=tp)
+        assert c_en["ui_view"] == "frontier" and c_en["frontier_result"]["analysis"] == "eom_rf_eye"
+        c_zh = process_chat_turn(create_initial_session(lang="zh"), "分析金丝键合封装对调制器眼图和误码率的影响", gds_export_dir=tp, lang="zh")
+        assert c_zh["ui_view"] == "frontier" and c_zh["frontier_result"]["analysis"] == "eom_rf_eye"
+
+    async def _check_v313_http() -> None:
+        st, body = await _asgi_request("POST", "/api/frontier_physics", json_body={"analysis": "eom_rf_eye", "launch_type": "flip_chip_bump", "baud_rate_gbaud": 112.0})
+        assert st == 200
+        d = json.loads(body)
+        assert "metrics" in d and "eye_diagram_eq" in d and d["metrics"]["launch_type"] == "flip_chip_bump"
+
+    asyncio.run(_check_v313_http())
+
+    mcp_r = handle_mcp_request({"jsonrpc": "2.0", "id": 701, "method": "tools/call", "params": {"name": "microring_eom_rf_eye", "arguments": {"launch_type": "wirebond", "baud_rate_gbaud": 56.0, "modulation_format": "PAM4"}}})
+    assert mcp_r is not None and not mcp_r["result"]["isError"]
+    txt = mcp_r["result"]["content"][0]["text"]
+    assert len(txt) < 620, f"MCP microring_eom_rf_eye too verbose ({len(txt)} chars): {txt}"
+
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -2576,12 +2627,13 @@ def main() -> None:
         ("Live 1D/2D OPA LiDAR & 2D ASM Slab Rowland FPR / Trainable PDDNN", test_opa_lidar_and_slab_diffractive_live_physics),
         ("Live GeSi/InP EAM, Traveling-Wave SOA/EDWA & Single-Pass GNLSE/PPLN", test_eam_soa_and_single_pass_gnlse_ppln),
         ("Live 2D-FDFD MMI Crossing, Taper, Auto-Router, Ce:YIG Isolator, MEMS & 35-MCP Integration", test_crossings_router_isolator_mems_and_v312_fullstack),
+        ("Live HFSS-Class EOM RF Packaging ABCD, 100G-224G NRZ/PAM4 Eye/BER/TDECQ/FFE & 36-MCP", test_eom_rf_packaging_eye_ber_tdecq_and_36mcp),
     ]
     if len(sys.argv) > 1:
         toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]
         tests = [(lbl, fn) for lbl, fn in tests if any(tk in lbl.lower() or tk in fn.__name__.lower() for tk in toks)]
     print("=" * 72)
-    print("Running MicroRing Studio v3.12.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.13.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

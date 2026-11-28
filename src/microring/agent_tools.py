@@ -138,6 +138,11 @@ from .eom_electrode import (
     export_eom_electrode_gds,
     export_eom_rf_interconnect_bundle,
 )
+from .eom_rf_link_eye import (
+    EOMRFLinkConfig,
+    simulate_eom_eye_ber_link,
+    simulate_eom_rf_packaging,
+)
 from .multiphysics_tcad import (
     PNDopingTCADConfig,
     ThermalSimConfig,
@@ -1805,6 +1810,53 @@ def agent_isolator_mems(params: dict) -> dict:
         kw["export_gds_path"] = str(AGENT_OUT_DIR / f"isolator_{kw.get('iso_type', 'magneto_optic_ceyig')}.gds")
     res = simulate_optical_isolator(OpticalIsolatorConfig(**kw))
     return res["metrics"] | {"ms": res["elapsed_ms"]}
+
+
+def agent_eom_rf_eye(params: dict) -> dict:
+    """Live HFSS-class EOM RF Packaging ABCD + 100G-400G NRZ/PAM4 Eye Diagram, BER, TDECQ & FFE solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    aliases = {
+        "mat": "core_material",
+        "top": "electrode_topology",
+        "sub": "substrate_type",
+        "launch": "launch_type",
+        "fmt": "modulation_format",
+        "baud": "baud_rate_gbaud",
+        "vpp": "v_pp_drive_v",
+        "wb_um": "wirebond_length_um",
+        "bump_h_um": "bump_height_um",
+        "ffe": "ffe_taps",
+        "fiber_km": "fiber_length_km",
+        "len_um": "active_length_um",
+    }
+    valid = {f.name for f in fields(EOMRFLinkConfig)}
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+    res = simulate_eom_eye_ber_link(EOMRFLinkConfig(**kw))
+    s2p_path = None
+    if params.get("export_s2p"):
+        s2p_file = AGENT_OUT_DIR / f"eom_pkg_{kw.get('launch_type', 'gsg_probe')}_{kw.get('core_material', 'LN_Xcut')}.s2p"
+        s2p_file.write_text(res["rf_packaging"]["touchstone_s2p"], encoding="utf-8")
+        s2p_path = str(s2p_file)
+    m = res["metrics"]
+    out = {
+        "launch": m["launch_type"],
+        "fmt": m["modulation_format"],
+        "Gbps": m["bit_rate_Gbps"],
+        "f3dBo_bare_GHz": m["f_3dBo_bare_GHz"],
+        "f3dBo_pkg_GHz": m["f_3dBo_packaged_GHz"],
+        "S11_67G_dB": m["S11_max_67GHz_dB"],
+        "OMA_dBm": m["OMA_outer_dBm"],
+        "ER_dB": m["ER_dB"],
+        "raw_BER": float(f"{m['raw_BER']:.3e}"),
+        "eq_BER": float(f"{m['eq_BER']:.3e}"),
+        "TDECQ_dB": m["TDECQ_dB"],
+        "verdict": m["fec_verdict"],
+        "ms": res["elapsed_ms"],
+    }
+    if s2p_path:
+        out["s2p"] = s2p_path
+    return out
+
 
 
 

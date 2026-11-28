@@ -2,6 +2,17 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.13.0] - 2026-11-28
+
+### Added (End-to-End EOM RF Packaging HFSS-Class ABCD Engine + 100G–400G NRZ/PAM4 Eye Diagram, BER, IEEE 802.3bs TDECQ & MMSE FFE — Validated Against Ansys HFSS 2026 R1)
+- **HFSS-Class 3D RF Packaging & Interconnect Transition ABCD Cascade (`eom_rf_link_eye.py`)**:
+  - Live multilayer finite-ground conformal-mapping CPW solver (`solve_multilayer_cpw_section`) cascading `16`-section GSG probe pads & linear tapers (`0.1118 dB` `|S21|` MAE, `2.92°` phase MAE across `10–110 GHz` vs Ansys HFSS 2026 R1).
+  - Exact 3/4-conductor Neumann/Rosa/Grover 3D arched GSG bondwire (`compute_gsg_wirebond_abcd`, $L_{\mathrm{eff}} = 0.3335\text{ vs }0.3210\text{ nH} = 3.90\%$, `|S21|` MAE `0.173 dB` across `5–65 GHz` vs 3D HFSS) and 3D vertical flip-chip micro-bump in underfill (`compute_gsg_flip_chip_bump_abcd`, `|S21|` MAE `0.026 dB` across `10–110 GHz` vs 3D HFSS), plus optional M2/Via air-bridges and distributed lossy thin-film termination resistors `Z_L(f) = Z_cR tanh(gamma_R L_R)`.
+  - Full complex packaged electro-optic transfer function `S21_EO_pkg(f)` (including internal multiple reflections between input launch, active traveling-wave electrode, and load), packaged `S11_RF / S21_RF(f)` + Touchstone `.s2p`, and backward-compatible complex phase export (`S21_EO_ang_deg`, `S21_RF_ang_deg`, `gamma_RF`, `Z0_im_ohm`) in `eom_electrode.py`.
+- **100G–400G `NRZ`/`PAM4` Time-Domain Eye Diagram, Semi-Analytic `BER`, IEEE 802.3bs `TDECQ` & `MMSE FFE` (`simulate_eom_eye_ber_link`)**:
+  - PRBS-9/11 driver -> exact complex packaged `S21_EO(f)` FFT -> nonlinear push-pull/chirped Mach-Zehnder optical field transfer -> optional ITU-T G.652 SMF-28 chromatic dispersion -> 4th-order Bessel-Thomson PIN/TIA receiver (thermal + shot + RIN noise) -> Wiener-Hopf `N`-tap `MMSE FFE` with exact colored-noise enhancement $\mathbf{w}^T\mathbf{R}_{\mathrm{BT4}}\mathbf{w}$ and IEEE 802.3bs bisection `TDECQ` (verified `0.0000 dB` exact in zero-ISI limit).
+- **Full-Stack Integration**: Stage-12 Mode `#40` (`eom_rf_eye` with live 2-UI multi-trace eye-diagram canvas), Bilingual Copilot EN/ZH routing, CLI `microring agent eom-rf-eye`, **`36` MCP tools** (`microring_eom_rf_eye`, `<150 tokens`), and Test `#31` (`31/31` test suites PASS).
+
 ## [3.12.0] - 2026-11-28
 
 ### Added (6 Live First-Principles PIC Engines: OPA LiDAR, Trainable Slab FPR/PDDNN, EAM/SOA·EDWA, Single-Pass GNLSE/PPLN, 2D TE-FDFD MMI Crossing/Auto-Router & Non-Reciprocal Isolators/Photonic MEMS — Zero Canned Presets)
