@@ -396,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 16
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 21
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -1978,6 +1978,235 @@ def test_nonlinear_lle_fwm_shg_bistability_and_scattering() -> None:
     assert ag_b["bistable"] is True
 
 
+def test_advanced_mrr_crow_euler_sensor_tdcmt_mzi_molecule() -> None:
+    from microring import (
+        EulerBendConfig,
+        HighOrderFilterConfig,
+        LargeSignalTDCMTConfig,
+        MZICoupledMRRConfig,
+        PhotonicMoleculeConfig,
+        SensorAthermalConfig,
+        agent_advanced_mrr,
+        design_euler_racetrack_bend,
+        simulate_high_order_mrr_filter,
+        simulate_large_signal_td_cmt_modulator,
+        simulate_mrr_sensor_and_athermal,
+        simulate_mzi_coupled_mrr,
+        simulate_photonic_molecule,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        # 1. High-order CROW-4 Chebyshev & SCISSOR-4 exact 4-entry unitary Redheffer cascade
+        crow = simulate_high_order_mrr_filter(HighOrderFilterConfig(
+            architecture="crow", prototype="chebyshev", order_n=4, target_bw_ghz=40.0,
+        ))
+        assert 30.0 < crow["metrics"]["bw_3dB_GHz"] < 50.0
+        assert crow["metrics"]["oob_rejection_dB"] > 45.0
+        assert crow["metrics"]["max_unitarity_sum"] <= 1.0005
+
+        scis = simulate_high_order_mrr_filter(HighOrderFilterConfig(
+            architecture="scissor", prototype="butterworth", order_n=4, target_bw_ghz=40.0,
+        ))
+        assert scis["metrics"]["max_unitarity_sum"] <= 1.0005 and scis["metrics"]["drop_IL_dB"] < 0.5
+
+        # 2. Euler clothoid bend junction mismatch reduction + GDS export
+        eul_gds = tmp_path / "euler_racetrack.gds"
+        eul = design_euler_racetrack_bend(EulerBendConfig(
+            core_material="Si", effective_radius_um=3.5, euler_fraction_p=0.5, export_gds_path=str(eul_gds),
+        ))
+        assert eul["metrics"]["euler_junction_mismatch_dB"] < eul["metrics"]["circular_junction_mismatch_dB"]
+        assert eul_gds.is_file()
+
+        # 3. Aqueous biosensor + TiO2 negative-dn/dT athermal synthesis
+        sens = simulate_mrr_sensor_and_athermal(SensorAthermalConfig(
+            core_material="Si", analyte_medium="water", film_height_um=0.22, ring_width_um=0.45, compute_athermal=True,
+        ))
+        assert 45.0 < sens["metrics"]["S_bulk_nm_per_RIU"] < 120.0
+        assert sens["metrics"]["S_surface_pm_per_nm"] > 20.0
+        assert sens["athermal"] is not None
+
+        # 4. Large-signal TD-CMT modulator (detuning chirp vs chirp-free coupling modulation)
+        td_det = simulate_large_signal_td_cmt_modulator(LargeSignalTDCMTConfig(modulation_type="detuning", bitrate_gbps=50.0))
+        td_cpl = simulate_large_signal_td_cmt_modulator(LargeSignalTDCMTConfig(modulation_type="coupling", bitrate_gbps=50.0))
+        assert td_det["metrics"]["dynamic_ER_dB"] > 3.0 and td_det["metrics"]["peak_transient_chirp_GHz"] > 0.2
+        assert td_cpl["metrics"]["dynamic_ER_dB"] > 8.0 and td_cpl["metrics"]["effective_chirp_alpha_H"] == 0.0
+
+        # 5. MZI-coupled tunable-kappa MRR
+        mz_r = simulate_mzi_coupled_mrr(MZICoupledMRRConfig(core_material="Si", ring_radius_um=25.0))
+        assert mz_r["metrics"]["max_Q_loaded"] > 5.0 * mz_r["metrics"]["min_Q_loaded"]
+
+        # 6. Dual-ring photonic molecule & PT Exceptional Point sqrt sensitivity
+        mol = simulate_photonic_molecule(PhotonicMoleculeConfig(mode="pt_ep", coupling_j_ghz=5.0, gamma1_ghz=0.5, gamma2_ghz=20.5))
+        assert abs(mol["metrics"]["EP_vs_DP_sensitivity_gain_at_1e-3J"] - 2.0 / np.sqrt(1e-3)) < 1.0
+
+        ag_adv = agent_advanced_mrr({"analysis": "crow", "order_n": 4, "bw_ghz": 40.0})
+        assert len(json.dumps(ag_adv)) < 620
+
+
+def test_quantum_sfwm_and_active_mrr_laser() -> None:
+    from microring import (
+        MRRLaserConfig,
+        QuantumSFWMConfig,
+        simulate_mrr_laser,
+        simulate_quantum_sfwm_mrr,
+    )
+
+    # 1. Single-Q (< 0.92 ceiling) vs Dual-Q (> 0.95) Vernon JSA Schmidt purity & CAR / squeezing
+    q_single = simulate_quantum_sfwm_mrr(QuantumSFWMConfig(
+        core_material="Si", q_int=1.5e5, q_ext_pump=1.0e5, q_ext_si=1.0e5, pump_power_mw=0.5,
+    ))
+    q_dual = simulate_quantum_sfwm_mrr(QuantumSFWMConfig(
+        core_material="Si", q_int=1.5e5, q_ext_pump=2.5e4, q_ext_si=1.5e5, pump_power_mw=0.5,
+    ))
+    assert q_single["metrics"]["pair_rate_MHz"] > 1.0 and q_single["metrics"]["CAR"] > 5.0
+    assert q_single["metrics"]["JSA_spectral_purity"] < 0.92
+    assert q_dual["metrics"]["JSA_spectral_purity"] > 0.95
+    assert q_single["metrics"]["squeezing_at_P_onchip_dB"] > 0.5
+
+    # 2. Rare-earth Er:TFLN & Heterogeneous InGaAsP MQW active microring lasers
+    l_er = simulate_mrr_laser(MRRLaserConfig(gain_medium="Er_TFLN", ring_radius_um=50.0, operating_pump=5.0))
+    l_mqw = simulate_mrr_laser(MRRLaserConfig(gain_medium="InGaAsP_MQW", ring_radius_um=20.0, operating_pump=10.0))
+    assert l_er["metrics"]["threshold_value"] > 0.0 and l_er["metrics"]["operating_output_power_mW"] > 0.1
+    assert l_er["metrics"]["intrinsic_linewidth_Hz"] < 5000.0
+    assert l_mqw["metrics"]["threshold_value"] > 0.2 and l_mqw["metrics"]["relaxation_osc_f_RO_GHz"] > 5.0
+
+
+def test_swg_phcr_and_piezo_saw_sbs() -> None:
+    from microring import (
+        PhCMicroringConfig,
+        SAWAcoustoOpticConfig,
+        SBSBrillouinConfig,
+        SWGMicroringConfig,
+        agent_saw_sbs,
+        agent_swg_phc,
+        simulate_phc_microring,
+        simulate_saw_acousto_optic_mrr,
+        simulate_sbs_brillouin_mrr,
+        simulate_swg_microring,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        # 1. SWG aqueous biosensor ring (2nd-order Rytov EMT + Bloch + pillared GDS)
+        swg_gds = tmp_path / "swg_ring.gds"
+        swg = simulate_swg_microring(SWGMicroringConfig(
+            core_material="Si", top_clad_material="Custom", custom_top_clad_n=1.318,
+            film_height_um=0.22, ring_width_um=0.50, swg_period_nm=220.0, duty_cycle=0.50,
+            export_gds_path=str(swg_gds),
+        ))
+        assert 1.45 < swg["metrics"]["neff_swg"] < 1.75
+        assert 350.0 < swg["metrics"]["S_bulk_nm_per_RIU"] < 580.0
+        assert swg["metrics"]["in_subwavelength_regime"] is True and swg_gds.is_file()
+
+        # 2. PhCR selective mode splitting (NIST Si3N4 inner-wall corrugation + GDS)
+        phc_gds = tmp_path / "phcr_ring.gds"
+        phc = simulate_phc_microring(PhCMicroringConfig(
+            core_material="Si3N4", film_height_um=0.50, ring_width_um=1.20, ring_radius_um=25.0,
+            modulation_amplitude_nm=40.0, export_gds_path=str(phc_gds),
+        ))
+        assert 35.0 < phc["metrics"]["selective_mode_split_GHz"] < 85.0 and phc_gds.is_file()
+
+        # 3. Piezoelectric SAW (AlN/SiO2/Si) & Suspended X-cut TFLN Lamb S0 (v_open > v_short, K_eff^2 > 0)
+        saw_aln = simulate_saw_acousto_optic_mrr(SAWAcoustoOpticConfig(
+            waveguide_material="AlN", box_material="SiO2", substrate_material="Si",
+            film_height_um=0.50, box_thickness_um=1.00, idt_period_um=2.00,
+        ))
+        saw_ln = simulate_saw_acousto_optic_mrr(SAWAcoustoOpticConfig(
+            waveguide_material="LN_Xcut", box_material="Air", substrate_material="Air",
+            film_height_um=0.40, box_thickness_um=0.0, idt_period_um=2.00, acoustic_mode="lamb_s0",
+        ))
+        assert 3500.0 < saw_aln["metrics"]["v_open_m_per_s"] < 4700.0
+        assert saw_aln["metrics"]["v_open_m_per_s"] > saw_aln["metrics"]["v_short_m_per_s"]
+        assert 0.2 < saw_aln["metrics"]["K_eff_sq_pct"] < 2.0
+        assert 6000.0 < saw_ln["metrics"]["v_open_m_per_s"] < 7400.0 and saw_ln["metrics"]["K_eff_sq_pct"] > 0.8
+
+        # 4. Full 2D Solid-Mechanics FEM SBS (Forward & Backward suspended Si)
+        sbs_f = simulate_sbs_brillouin_mrr(SBSBrillouinConfig(core_material="Si", clad_material="Air", sbs_direction="forward"))
+        sbs_b = simulate_sbs_brillouin_mrr(SBSBrillouinConfig(core_material="Si", clad_material="Air", sbs_direction="backward"))
+        assert 7.5 < sbs_f["metrics"]["Omega_B_2pi_GHz"] < 9.5 and sbs_f["metrics"]["G_B_per_W_m"] > 5000.0
+        assert 15.0 < sbs_b["metrics"]["Omega_B_2pi_GHz"] < 18.5 and sbs_b["metrics"]["G_B_per_W_m"] > 100.0
+
+        assert len(json.dumps(agent_swg_phc({"analysis": "swg"}))) < 620
+        assert len(json.dumps(agent_saw_sbs({"analysis": "saw"}))) < 620
+
+
+def test_nanoantenna_tcmt_and_frontier_stage12_integration() -> None:
+    from microring import (
+        NanoantennaTCMTConfig,
+        TwoDMaterialMRRConfig,
+        agent_2d_material_mrr,
+        agent_nanoantenna_tcmt,
+        fit_nanoantenna_tcmt_spectrum,
+        simulate_2d_material_mrr,
+        simulate_nanoantenna_tcmt,
+    )
+
+    # 1. Exact Suh-Wang-Fan energy conservation across MIM, Fano/qBIC, SEIRA & EP regimes
+    mim = simulate_nanoantenna_tcmt(NanoantennaTCMTConfig(regime="mim_absorber", num_ports=1))
+    fano = simulate_nanoantenna_tcmt(NanoantennaTCMTConfig(regime="fano_eit_qbic", num_ports=2))
+    seira = simulate_nanoantenna_tcmt(NanoantennaTCMTConfig(regime="seira_molecular", num_ports=1, analyte_preset="PMMA"))
+    ep = simulate_nanoantenna_tcmt(NanoantennaTCMTConfig(regime="metasurface_ep", num_ports=2))
+    assert abs(mim["metrics"]["peak_absorption_pct"] - 100.0) < 1e-4 and mim["metrics"]["max_energy_conservation_err"] < 1e-12
+    assert fano["metrics"]["max_energy_conservation_err"] < 1e-12
+    assert seira["metrics"]["peak_SEIRA_diff_signal_pct"] > 1.0 and ep["metrics"]["max_energy_conservation_err"] < 1e-12
+
+    # 2. Blind 6-parameter SEIRA inverse fit recovery (R^2 > 0.999)
+    nu = np.asarray(seira["spectrum"]["wavenumber_cm1"])
+    r_sig = np.asarray(seira["spectrum"]["R"])
+    fit = fit_nanoantenna_tcmt_spectrum(nu, r_sig, with_molecule=True, nu_mol_guess_cm1=1725.0)
+    assert fit["metrics"]["r_squared"] > 0.999 and abs(fit["metrics"]["nu0_molecule_cm1"] - 1730.0) < 1.5
+
+    # 2b. 2D Materials on MRR (Graphene SLG/DLG Kubo Pauli blocking, WS2 sub-bandgap phase-only, hBN hyperbolic)
+    gr = simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="Graphene", capacitor_type="SLG"))
+    ws2 = simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="WS2", v_gate_sweep_v=(0.0, 3.0, 6.0)))
+    hbn = simulate_2d_material_mrr(TwoDMaterialMRRConfig(
+        material_2d="hBN", core_material="Ge", clad_material="CaF2", top_clad_material="Air",
+        film_height_um=1.2, ring_width_um=2.0, ring_radius_um=60.0, wavelength_nm=6800.0, v_gate_sweep_v=(0.0,),
+    ))
+    assert 600.0 < gr["metrics"]["alpha_2d_max_dB_per_cm"] < 950.0
+    assert gr["metrics"]["alpha_2d_min_dB_per_cm"] < 80.0 and gr["metrics"]["MRR_dynamic_ER_dB"] > 2.0
+    assert ws2["metrics"]["phase_to_loss_ratio_dn_dk"] > 20.0
+    assert hbn["metrics"]["hbn_dispersion_regime"] == "Hyperbolic_Type_II_Reststrahlen"
+    assert len(json.dumps(agent_2d_material_mrr({"material_2d": "Graphene"}))) < 620
+
+    # 3. Stage 12 HTTP ASGI /api/frontier_physics + UI pill-frontier + Copilot EN/ZH + MCP tools #17-#21
+    with tempfile.TemporaryDirectory() as td:
+        tmp_path = Path(td)
+        c_en = process_chat_turn(create_initial_session(lang="en"), "Simulate Mid-IR nanoantenna SEIRA TCMT", gds_export_dir=tmp_path)
+        assert c_en["ui_view"] == "frontier" and c_en["frontier_result"]["analysis"] == "nanoantenna_tcmt"
+        c_zh = process_chat_turn(create_initial_session(lang="zh"), "仿真石墨烯微环调制器", gds_export_dir=tmp_path, lang="zh")
+        assert c_zh["ui_view"] == "frontier" and c_zh["frontier_result"]["analysis"] == "twod_material"
+
+        async def _check_frontier_http() -> None:
+            st0, b0 = await _asgi_request("GET", "/")
+            assert st0 == 200 and b"pill-frontier" in b0 and b"view-frontier" in b0
+            for payload in (
+                {"analysis": "nanoantenna_tcmt", "regime": "seira_molecular"},
+                {"analysis": "twod_material", "material_2d": "Graphene"},
+                {"analysis": "swg", "swg_period_nm": 220.0},
+                {"analysis": "saw", "waveguide_material": "AlN", "idt_period_um": 2.0},
+                {"analysis": "crow", "order_n": 4, "target_bw_ghz": 40.0},
+            ):
+                st, body = await _asgi_request("POST", "/api/frontier_physics", json_body=payload)
+                assert st == 200 and "metrics" in json.loads(body)
+
+        asyncio.run(_check_frontier_http())
+
+    for tool_name, args in [
+        ("microring_advanced_mrr", {"analysis": "crow", "order_n": 4}),
+        ("microring_swg_phc", {"analysis": "phcr", "amp_nm": 40.0}),
+        ("microring_saw_sbs", {"analysis": "sbs", "direction": "forward"}),
+        ("microring_nanoantenna_tcmt", {"regime": "seira_molecular", "analyte": "PMMA"}),
+        ("microring_2d_material_mrr", {"material_2d": "Graphene", "capacitor_type": "SLG"}),
+    ]:
+        mcp_r = handle_mcp_request({"jsonrpc": "2.0", "id": 401, "method": "tools/call", "params": {"name": tool_name, "arguments": args}})
+        assert mcp_r is not None and not mcp_r["result"]["isError"]
+        txt = mcp_r["result"]["content"][0]["text"]
+        assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
+    assert len(json.dumps(agent_nanoantenna_tcmt({"regime": "mim_absorber"}))) < 620
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -1998,12 +2227,16 @@ def main() -> None:
         ("PRISM Physics-Closure Audit & Prediction-Gated Real-2D-FEM Optimizer", test_prism_closure_audit_and_real_fem_optimizer),
         ("Multi-Channel WDM Ring Link, Eye Diagram, PI Heater Locking & Process Corners", test_wdm_link_eye_thermal_locking_and_foundry_corners),
         ("Nonlinear Photonics & LLE Microcombs (D_int, DKS/Raman/TPA, FWM-BS, SHG, Bistability, Payne-Lacey)", test_nonlinear_lle_fwm_shg_bistability_and_scattering),
+        ("Advanced MRR Topologies (CROW/SCISSOR, Euler, Sensor/Athermal, TD-CMT, MZI-MRR, Molecule/EP)", test_advanced_mrr_crow_euler_sensor_tdcmt_mzi_molecule),
+        ("Quantum SFWM Photon-Pair Source (JSA Purity/Squeezing) & Active Gain MRR Lasers", test_quantum_sfwm_and_active_mrr_laser),
+        ("SWG Ring, Photonic Crystal Ring (PhCR), Piezo SAW/Lamb & 2D Solid-Mechanics SBS", test_swg_phcr_and_piezo_saw_sbs),
+        ("Nanoantenna/Metasurface TCMT (MIM/Fano/SEIRA/EP) & Stage-12 Frontier Integration", test_nanoantenna_tcmt_and_frontier_stage12_integration),
     ]
     if len(sys.argv) > 1:
         toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]
         tests = [(lbl, fn) for lbl, fn in tests if any(tk in lbl.lower() or tk in fn.__name__.lower() for tk in toks)]
     print("=" * 72)
-    print("Running MicroRing Studio v3.9.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.10.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

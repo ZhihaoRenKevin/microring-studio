@@ -6,7 +6,7 @@
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.9.0](https://img.shields.io/badge/release-v3.9.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.9.0)
+[![Release: v3.10.0](https://img.shields.io/badge/release-v3.10.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.10.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
@@ -37,6 +37,8 @@
 | **12** | 低 Q 整环 `3D FDTD`（7 种拓扑）、`.GDS` 闭环与双峰 Auto-BIC | Lumerical `3D FDTD`（RTX 5090 GPU） | 跑道环 $Q_L$ `1413 vs 1405`（`0.58%`）；高损临界耦合 $Q_{\mathrm{ext}}$ `8348 vs 8156`（`2.3%`）；间距缩放 `1.1%`；双环 CROW 劈裂 `1.109 vs 1.052 nm`（`5.4%`）；`GSST` 相变漂移 `+2.93 vs +2.75 nm`（`6.0%`）；`.GDS` 直导 `gdsimport` 与盲测 Auto-BIC 判别 `split_doublet`（`R^2 = 0.99997`）通过 |
 | **13** | 最优长 `2x2 MMI`、全 S 弯 `DC`、`RAMZI`、全 3D 聚焦光栅与端面锥 | Lumerical `3D FDTD`（RTX 5090 GPU） | 最优 `2x2 MMI` 插损 `0.367 vs 0.393 dB`（`0.026 dB`）；全 S 弯 `DC` 误差 `2.2%`；`RAMZI` 消光比 `14.85 vs 14.94 dB`（`0.09 dB`）；全 3D 聚焦光栅峰值 `1555.3 vs 1554.0 nm`，峰值插损 `3.490 vs 3.522 dB`（`0.032 dB`）；3D 端面锥总插损 `0.588 vs 0.777 dB` |
 | **LLE** | 广义 SSFM LLE 孤子微梳（Brasch `Si3N4`、Guidry `4H-SiC`、NIST `RW1000_H430` 双色散波） | **NIST `usnistgov/pyLLE`**（`ComputeLLE.jl`） | 孤子峰功率误差 `0.58%–1.68%`、脉宽 FWHM 误差 `0.08%–1.00%`、`81–215` 根梳齿中位误差 `0.11–0.31 dB`（`r = 0.9954–1.0000`），蓝移色散波模序完全一致（`+119 vs +119`），速度提升 `50–77x` |
+| **F-C** | 压电 SAW/Lamb（`AlN`/`ScAlN`/`X-TFLN`）、2D/3D 硅 SBS 与石墨烯面电流 | **COMSOL 6.4**（`solid`+`es`+`pze`, `ewfd`） | SAW/Lamb 开路相速 $v_{\mathrm{open}}$ 误差 **`0.0003%–0.0005%`**，$K_{\mathrm{eff}}^2$ 三位小数完全一致（`0.547%`/`0.621%`/`1.587%`）；前向/后向 SBS **`8.4886 vs 8.4886 GHz`（`0.0004%`）**与 **`16.7573 vs 16.7580 GHz`（`0.0044%`）**；石墨烯-SOI $\alpha(\mu_c=0)$ `778.82 vs 777.17 dB/cm`（**`0.21%`**） |
+| **F-L** | 3D 亚波长光栅 `SWG`、3D 光子晶体环 `PhCR` 劈裂与中红外 `MIM`/`SEIRA` TCMT | **Lumerical `3D FDTD`**（RTX 5090 GPU） | `SWG` 水相灵敏度 $S_{\mathrm{bulk}}$ `450.7 vs 461.2 nm/RIU`（**`2.27%`**）、`SiO2` $n_g$ 误差 `4.85%`；`PhCR`（`Si3N4 A=40 nm`）模式劈裂 **`103.21 vs 103.71 GHz`（`0.48%`）**，Bragg 中心 `1549.992 nm`；`SEIRA PMMA` 盲测 TCMT 反演拟合 **`R^2 = 0.99896, RMSE = 0.0088`** |
 
 <details>
 <summary><b>展开查看 18 子图四方商业软件对比总图（套件 1–13：MicroRing vs. Lumerical / COMSOL / HFSS 3D）</b></summary>
@@ -53,6 +55,13 @@
 
 ## 核心亮点
 
+0. **前沿光子与多物理场全景引擎（`🔬 Frontier` Stage 12，6 大独立第一性原理模块，`21` 个 MCP 工具）**：
+   - **高阶 `CROW`/`SCISSOR` 滤波器、Euler 缓变弯曲、生物/气体传感与 `TiO2` 无热化、大信号 `TD-CMT`、`MZI-MRR` 与光子分子/`PT-EP`（`advanced_mrr.py`）**：严格 4-入口幺正 Redheffer 级联综合、`Euler` 缓变跑道弯接头损耗抑制与 `.GDS`、水相/气体传感与负热光 `TiO2` 无热化包层厚度综合、RK4 大信号失谐/无啁啾耦合调制器、`MZI` 可调耦合微环与双环光子分子/奇异点 $\sqrt{\varepsilon}$ 增强。
+   - **量子 `SFWM` 纠缠光子对与有源微环激光器（`quantum_and_laser_mrr.py`）**：自发四波混频产率、CAR、$g_H^{(2)}(0)$、双 Q 耦合 JSA 施密特纯度提升（`0.856 -> 0.976`）与片上压缩光（`dB`），以及稀土掺杂（`Er:TFLN`, `Er:Si3N4`）和异质集成 `InGaAsP` MQW 微环激光器。
+   - **亚波长光栅 `SWG` 微环与光子晶体微环 `PhCR`（`swg_and_phc_mrr.py`）**：二阶 Rytov EMT + 2D 弯曲各向异性 FEM + 1D Bloch-Floquet 柱状 `SWG` 微环与 `.GDS`，以及 NIST 型选择性背向散射 `PhCR`（与 3D FDTD 劈裂误差 `0.48%`）与波纹 `.GDS`。
+   - **压电声表面波 `SAW`/兰姆波声光微环与全二维固体力学 `SBS`（`acousto_optic_saw.py`）**：多层耦合 Christoffel-压电 P2 有限元（`AlN`/`ScAlN`/`X-TFLN`，与 COMSOL 6.4 相速误差 `0.0005%`）与全二维三分量 P2 固体力学前/后向 `SBS`（误差 `0.0004%–0.0044%`）。
+   - **纳米天线 / 超表面 `TCMT` 与 `SEIRA` 分子光谱反演（`nanoantenna_tcmt.py`）**：严格能量守恒 Suh-Wang-Fan 多模 TCMT（`MIM` 吸收器、`Fano/EIT/qBIC`、`SEIRA` 5 类分子预设、超表面 `EP`）与盲测非线性最小二乘 FTIR 拟合（3D FDTD `SEIRA` 拟合 `R^2 = 0.99896`）。
+   - **二维材料集成微环（`twod_materials_mrr.py`）**：有限温复数 Kubo 电导率单/双层石墨烯（`SLG`/`DLG` 栅压电容与泡利阻塞，与 COMSOL `ewfd` 面电流误差 `0.21%`）、单层过渡金属硫族化合物（`WS2`/`MoS2`/`WSe2`/`MoSe2` 纯相移调制）、中红外双曲 `hBN`（I/II 型 Reststrahlen 带）与各向异性黑磷 `Black_Phosphorus`。
 1. **零商业许可非线性光子学、广义 LLE 孤子微梳、FWM-BS、$\chi^{(2)}$ SHG、热光双稳态与 Payne-Lacey 侧壁散射（`nonlinear_lle.py` & `mrr_topologies.py`）**：
    - **2D 弯曲 FEM 色散提取 + 广义分步傅里叶（SSFM）LLE 微梳求解器（`simulate_lle_microcomb`）**：直接从 2D 弯曲矢量 FEM 提取宽带积分色散 $D_{\mathrm{int}}(\mu)$（$D_1, D_2, D_3, D_4$、$\beta_2(\lambda)$、零色散波长 ZDW 与可选 AMX）、Afshar-Monro (2009) 全矢量 Kerr 非线性系数 $\gamma_{\mathrm{NL}} / A_{\mathrm{eff,NL}} / P_{\mathrm{th}}$ 与宽带耦合器色散 $\kappa_{\mathrm{ext}}(\mu)$，无缝送入 FP64 CUDA/NumPy Strang SSFM 求解器，支持稳态耗散 Kerr 孤子（`single_soliton`）、冷腔蓝-红扫频孤子成核（`soliton_sweep`）、正常色散暗脉冲（`dark_pulse`）、因果阻尼振子 Raman 自频红移、光热失谐耦合及硅/非晶硅 TPA + 自由载流子 FCD/FCA（含 `2.2 µm` 截止波长）。
    - **跨波段四波混频布拉格散射（`simulate_fwm_bragg_scattering`）、$\chi^{(2)}$ 倍频（`simulate_chi2_shg_resonator`）与鲨鱼鳍光热+Kerr 双稳态（`simulate_thermal_kerr_bistability`）**：完整求解四波 2D 弯曲矢量模场张量重叠（$\gamma_{\mathrm{BS}}, C_{\mathrm{BS}}, \eta_{\mathrm{CE}}$ 与寄生边带抑制）、晶体 $\chi^{(2)}$ 张量重叠（$g_2, \Lambda_{\mathrm{QPM}}, \eta_{\mathrm{SHG}}$ 与精确泵浦耗尽三次方程曲线）以及静态 S 曲线与动态蓝/红扫频迟滞。
@@ -245,7 +254,7 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. 实验透射谱拟合（背向散射双峰劈裂 Q_int / Q_ext / 2g 与多 FSR 群折射率提取）：
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# 运行全套 17 项自动化物理测试 + 369 篇同行评审实验论文头对头核验：
+# 运行全套 22 项自动化物理测试 + 369 篇同行评审实验论文头对头核验：
 python tests/test_microring_all.py
 python benchmarks/run_publication_validation.py
 ```

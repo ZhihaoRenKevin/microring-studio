@@ -108,6 +108,47 @@ from .nonlinear_lle import (
     simulate_lle_microcomb,
     simulate_thermal_kerr_bistability,
 )
+from .acousto_optic_saw import (
+    SAWAcoustoOpticConfig,
+    SBSBrillouinConfig,
+    simulate_saw_acousto_optic_mrr,
+    simulate_sbs_brillouin_mrr,
+)
+from .advanced_mrr import (
+    EulerBendConfig,
+    HighOrderFilterConfig,
+    LargeSignalTDCMTConfig,
+    MZICoupledMRRConfig,
+    PhotonicMoleculeConfig,
+    SensorAthermalConfig,
+    design_euler_racetrack_bend,
+    simulate_high_order_mrr_filter,
+    simulate_large_signal_td_cmt_modulator,
+    simulate_mrr_sensor_and_athermal,
+    simulate_mzi_coupled_mrr,
+    simulate_photonic_molecule,
+)
+from .nanoantenna_tcmt import (
+    NanoantennaTCMTConfig,
+    fit_nanoantenna_tcmt_spectrum,
+    simulate_nanoantenna_tcmt,
+)
+from .twod_materials_mrr import (
+    TwoDMaterialMRRConfig,
+    simulate_2d_material_mrr,
+)
+from .quantum_and_laser_mrr import (
+    MRRLaserConfig,
+    QuantumSFWMConfig,
+    simulate_mrr_laser,
+    simulate_quantum_sfwm_mrr,
+)
+from .swg_and_phc_mrr import (
+    PhCMicroringConfig,
+    SWGMicroringConfig,
+    simulate_phc_microring,
+    simulate_swg_microring,
+)
 from .mzi_interferometer import (
     MZI_SPLITTER_CATALOG,
     MZIDesignConfig,
@@ -1494,6 +1535,64 @@ async def api_nonlinear_lle(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
 
+def _advanced_frontier_sync(payload: dict) -> dict:
+    analysis = str(payload.get("analysis") or "high_order_filter").lower().strip()
+    if analysis in ("high_order_filter", "crow", "scissor"):
+        kw = _filter_dataclass_kwargs(HighOrderFilterConfig, payload)
+        if analysis in ("crow", "scissor") and "architecture" not in kw:
+            kw["architecture"] = analysis
+        return {"analysis": analysis, **simulate_high_order_mrr_filter(HighOrderFilterConfig(**kw))}
+    if analysis in ("euler_bend", "euler"):
+        kw = _filter_dataclass_kwargs(EulerBendConfig, payload)
+        return {"analysis": "euler_bend", **design_euler_racetrack_bend(EulerBendConfig(**kw))}
+    if analysis in ("sensor_athermal", "sensor", "athermal"):
+        kw = _filter_dataclass_kwargs(SensorAthermalConfig, payload)
+        return {"analysis": "sensor_athermal", **simulate_mrr_sensor_and_athermal(SensorAthermalConfig(**kw))}
+    if analysis in ("td_cmt_modulator", "td_cmt"):
+        kw = _filter_dataclass_kwargs(LargeSignalTDCMTConfig, payload)
+        return {"analysis": "td_cmt_modulator", **simulate_large_signal_td_cmt_modulator(LargeSignalTDCMTConfig(**kw))}
+    if analysis in ("mzi_mrr", "tunable_kappa"):
+        kw = _filter_dataclass_kwargs(MZICoupledMRRConfig, payload)
+        return {"analysis": "mzi_mrr", **simulate_mzi_coupled_mrr(MZICoupledMRRConfig(**kw))}
+    if analysis in ("photonic_molecule", "molecule", "ep"):
+        kw = _filter_dataclass_kwargs(PhotonicMoleculeConfig, payload)
+        return {"analysis": "photonic_molecule", **simulate_photonic_molecule(PhotonicMoleculeConfig(**kw))}
+    if analysis in ("quantum_sfwm", "sfwm", "quantum", "squeezing"):
+        kw = _filter_dataclass_kwargs(QuantumSFWMConfig, payload)
+        return {"analysis": "quantum_sfwm", **simulate_quantum_sfwm_mrr(QuantumSFWMConfig(**kw))}
+    if analysis in ("mrr_laser", "laser"):
+        kw = _filter_dataclass_kwargs(MRRLaserConfig, payload)
+        return {"analysis": "mrr_laser", **simulate_mrr_laser(MRRLaserConfig(**kw))}
+    if analysis in ("swg", "swg_ring"):
+        kw = _filter_dataclass_kwargs(SWGMicroringConfig, payload)
+        return {"analysis": "swg", **simulate_swg_microring(SWGMicroringConfig(**kw))}
+    if analysis in ("phcr", "phc"):
+        kw = _filter_dataclass_kwargs(PhCMicroringConfig, payload)
+        return {"analysis": "phcr", **simulate_phc_microring(PhCMicroringConfig(**kw))}
+    if analysis in ("saw", "acousto_optic"):
+        kw = _filter_dataclass_kwargs(SAWAcoustoOpticConfig, payload)
+        return {"analysis": "saw", **simulate_saw_acousto_optic_mrr(SAWAcoustoOpticConfig(**kw))}
+    if analysis in ("sbs", "brillouin"):
+        kw = _filter_dataclass_kwargs(SBSBrillouinConfig, payload)
+        return {"analysis": "sbs", **simulate_sbs_brillouin_mrr(SBSBrillouinConfig(**kw))}
+    if analysis in ("nanoantenna_tcmt", "nanoantenna", "seira", "tcmt"):
+        kw = _filter_dataclass_kwargs(NanoantennaTCMTConfig, payload)
+        return {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig(**kw))}
+    if analysis in ("twod_material", "2d_material", "graphene", "tmd", "ws2", "hbn"):
+        kw = _filter_dataclass_kwargs(TwoDMaterialMRRConfig, payload)
+        return {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(**kw))}
+    return _nonlinear_lle_sync(payload)
+
+
+async def api_frontier_physics(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_advanced_frontier_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
 def create_app() -> Starlette:
     routes = [
         Route("/", homepage, methods=["GET"]),
@@ -1530,6 +1629,7 @@ def create_app() -> Starlette:
         Route("/api/prism_optimize", api_prism_optimize, methods=["POST"]),
         Route("/api/wdm_link", api_wdm_link, methods=["POST"]),
         Route("/api/nonlinear_lle", api_nonlinear_lle, methods=["POST"]),
+        Route("/api/frontier_physics", api_frontier_physics, methods=["POST"]),
         Route("/api/download_file", api_download_file, methods=["GET"]),
         Route("/api/demo_spectrum", api_demo_spectrum, methods=["GET"]),
         Route("/api/fit_spectrum", api_fit_spectrum, methods=["POST"]),

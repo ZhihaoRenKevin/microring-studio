@@ -543,6 +543,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
             <button class="stage-pill" id="pill-tuning" onclick="setStageView('tuning'); toggleModulesPopover(false);" data-i18n="pill_tuning">⚡ Active Tuning &amp; IC</button>
             <button class="stage-pill" id="pill-fab" onclick="setStageView('fab'); toggleModulesPopover(false);" data-i18n="pill_fab">🧪 Fab &amp; PR Dose</button>
             <button class="stage-pill" id="pill-foundry" onclick="setStageView('foundry'); toggleModulesPopover(false);" data-i18n="pill_foundry">🏭 PDK · PRISM · WDM</button>
+            <button class="stage-pill" id="pill-frontier" onclick="setStageView('frontier'); toggleModulesPopover(false);" data-i18n="pill_frontier">🌌 Nonlinear · Quantum · SWG/PhC · SAW · TCMT</button>
             <button class="stage-pill" id="pill-gds" onclick="setStageView('gds'); toggleModulesPopover(false);" data-i18n="pill_gds">📐 GDS Inspector</button>
             <button class="stage-pill" id="pill-fit" onclick="setStageView('fit'); toggleModulesPopover(false);" data-i18n="pill_fit">📈 Lab Spectrum Fit</button>
           </div>
@@ -1908,6 +1909,96 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         </div>
       </div>
 
+      <!-- ==================== STAGE 12: NONLINEAR LLE · QUANTUM · SWG/PhCR · SAW/SBS · NANOANTENNA TCMT ==================== -->
+      <div class="stage-view" id="view-frontier">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="fr_card_title">Frontier Physics Suite: Nonlinear LLE · CROW/Euler/Sensor/TD-CMT · Quantum/Laser · SWG/PhCR · Piezo SAW/SBS · Nanoantenna TCMT</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn sm primary" id="btn-run-frontier" onclick="runFrontierPhysicsUI()" data-i18n="fr_btn_run">▶ Run Frontier Solver</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:2.2fr 1.3fr 1fr 1fr;gap:10px;align-items:end;">
+            <div class="form-row" style="margin:0;">
+              <label data-i18n="fr_lbl_mode">Frontier Physics Engine (100% Native First-Principles)</label>
+              <select id="fr-mode" onchange="onFrontierModeChange()">
+                <option value="lle">🔥 LLE Kerr Soliton Microcomb (Strang SSFM + Raman/Thermal/TPA)</option>
+                <option value="fwm_bs">🌈 4-Wave Cross-Band FWM-BS Quantum Frequency Conversion</option>
+                <option value="shg">✨ χ⁽²⁾ Second-Harmonic Generation (Pump Depletion)</option>
+                <option value="bistability">🦈 Thermal + Kerr Optical Bistability (Shark-Fin Hysteresis)</option>
+                <option value="crow">🔗 High-Order N-Ring Series CROW Filter (Redheffer + Group Delay)</option>
+                <option value="scissor">🧬 High-Order N-Ring Parallel SCISSOR Array (4-Port Unitary)</option>
+                <option value="euler_bend">🌀 Euler Clothoid Racetrack Bend &amp; Lateral Offset</option>
+                <option value="sensor_athermal">🧫 Biosensor / Gas Cavity Enhancement &amp; TiO₂ Athermal</option>
+                <option value="td_cmt_modulator">⚡ Large-Signal TD-CMT Modulator (NRZ/PAM4 + Transient Chirp)</option>
+                <option value="mzi_mrr">🔀 MZI-Coupled Tunable-κ Microring Resonator</option>
+                <option value="photonic_molecule">⚛️ Dual-Ring Photonic Molecule &amp; PT Exceptional Point</option>
+                <option value="quantum_sfwm">🔮 Quantum SFWM Photon Pairs, JSA Schmidt Purity &amp; Squeezing</option>
+                <option value="mrr_laser">💡 Active Rare-Earth (Er) / Heterogeneous InGaAsP MRR Laser</option>
+                <option value="swg">🧱 Sub-Wavelength Grating (SWG) Ring (2nd-Order Rytov + Bloch)</option>
+                <option value="phcr">💎 Photonic Crystal Ring (PhCR) Selective Mode Splitting</option>
+                <option value="saw">🔊 2D Piezoelectric SAW / Lamb S₀ Acousto-Optic MRR</option>
+                <option value="sbs">🌊 2D Solid-Mechanics Forward &amp; Backward SBS Brillouin Gain</option>
+                <option value="nanoantenna_tcmt">📡 Nanoantenna / Metasurface TCMT (MIM / Fano / SEIRA / EP)</option>
+                <option value="twod_material">🧪 2D Materials on MRR (Graphene Kubo · WS₂/MoS₂ · hBN · BP)</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin:0;">
+              <label id="fr-lbl-sub1">Preset / Material / Architecture</label>
+              <select id="fr-sub1"></select>
+            </div>
+            <div class="form-row" style="margin:0;">
+              <label id="fr-lbl-p1">Primary Parameter 1</label>
+              <input id="fr-p1" type="number" step="any" value="100"/>
+            </div>
+            <div class="form-row" style="margin:0;">
+              <label id="fr-lbl-p2">Primary Parameter 2</label>
+              <input id="fr-p2" type="number" step="any" value="25"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi-box"><div class="kpi-lbl" id="fr-kpi1-lbl">Metric 1</div><div class="kpi-val" id="fr-kpi1-val">—</div><div class="kpi-sub" id="fr-kpi1-sub">—</div></div>
+          <div class="kpi-box"><div class="kpi-lbl" id="fr-kpi2-lbl">Metric 2</div><div class="kpi-val" id="fr-kpi2-val">—</div><div class="kpi-sub" id="fr-kpi2-sub">—</div></div>
+          <div class="kpi-box"><div class="kpi-lbl" id="fr-kpi3-lbl">Metric 3</div><div class="kpi-val" id="fr-kpi3-val">—</div><div class="kpi-sub" id="fr-kpi3-sub">—</div></div>
+          <div class="kpi-box"><div class="kpi-lbl" id="fr-kpi4-lbl">Metric 4</div><div class="kpi-val" id="fr-kpi4-val">—</div><div class="kpi-sub" id="fr-kpi4-sub">—</div></div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="fr-plot1-title">Primary Spectrum / Dispersion / Field Response</span>
+              <span class="card-sub" id="fr-plot1-sub">First-Principles Native Solver</span>
+            </div>
+            <canvas class="plot-cv" id="cv-frontier-main"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" id="fr-plot2-title">Secondary Diagnostic / Envelope / Phase / Sensitivity</span>
+              <span class="card-sub" id="fr-plot2-sub">Zero Commercial Dependency</span>
+            </div>
+            <canvas class="plot-cv" id="cv-frontier-aux"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" id="fr-tbl-title">Frontier Physics Quantitative Breakdown</span>
+            <span class="card-sub" id="fr-tbl-sub">Exact Conservation &amp; Parameter Provenance</span>
+          </div>
+          <table class="clean-tbl" id="fr-table">
+            <thead>
+              <tr id="fr-thead-row">
+                <th>Physical Quantity</th><th>Value</th><th>Notes</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -1968,6 +2059,8 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
         <div class="field"><label>Ring-2 R_2 [µm]</label><input id="cfg-r2" type="number" step="0.5" value="42.5"/></div>
         <div class="field"><label>Custom n_core</label><input id="cfg-custom-n" type="number" step="0.01" placeholder="Catalog"/></div>
         <div class="field"><label>Custom n_clad</label><input id="cfg-custom-clad-n" type="number" step="0.01" placeholder="Catalog"/></div>
+        <div class="field"><label>Sidewall σ [nm]</label><input id="cfg-roughness" type="number" step="0.2" min="0" value="0.0"/></div>
+        <div class="field"><label>Broadband κ(λ)</label><select id="cfg-bb-coupler"><option value="true" selected>On (Dispersive)</option><option value="false">Off (Constant)</option></select></div>
       </div>
       <!-- Hidden helper inputs for 2D mode & sweep array compatibility -->
       <input type="hidden" id="mode-w" value="1.20"/>
@@ -2026,6 +2119,8 @@ let lastFoundryResult = null;
 let lastFoundryKind = null;
 let lastFoundryGdsView = null;
 let foundryBusy = false;
+let lastFrontierResult = null;
+let frontierBusy = false;
 let aiBackendStatus = { offline: true, ollama_available: false, claude_cli_available: false, claude_env_key: false, codex_cli_available: false, codex_env_key: false };
 
 const UI_I18N = {
@@ -2054,7 +2149,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 Online · Codex / OpenAI (CLI / API)',
     chat_placeholder: "Describe any device or PDE solve (e.g. 'Solve a custom polymer waveguide W=900nm H=500nm n_core=1.68 n_clad=1.38 at 850nm')...",
     btn_send: 'Solve →',
-    pill_overview: '🏠 Solver Home', pill_mode: '🔬 2D Vector Mode', pill_mrr: '📊 Ring Resonator', pill_gds: '📐 GDS Inspector', pill_fit: '📈 Lab Spectrum Fit', pill_fab: '🧪 Fab & PR Dose', pill_tuning: '⚡ Active Tuning & IC', pill_io: '🔌 Butt / GC & High-Q', pill_mzi: '🔀 MZI & Splitters', pill_eom: '📡 RF EOM · PN · Thermal', pill_foundry: '🏭 PDK · PRISM · WDM',
+    pill_overview: '🏠 Solver Home', pill_mode: '🔬 2D Vector Mode', pill_mrr: '📊 Ring Resonator', pill_gds: '📐 GDS Inspector', pill_fit: '📈 Lab Spectrum Fit', pill_fab: '🧪 Fab & PR Dose', pill_tuning: '⚡ Active Tuning & IC', pill_io: '🔌 Butt / GC & High-Q', pill_mzi: '🔀 MZI & Splitters', pill_eom: '📡 RF EOM · PN · Thermal', pill_foundry: '🏭 PDK · PRISM · WDM', pill_frontier: '🌌 Nonlinear · Quantum · SWG/PhC · SAW · TCMT',
     status_ready: 'Ready · 400 nm – 14 µm',
     wf1_title: '1. Design a New Ring Step-by-Step',
     wf1_desc: 'Answer one simple question at a time: waveband, material, wafer stack, propagation loss (<code>dB/cm</code>), and target FSR.',
@@ -2156,7 +2251,10 @@ const UI_I18N = {
     fnd_opt_pdk: '🛡️ Co-Integrated PN + TiN Heater Ring · Polygon DRC (.lyrdb) · 3D LVS · Cutline 2D-FEM',
     fnd_opt_prism: '🧠 PRISM Prediction-Gated Closed-Loop Real-2D-FEM Optimizer + Q-Budget Closure',
     fnd_opt_wdm: '👁️ Multi-Channel WDM Ring Link · NRZ/PAM4 Eye Diagram · PI Heater Relocking',
-    fnd_opt_corners: '🎲 Foundry Process Corners (Nominal/SS/FF/SF/FS) + Wafer Monte-Carlo Yield'
+    fnd_opt_corners: '🎲 Foundry Process Corners (Nominal/SS/FF/SF/FS) + Wafer Monte-Carlo Yield',
+    fr_card_title: 'Frontier Physics Suite: Nonlinear LLE · CROW/Euler/Sensor/TD-CMT · Quantum/Laser · SWG/PhCR · Piezo SAW/SBS · Nanoantenna TCMT',
+    fr_btn_run: '▶ Run Frontier Solver',
+    fr_lbl_mode: 'Frontier Physics Engine (100% Native First-Principles)'
   },
   zh: {
     step1: '选择目标', step2: '工作波段', step3: '芯层材料', step4: '叠层与模式', step5: '损耗与微环', step6: '耦合优化与版图',
@@ -2183,7 +2281,7 @@ const UI_I18N = {
     ai_opt_codex: '🟢 在线模式 · Codex / OpenAI (CLI / API)',
     chat_placeholder: '描述任意器件或求解任务（如：n=1.68, 包层 n_clad=1.38, W=900 nm, H=500 nm, 波长 850 nm, 求二维本征模）...',
     btn_send: '求解 →',
-    pill_overview: '🏠 求解器首页', pill_mode: '🔬 二维本征模', pill_mrr: '📊 微环谐振器', pill_gds: '📐 GDS 版图检查', pill_fit: '📈 实测光谱拟合', pill_fab: '🧪 光刻工艺容差', pill_tuning: '⚡ 有源调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 与分束器', pill_eom: '📡 电极·掺杂·热场', pill_foundry: '🏭 代工厂·闭环·WDM',
+    pill_overview: '🏠 求解器首页', pill_mode: '🔬 二维本征模', pill_mrr: '📊 微环谐振器', pill_gds: '📐 GDS 版图检查', pill_fit: '📈 实测光谱拟合', pill_fab: '🧪 光刻工艺容差', pill_tuning: '⚡ 有源调谐与 IC', pill_io: '🔌 端面/光栅与高Q', pill_mzi: '🔀 MZI 与分束器', pill_eom: '📡 电极·掺杂·热场', pill_foundry: '🏭 代工厂·闭环·WDM', pill_frontier: '🌌 非线性·量子·SWG/PhC·声光·天线TCMT',
     status_ready: '就绪 · 400 nm – 14 µm',
     wf1_title: '1. 逐步引导设计新微环',
     wf1_desc: '每次只问一个清晰问题：工作波段、波导材料、晶圆叠层、传播损耗 (<code>dB/cm</code>) 与目标 FSR。',
@@ -2285,7 +2383,10 @@ const UI_I18N = {
     fnd_opt_pdk: '🛡️ 双驱 PN + TiN 热调微环 · 多边形 DRC (.lyrdb) · 三维并查集 LVS · 切线 2D-FEM',
     fnd_opt_prism: '🧠 PRISM 预测门控闭环真实 2D-FEM 自主寻优 + Q 值预算闭合审计',
     fnd_opt_wdm: '👁️ 多通道微环 WDM 光互连 · NRZ/PAM4 眼图 · PI 热光闭环重锁定',
-    fnd_opt_corners: '🎲 代工厂五工艺角 (Nominal/SS/FF/SF/FS) + 晶圆级关联蒙特卡洛良率'
+    fnd_opt_corners: '🎲 代工厂五工艺角 (Nominal/SS/FF/SF/FS) + 晶圆级关联蒙特卡洛良率',
+    fr_card_title: '前沿物理引擎：非线性 LLE · 高阶 CROW/欧拉弯/传感/瞬态调制 · 量子/激光 · SWG/PhCR · 压电 SAW/SBS · 纳米天线 TCMT',
+    fr_btn_run: '▶ 运行前沿物理求解器',
+    fr_lbl_mode: '前沿物理模块（100% 第一性原理本机求解）'
   }
 };
 
@@ -2482,6 +2583,10 @@ function setStageView(viewName) {
     if (viewName === 'mzi' && lastMziResult) renderMziResult(lastMziResult);
     if (viewName === 'eom' && lastEomResult) renderEomResult(lastEomResult);
     if (viewName === 'foundry' && lastFoundryResult) renderFoundrySuiteDispatch(lastFoundryKind, lastFoundryResult);
+    if (viewName === 'frontier') {
+      if (!document.getElementById('fr-sub1').options.length) onFrontierModeChange(true);
+      if (lastFrontierResult) renderFrontierResult(lastFrontierResult);
+    }
   }, 25);
 }
 
@@ -2614,6 +2719,10 @@ function syncFormFromConfig(cfg) {
   const customCladEl = document.getElementById('cfg-custom-clad-n');
   if (customNEl) customNEl.value = (cfg.custom_n !== null && cfg.custom_n !== undefined) ? cfg.custom_n : '';
   if (customCladEl) customCladEl.value = (cfg.custom_clad_n !== null && cfg.custom_clad_n !== undefined) ? cfg.custom_clad_n : '';
+  const roughEl = document.getElementById('cfg-roughness');
+  const bbEl = document.getElementById('cfg-bb-coupler');
+  if (roughEl && cfg.sidewall_rms_roughness_nm !== undefined) roughEl.value = cfg.sidewall_rms_roughness_nm;
+  if (bbEl && cfg.broadband_coupler_dispersion !== undefined) bbEl.value = cfg.broadband_coupler_dispersion ? 'true' : 'false';
   const matLabel = (cfg.custom_n !== null && cfg.custom_n !== undefined)
     ? `Custom n=${cfg.custom_n}`
     : cfg.core_material;
@@ -2675,7 +2784,9 @@ function readConfigFromForm() {
     voltage_v: num('cfg-volt', 0.0),
     ring2_radius_um: num('cfg-r2', 42.5),
     span_nm: num('cfg-span', 12.0),
-    alpha_loss_db_per_cm: lossRaw === '' ? null : parseFloat(lossRaw)
+    alpha_loss_db_per_cm: lossRaw === '' ? null : parseFloat(lossRaw),
+    sidewall_rms_roughness_nm: document.getElementById('cfg-roughness') ? num('cfg-roughness', 0.0) : 0.0,
+    broadband_coupler_dispersion: document.getElementById('cfg-bb-coupler') ? (document.getElementById('cfg-bb-coupler').value !== 'false') : true
   };
 }
 
@@ -2966,6 +3077,16 @@ async function sendChatPrompt(promptText) {
       document.getElementById('fnd-mode').value = 'process_corners';
       onFoundryModeChange(true);
       renderCornersResult(data.corners_result);
+    }
+    if (data.frontier_result) {
+      lastFrontierResult = data.frontier_result;
+      const fm = document.getElementById('fr-mode');
+      if (fm && data.frontier_result.analysis) {
+        const optExists = Array.from(fm.options).some(o => o.value === data.frontier_result.analysis);
+        if (optExists) fm.value = data.frontier_result.analysis;
+      }
+      onFrontierModeChange(true);
+      renderFrontierResult(data.frontier_result);
     }
     if (data.interconnect_export && data.interconnect_export.zip_download_url) {
       showInterconnectDownload(data.interconnect_export);
@@ -6567,6 +6688,255 @@ function renderCornersResult(d) {
       <td>${Math.round(c.Q_loaded).toLocaleString()}</td>
       <td>${Number(c.ER_thru_dB).toFixed(2)}</td>
       <td>${c.delta_lambda_nm !== undefined ? Number(c.delta_lambda_nm).toFixed(3) : '0.000'}</td>
+    </tr>`).join('');
+}
+
+// ==================== STAGE 12: FRONTIER PHYSICS SUITE ====================
+function onFrontierModeChange(skipRun) {
+  const mode = document.getElementById('fr-mode').value;
+  const sub1 = document.getElementById('fr-sub1');
+  const lblSub = document.getElementById('fr-lbl-sub1');
+  const lblP1 = document.getElementById('fr-lbl-p1');
+  const p1 = document.getElementById('fr-p1');
+  const lblP2 = document.getElementById('fr-lbl-p2');
+  const p2 = document.getElementById('fr-p2');
+  const setOpts = (arr) => { sub1.innerHTML = arr.map(([v, t]) => `<option value="${v}">${t}</option>`).join(''); };
+
+  if (mode === 'lle') {
+    lblSub.textContent = 'Platform / Regime';
+    setOpts([['Si3N4', 'Si3N4 800x1600nm DKS'], ['4H-SiC', '4H-SiC 400x1200nm DKS'], ['Si', 'SOI 220x600nm (TPA+FCA)']]);
+    lblP1.textContent = 'Pump Power [mW]'; p1.value = '120';
+    lblP2.textContent = 'Ring Radius R [µm]'; p2.value = '23.0';
+  } else if (mode === 'fwm_bs') {
+    lblSub.textContent = 'Platform';
+    setOpts([['4H-SiC', '4H-SiC HARQ (1530/750nm)'], ['Si3N4', 'Si3N4 Broadband QFC']]);
+    lblP1.textContent = 'Pump1 Power [mW]'; p1.value = '60';
+    lblP2.textContent = 'Pump2 Power [mW]'; p2.value = '60';
+  } else if (mode === 'shg') {
+    lblSub.textContent = 'χ⁽²⁾ Platform';
+    setOpts([['LN_XCut', 'X-Cut TFLN (PPLN)'], ['AlN', 'c-Axis AlN'], ['4H-SiC', '4H-SiC']]);
+    lblP1.textContent = 'Pump Power [mW]'; p1.value = '50';
+    lblP2.textContent = 'Ring Radius R [µm]'; p2.value = '40';
+  } else if (mode === 'bistability') {
+    lblSub.textContent = 'Platform';
+    setOpts([['Si', 'SOI 220x480nm (Thermal+Kerr)'], ['Si3N4', 'Si3N4 High-Q']]);
+    lblP1.textContent = 'Input Power [mW]'; p1.value = '5.0';
+    lblP2.textContent = 'Q_int'; p2.value = '100000';
+  } else if (mode === 'crow' || mode === 'scissor') {
+    lblSub.textContent = 'Prototype Synthesis';
+    setOpts([['chebyshev', 'Chebyshev Type-I (0.2 dB)'], ['butterworth', 'Maximally Flat Butterworth']]);
+    lblP1.textContent = 'Num Rings N'; p1.value = '4';
+    lblP2.textContent = 'Target BW [GHz]'; p2.value = '40';
+  } else if (mode === 'euler_bend') {
+    lblSub.textContent = 'Core Material';
+    setOpts([['Si', 'SOI 220x450nm'], ['Si3N4', 'Si3N4 400x1000nm'], ['LN_XCut', 'TFLN 400x1200nm']]);
+    lblP1.textContent = 'R_eff [µm]'; p1.value = '3.5';
+    lblP2.textContent = 'Euler Fraction p'; p2.value = '0.5';
+  } else if (mode === 'sensor_athermal') {
+    lblSub.textContent = 'Target Medium';
+    setOpts([['Water', 'Aqueous Biosensor (Water)'], ['Air', 'Gas Cavity Sensor (Air)']]);
+    lblP1.textContent = 'Ring Radius R [µm]'; p1.value = '20';
+    lblP2.textContent = 'Film H [µm]'; p2.value = '0.22';
+  } else if (mode === 'td_cmt_modulator') {
+    lblSub.textContent = 'Modulation Scheme';
+    setOpts([['detuning', 'Detuning Mod (NRZ)'], ['coupling', 'Coupling Mod (Chirp-Free)']]);
+    lblP1.textContent = 'Bit Rate [Gbps]'; p1.value = '50';
+    lblP2.textContent = 'Q_int'; p2.value = '40000';
+  } else if (mode === 'mzi_mrr') {
+    lblSub.textContent = 'Core Platform';
+    setOpts([['Si', 'SOI 220x480nm'], ['Si3N4', 'Si3N4 400x1000nm']]);
+    lblP1.textContent = 'MZI Phase Δφ [rad]'; p1.value = '0.25';
+    lblP2.textContent = 'Ring Radius R [µm]'; p2.value = '25';
+  } else if (mode === 'photonic_molecule') {
+    lblSub.textContent = 'Operating Mode';
+    setOpts([['ep_sensor', 'PT Exceptional Point Sensor'], ['supermode', 'Coupled Supermode Dimers'], ['amx_lle', 'Dual-Ring AMX LLE']]);
+    lblP1.textContent = 'Coupling J [GHz]'; p1.value = '5.0';
+    lblP2.textContent = 'Gain/Loss Δγ [GHz]'; p2.value = '20.0';
+  } else if (mode === 'quantum_sfwm') {
+    lblSub.textContent = 'Resonator Architecture';
+    setOpts([['dual_q', 'Dual-Q High-Purity (Vernon)'], ['single_q', 'Standard Single-Q Ring']]);
+    lblP1.textContent = 'Pump Power [mW]'; p1.value = '0.5';
+    lblP2.textContent = 'Q_int'; p2.value = '500000';
+  } else if (mode === 'mrr_laser') {
+    lblSub.textContent = 'Gain Medium';
+    setOpts([['Er_TFLN', 'Er³⁺:TFLN Rare-Earth'], ['InGaAsP_MQW', 'Heterogeneous InGaAsP MQW'], ['Er_Si3N4', 'Er³⁺:Si3N4']]);
+    lblP1.textContent = 'Pump [mW or mA]'; p1.value = '5.0';
+    lblP2.textContent = 'Ring Radius R [µm]'; p2.value = '50';
+  } else if (mode === 'swg') {
+    lblSub.textContent = 'Top Cladding';
+    setOpts([['Water', 'Water Biosensor (SWG)'], ['SiO2', 'SiO2 Cladding'], ['Air', 'Air Cladding']]);
+    lblP1.textContent = 'Pitch Λ [nm]'; p1.value = '220';
+    lblP2.textContent = 'Duty Cycle f'; p2.value = '0.50';
+  } else if (mode === 'phcr') {
+    lblSub.textContent = 'Core Material';
+    setOpts([['Si3N4', 'Si3N4 500x1200nm (NIST PhCR)'], ['Si', 'SOI 220x500nm PhCR']]);
+    lblP1.textContent = 'Modulation Amp A [nm]'; p1.value = '40';
+    lblP2.textContent = 'Ring Radius R [µm]'; p2.value = '25';
+  } else if (mode === 'saw') {
+    lblSub.textContent = 'Piezo Stack';
+    setOpts([['AlN_SiO2_Si', 'AlN 500nm / SiO2 / Si (Rayleigh SAW)'], ['LN_XCut_Suspended', 'Suspended X-Cut TFLN 400nm (Lamb S₀)'], ['ScAlN_SiO2_Si', 'ScAlN 500nm / SiO2 / Si']]);
+    lblP1.textContent = 'IDT Pitch Λ [µm]'; p1.value = '2.0';
+    lblP2.textContent = 'Ring Radius R [µm]'; p2.value = '50';
+  } else if (mode === 'sbs') {
+    lblSub.textContent = 'SBS Geometry';
+    setOpts([['forward', 'Forward SBS (q_z=0, Suspended Si)'], ['backward', 'Backward SBS (q_z=2β, Suspended Si)']]);
+    lblP1.textContent = 'Waveguide W [µm]'; p1.value = '0.45';
+    lblP2.textContent = 'Waveguide H [µm]'; p2.value = '0.22';
+  } else if (mode === 'twod_material') {
+    lblSub.textContent = '2D Material & Capacitor';
+    setOpts([['Graphene_SLG', 'Graphene SLG (Exact Kubo)'], ['Graphene_DLG', 'Graphene DLG Capacitor'], ['WS2', 'Monolayer WS₂ Exciton Gating'], ['MoS2', 'Monolayer MoS₂'], ['WSe2', 'Monolayer WSe₂'], ['hBN', 'Mid-IR Hyperbolic hBN'], ['Black_Phosphorus', 'Black Phosphorus (Mid-IR)']]);
+    lblP1.textContent = 'Wavelength [nm]'; p1.value = '1550';
+    lblP2.textContent = 'Spacer t_ox [nm]'; p2.value = '10';
+  } else {
+    lblSub.textContent = 'Nanoantenna Mode';
+    setOpts([['seira_molecular', 'SEIRA Molecular (Au MIM + PMMA 1730 cm⁻¹)'], ['mim_absorber', '1-Port MIM Perfect Absorber'], ['fano_eit_qbic', '2-Mode Fano / EIT / q-BIC Metasurface'], ['metasurface_ep', 'Exceptional Point Coupled Metasurface']]);
+    lblP1.textContent = 'Resonance ν₀ [cm⁻¹]'; p1.value = '1730';
+    lblP2.textContent = 'Coupling g [cm⁻¹]'; p2.value = '18';
+  }
+  if (!skipRun) runFrontierPhysicsUI();
+}
+
+async function runFrontierPhysicsUI() {
+  if (frontierBusy) return;
+  frontierBusy = true;
+  const btn = document.getElementById('btn-run-frontier');
+  if (btn) btn.disabled = true;
+  const mode = document.getElementById('fr-mode').value;
+  const sub1 = document.getElementById('fr-sub1').value;
+  const v1 = parseFloat(document.getElementById('fr-p1').value || '1');
+  const v2 = parseFloat(document.getElementById('fr-p2').value || '1');
+
+  const body = { analysis: mode };
+  if (mode === 'lle') {
+    body.core_material = sub1; body.pump_power_mw = v1; body.ring_radius_um = v2;
+    if (sub1 === 'Si3N4') { body.film_height_um = 0.80; body.ring_width_um = 1.60; }
+    else if (sub1 === '4H-SiC') { body.film_height_um = 0.40; body.ring_width_um = 1.20; }
+    else { body.film_height_um = 0.22; body.ring_width_um = 0.60; body.include_tpa_fca = true; }
+  } else if (mode === 'fwm_bs') {
+    body.core_material = sub1; body.pump1_power_mw = v1; body.pump2_power_mw = v2;
+  } else if (mode === 'shg') {
+    body.core_material = sub1; body.pump_powers_mw = [v1 * 0.25, v1 * 0.5, v1, v1 * 1.5]; body.ring_radius_um = v2;
+  } else if (mode === 'bistability') {
+    body.core_material = sub1; body.input_power_mw = v1; body.q_int = v2;
+  } else if (mode === 'crow' || mode === 'scissor') {
+    body.architecture = mode; body.prototype = sub1; body.order_n = Math.max(2, Math.round(v1)); body.target_bw_ghz = v2;
+  } else if (mode === 'euler_bend') {
+    body.core_material = sub1; body.effective_radius_um = v1; body.euler_fraction_p = Math.min(1.0, Math.max(0.05, v2));
+  } else if (mode === 'sensor_athermal') {
+    body.analyte_medium = sub1.toLowerCase(); body.ring_radius_um = v1; body.film_height_um = v2;
+  } else if (mode === 'td_cmt_modulator') {
+    body.modulation_type = sub1; body.bitrate_gbps = v1; body.q_int = v2;
+  } else if (mode === 'mzi_mrr') {
+    body.core_material = sub1; body.ring_radius_um = v2;
+  } else if (mode === 'photonic_molecule') {
+    body.mode = sub1 === 'ep_sensor' ? 'pt_ep' : (sub1 === 'supermode' ? 'supermode_split' : 'dual_ring_lle');
+    body.coupling_j_ghz = v1; body.gamma2_ghz = v2;
+  } else if (mode === 'quantum_sfwm') {
+    body.q_ext_pump = v2 * 0.5; body.q_ext_si = (sub1 === 'dual_q') ? (v2 * 2.5) : (v2 * 0.5);
+    body.pump_power_mw = v1; body.q_int = v2;
+  } else if (mode === 'mrr_laser') {
+    body.gain_medium = sub1; body.operating_pump = v1; body.ring_radius_um = v2;
+  } else if (mode === 'swg') {
+    if (sub1 === 'Water') { body.top_clad_material = 'Custom'; body.custom_top_clad_n = 1.318; }
+    else { body.top_clad_material = sub1; }
+    body.swg_period_nm = v1; body.duty_cycle = Math.min(0.85, Math.max(0.15, v2));
+  } else if (mode === 'phcr') {
+    body.core_material = sub1; body.modulation_amplitude_nm = v1; body.ring_radius_um = v2;
+  } else if (mode === 'saw') {
+    if (sub1 === 'LN_XCut_Suspended') { body.waveguide_material = 'LN_Xcut'; body.box_material = 'Air'; body.substrate_material = 'Air'; body.film_height_um = 0.40; body.box_thickness_um = 0.0; body.acoustic_mode = 'lamb_s0'; }
+    else if (sub1 === 'ScAlN_SiO2_Si') { body.waveguide_material = 'ScAlN_20'; body.box_material = 'SiO2'; body.substrate_material = 'Si'; body.film_height_um = 0.50; }
+    else { body.waveguide_material = 'AlN'; body.box_material = 'SiO2'; body.substrate_material = 'Si'; body.film_height_um = 0.50; }
+    body.idt_period_um = v1; body.ring_radius_um = v2;
+  } else if (mode === 'sbs') {
+    body.sbs_direction = sub1; body.ring_width_um = v1; body.film_height_um = v2;
+  } else if (mode === 'nanoantenna_tcmt') {
+    body.regime = sub1; body.nu0_bright_cm1 = v1; body.seira_coupling_scale = Math.max(0.1, v2 / 20.0);
+  } else if (mode === 'twod_material') {
+    if (sub1 === 'Graphene_DLG') { body.material_2d = 'Graphene'; body.capacitor_type = 'DLG'; }
+    else if (sub1 === 'Graphene_SLG') { body.material_2d = 'Graphene'; body.capacitor_type = 'SLG'; }
+    else { body.material_2d = sub1; }
+    body.wavelength_nm = v1; body.spacer_ox_nm = v2;
+    if (sub1 === 'hBN' && v1 < 4000) { body.wavelength_nm = 6800; body.core_material = 'Ge'; body.clad_material = 'CaF2'; body.top_clad_material = 'Air'; body.film_height_um = 1.2; body.ring_width_um = 2.0; body.ring_radius_um = 60.0; }
+  }
+
+  try {
+    document.getElementById('spec-status').textContent = 'Solving Frontier Physics (' + mode + ')...';
+    const r = await fetch('/api/frontier_physics', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    lastFrontierResult = d;
+    renderFrontierResult(d);
+    updateSolverProof({ engine: 'Frontier: ' + mode.toUpperCase(), elapsed_ms: d.elapsed_ms || 0, tooltip: 'First-principles native solver' });
+  } catch (err) {
+    document.getElementById('spec-status').textContent = 'Error: ' + err.message;
+  } finally {
+    frontierBusy = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderFrontierResult(d) {
+  const m = d.metrics || {};
+  const keys = Object.keys(m).filter(k => typeof m[k] === 'number' || typeof m[k] === 'string' || typeof m[k] === 'boolean');
+  const fmtV = (v) => (typeof v === 'number') ? (Math.abs(v) > 1e5 || (Math.abs(v) > 0 && Math.abs(v) < 1e-3) ? v.toExponential(3) : Number(v.toFixed(4))) : String(v);
+
+  for (let i = 0; i < 4; i++) {
+    const k = keys[i] || ('Metric ' + (i + 1));
+    document.getElementById(`fr-kpi${i + 1}-lbl`).textContent = k.replace(/_/g, ' ');
+    document.getElementById(`fr-kpi${i + 1}-val`).textContent = keys[i] !== undefined ? fmtV(m[k]) : '—';
+    document.getElementById(`fr-kpi${i + 1}-sub`).textContent = d.analysis ? `Mode: ${d.analysis}` : 'Native First-Principles';
+  }
+
+  // Auto-select two meaningful curves from result payload
+  const curves = d.spectrum || d.curves || d.traces || d.dispersion || d;
+  const pickPair = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+    const xKeys = ['wavenumber_cm1', 'wavelength_nm', 'detuning_ghz', 'freq_ghz', 'mode_index_mu', 'time_ps', 'time_ns', 'phi_mzi_rad', 'pump_power_mw', 'pump_drive', 'z_um', 's_um', 'theta_rad'];
+    const yKeys = ['absorbance', 'reflectance', 'transmittance', 'thru_dB', 'drop_dB', 'power_dBm', 'D_int_GHz', 'group_delay_ps', 'intensity_norm', 'output_power_mw', 'transmission', 'efficiency_pct', 'Q_loaded', 'ux_norm', 'uy_norm', 'delta_R_pct', 'chirp_GHz', 'split_GHz'];
+    let xk = xKeys.find(k => Array.isArray(obj[k]) && obj[k].length > 1);
+    if (!xk) xk = Object.keys(obj).find(k => Array.isArray(obj[k]) && obj[k].length > 2 && typeof obj[k][0] === 'number');
+    if (!xk) return null;
+    const x = obj[xk];
+    const ys = yKeys.filter(k => k !== xk && Array.isArray(obj[k]) && obj[k].length === x.length);
+    if (!ys.length) {
+      const fb = Object.keys(obj).filter(k => k !== xk && Array.isArray(obj[k]) && obj[k].length === x.length && typeof obj[k][0] === 'number');
+      if (fb.length) ys.push(...fb.slice(0, 2));
+    }
+    return ys.length ? { xk, x, ys } : null;
+  };
+
+  let p1 = pickPair(d.spectrum) || pickPair(d.curves) || pickPair(d.traces) || pickPair(d);
+  let p2 = pickPair(d.dispersion) || pickPair(d.time_domain) || pickPair(d.sweep) || pickPair(d.mode_profile) || pickPair(d.aux);
+  if (!p2 && p1 && p1.ys.length > 1) p2 = { xk: p1.xk, x: p1.x, ys: [p1.ys[1]] };
+
+  const palette = ['#38bdf8', '#fb923c', '#34d399', '#a78bfa'];
+  if (p1) {
+    document.getElementById('fr-plot1-title').textContent = `${d.analysis || 'Frontier'} · ${p1.ys.slice(0, 2).join(' & ')}`;
+    drawLinePlot('cv-frontier-main', p1.ys.slice(0, 3).map((yk, idx) => ({
+      x: p1.x, y: (d.spectrum || d.curves || d.traces || d)[yk] || p1.x.map(() => 0), color: palette[idx % 4], label: yk
+    })), p1.xk, p1.ys[0]);
+  }
+  if (p2) {
+    const src2 = (d.dispersion && d.dispersion[p2.ys[0]]) ? d.dispersion : ((d.time_domain && d.time_domain[p2.ys[0]]) ? d.time_domain : ((d.sweep && d.sweep[p2.ys[0]]) ? d.sweep : ((d.mode_profile && d.mode_profile[p2.ys[0]]) ? d.mode_profile : (d.spectrum || d.curves || d.traces || d))));
+    document.getElementById('fr-plot2-title').textContent = `${d.analysis || 'Frontier'} · ${p2.ys[0]}`;
+    drawLinePlot('cv-frontier-aux', p2.ys.slice(0, 2).map((yk, idx) => ({
+      x: p2.x, y: src2[yk] || p2.x.map(() => 0), color: palette[(idx + 1) % 4], label: yk
+    })), p2.xk, p2.ys[0]);
+  } else {
+    const numKeys = keys.filter(k => typeof m[k] === 'number').slice(0, 6);
+    if (numKeys.length) {
+      drawLinePlot('cv-frontier-aux', [{ x: numKeys.map((_, i) => i + 1), y: numKeys.map(k => m[k]), color: '#34d399', label: 'Scalar Metrics', dots: true }], 'Metric Index', 'Value');
+    }
+  }
+
+  document.getElementById('fr-thead-row').innerHTML = '<th>Physical Quantity</th><th>Value</th><th>Notes</th>';
+  document.querySelector('#fr-table tbody').innerHTML = keys.map(k => `
+    <tr>
+      <td style="font-weight:600;">${k}</td>
+      <td style="font-family:monospace;color:#38bdf8;">${fmtV(m[k])}</td>
+      <td style="color:var(--text-muted);">${d.analysis || 'frontier'}</td>
     </tr>`).join('');
 }
 

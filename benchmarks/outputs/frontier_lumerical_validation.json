@@ -1,0 +1,82 @@
+{
+  "solver": "Ansys Lumerical 2026 R1 (3D FDTD on NVIDIA RTX 5090 GPU, 2.18 Gnodes/s)",
+  "host": "Windows-AMD64",
+  "suite_swg_3d_fdtd": {
+    "water_1318": {
+      "lumerical_3d_fdtd": {
+        "neff_1550_3d_fdtd": 1.5492,
+        "ng_1550_3d_fdtd": 2.173,
+        "S_bulk_nm_per_RIU": 461.2
+      },
+      "microring_rytov_2dfem": {
+        "neff_swg": 1.56259,
+        "ng_swg": 2.4699,
+        "S_bulk_nm_per_RIU": 450.72
+      },
+      "delta_neff": 0.01339,
+      "rel_err_S_bulk_pct": 2.27
+    },
+    "sio2_1444": {
+      "lumerical_3d_fdtd": {
+        "neff_1550_3d_fdtd": 1.6395,
+        "ng_1550_3d_fdtd": 2.76
+      },
+      "microring_rytov_2dfem": {
+        "neff_swg": 1.65581,
+        "ng_swg": 2.6261
+      },
+      "delta_neff": 0.01631,
+      "rel_err_ng_pct": 4.85
+    }
+  },
+  "suite_phcr_3d_fdtd": {
+    "case_id": "Si3N4_500x1200_PhCR_A40nm_InnerWall",
+    "lumerical_3d_fdtd": {
+      "f_lower_cos_THz": 193.363601,
+      "f_upper_sin_THz": 193.467311,
+      "bragg_center_nm": 1549.992,
+      "selective_mode_split_GHz": 103.71
+    },
+    "microring_2dfem_bragg": {
+      "corrugation_period_nm": 452.14,
+      "selective_mode_split_GHz": 103.209,
+      "johnson_field_split_check_GHz": 102.529
+    },
+    "rel_err_split_pct": 0.48
+  },
+  "suite_nanoantenna_mim_seira_3d_fdtd": {
+    "bare_mim": {
+      "status": 2,
+      "fdtd_peak_absorbance": 0.3736,
+      "fdtd_peak_nu_cm1": 2380.95,
+      "tcmt_fit": {
+        "nu0_cm1": 2380.952,
+        "gamma_rad_cm1": 112.633,
+        "gamma_abs_cm1": 10.001,
+        "loaded_Q": 9.71,
+        "r_squared": 0.944354
+      },
+      "tcmt_fit_r_squared": 0.944354,
+      "tcmt_fit_rmse": 0.016059,
+      "wall_time_s": 90.33
+    },
+    "seira_pmma": {
+      "status": 2,
+      "fdtd_peak_absorbance": 0.9874,
+      "fdtd_peak_nu_cm1": 2280.29,
+      "tcmt_fit": {
+        "nu0_antenna_cm1": 2266.583,
+        "gamma_rad_cm1": 41.023,
+        "gamma_abs_cm1": 50.635,
+        "nu0_molecule_cm1": 1742.045,
+        "gamma_molecule_cm1": 27.558,
+        "coupling_g_cm1": 90.449,
+        "r_squared": 0.998961
+      },
+      "tcmt_fit_r_squared": 0.998961,
+      "tcmt_fit_rmse": 0.008805,
+      "wall_time_s": 97.45
+    },
+    "total_wall_time_s": 187.78
+  }
+}

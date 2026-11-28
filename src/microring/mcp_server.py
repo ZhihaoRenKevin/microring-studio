@@ -17,6 +17,7 @@ import traceback
 from . import __version__
 from .agent_tools import (
     agent_active_tuning,
+    agent_advanced_mrr,
     agent_design_mrr,
     agent_design_mzi,
     agent_eom_multiphysics,
@@ -25,11 +26,15 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_nanoantenna_tcmt,
+    agent_2d_material_mrr,
     agent_nonlinear_lle,
     agent_pdk_drc,
     agent_prism_optimize,
+    agent_saw_sbs,
     agent_status,
     agent_sweep_mrr,
+    agent_swg_phc,
     agent_wdm_link,
     agent_width_cutoff,
 )
@@ -365,6 +370,89 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_advanced_mrr",
+        "description": "High-order N-ring CROW/SCISSOR filters & group delay, Euler spiral bends, biosensing/athermal, large-signal TD-CMT modulator, MZI-MRR, photonic molecule/EP, Quantum SFWM/squeezing & active MRR lasers.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "high_order_filter | crow | scissor | euler_bend | sensor_athermal | td_cmt_modulator | mzi_mrr | photonic_molecule | quantum_sfwm | mrr_laser"},
+                "mat": {"type": "string"},
+                "r_um": {"type": "number"},
+                "n": {"type": "integer", "description": "Filter order N (2..10)"},
+                "target_bw_ghz": {"type": "number"},
+                "bitrate_gbps": {"type": "number"},
+                "modulation_type": {"type": "string", "description": "detuning | coupling"},
+                "gain_medium": {"type": "string", "description": "Er_TFLN | Er_Si3N4 | InGaAsP_MQW"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_swg_phc",
+        "description": "Subwavelength Grating (SWG) 2nd-order Rytov EMT + 1D Bloch-Floquet microring & Photonic Crystal Ring (PhCR) selective-mode-splitting Bragg resonator + GDS export.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "swg | phcr"},
+                "mat": {"type": "string"},
+                "h_um": {"type": "number"},
+                "w_ring_um": {"type": "number"},
+                "r_um": {"type": "number"},
+                "swg_period_nm": {"type": "number"},
+                "duty_cycle": {"type": "number"},
+                "modulation_amplitude_nm": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_saw_sbs",
+        "description": "First-principles 2D Solid Mechanics / Piezoelectric SAW-Lamb acousto-optic modulator FEM (v_open/v_short, K_eff^2, g0, V_pi) & 2D-FEM Stimulated Brillouin Scattering (SBS) gain G_B.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "saw | sbs"},
+                "mat": {"type": "string", "description": "AlN | ScAlN_20 | ScAlN_30 | LN_Xcut | LN_Zcut | Si | Si3N4 | 4H-SiC"},
+                "substrate_material": {"type": "string", "description": "Si | Sapphire | Air"},
+                "h_um": {"type": "number"},
+                "idt_period_um": {"type": "number"},
+                "acoustic_mode": {"type": "string", "description": "rayleigh_or_s0 | lamb_s0"},
+                "sbs_direction": {"type": "string", "description": "backward | forward"},
+            },
+        },
+    },
+    {
+        "name": "microring_nanoantenna_tcmt",
+        "description": "Energy-conserving multi-mode Nanoantenna & Metasurface TCMT: MIM perfect absorber, Fano/EIT/qBIC, Mid-IR SEIRA molecular vibrational coupling & non-Hermitian Exceptional Point.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "regime": {"type": "string", "description": "mim_absorber | fano_eit_qbic | seira_molecular | metasurface_ep"},
+                "num_ports": {"type": "integer"},
+                "nu0_bright_cm1": {"type": "number"},
+                "gamma_rad_bright_cm1": {"type": "number"},
+                "gamma_abs_bright_cm1": {"type": "number"},
+                "coupling_mu_cm1": {"type": "number"},
+                "analyte_preset": {"type": "string", "description": "PMMA | Protein_Amide | CO2 | CH4 | CBP_Polystyrene"},
+            },
+        },
+    },
+    {
+        "name": "microring_2d_material_mrr",
+        "description": "2D Materials on Microring Resonators: Graphene (exact finite-T Kubo SLG/DLG + quantum capacitance), monolayer TMDs (WS2/MoS2/WSe2/MoSe2 exciton gating), Mid-IR hyperbolic hBN & Black Phosphorus.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "material_2d": {"type": "string", "description": "Graphene | WS2 | MoS2 | WSe2 | MoSe2 | hBN | Black_Phosphorus"},
+                "capacitor_type": {"type": "string", "description": "SLG | DLG"},
+                "mat": {"type": "string", "description": "Core waveguide material (Si | Si3N4 | LN_Xcut | Ge)"},
+                "wl_nm": {"type": "number"},
+                "r_um": {"type": "number"},
+                "spacer_ox_nm": {"type": "number"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -384,6 +472,11 @@ _DISPATCH = {
     "microring_prism_optimize": agent_prism_optimize,
     "microring_wdm_link": agent_wdm_link,
     "microring_nonlinear_lle": agent_nonlinear_lle,
+    "microring_advanced_mrr": agent_advanced_mrr,
+    "microring_swg_phc": agent_swg_phc,
+    "microring_saw_sbs": agent_saw_sbs,
+    "microring_nanoantenna_tcmt": agent_nanoantenna_tcmt,
+    "microring_2d_material_mrr": agent_2d_material_mrr,
 }
 
 

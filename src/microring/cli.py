@@ -18,6 +18,7 @@ from pathlib import Path
 from . import __version__
 from .agent_tools import (
     agent_active_tuning,
+    agent_advanced_mrr,
     agent_design_mrr,
     agent_design_mzi,
     agent_eom_multiphysics,
@@ -26,11 +27,15 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_nanoantenna_tcmt,
+    agent_2d_material_mrr,
     agent_nonlinear_lle,
     agent_pdk_drc,
     agent_prism_optimize,
+    agent_saw_sbs,
     agent_status,
     agent_sweep_mrr,
+    agent_swg_phc,
     agent_wdm_link,
     agent_width_cutoff,
 )
@@ -310,6 +315,42 @@ def main() -> None:
     p_nl.add_argument("--tpa", action="store_true", dest="include_tpa_fca")
     p_nl.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_adv = ag_sub.add_parser("advanced", help="High-Order CROW/SCISSOR, Euler Bends, Sensor/Athermal, TD-CMT, MZI-MRR, Molecule/EP, Quantum SFWM & Lasers")
+    p_adv.add_argument("--analysis", type=str, default="high_order_filter")
+    p_adv.add_argument("--mat", type=str, default=None)
+    p_adv.add_argument("--r", type=float, default=None, dest="r_um")
+    p_adv.add_argument("--n", type=int, default=None)
+    p_adv.add_argument("--gds", action="store_true", dest="export_gds")
+    p_adv.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_swg = ag_sub.add_parser("swg-phc", help="Subwavelength Grating (SWG) & Photonic Crystal Ring (PhCR) Solvers")
+    p_swg.add_argument("--analysis", type=str, default="swg", help="swg | phcr")
+    p_swg.add_argument("--mat", type=str, default=None)
+    p_swg.add_argument("--r", type=float, default=None, dest="r_um")
+    p_swg.add_argument("--gds", action="store_true", dest="export_gds")
+    p_swg.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_saw = ag_sub.add_parser("saw-sbs", help="2D Solid Mechanics / Piezoelectric SAW-Lamb Acousto-Optic & SBS Brillouin FEM")
+    p_saw.add_argument("--analysis", type=str, default="saw", help="saw | sbs")
+    p_saw.add_argument("--mat", type=str, default=None)
+    p_saw.add_argument("--substrate", type=str, default=None, dest="substrate_material")
+    p_saw.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_na = ag_sub.add_parser("nanoantenna", help="Nanoantenna & Metasurface TCMT (MIM absorber, Fano/qBIC, Mid-IR SEIRA, EP)")
+    p_na.add_argument("--regime", type=str, default="seira_molecular")
+    p_na.add_argument("--analyte", type=str, default=None, dest="analyte_preset")
+    p_na.add_argument("--nu0", type=float, default=None, dest="nu0_bright_cm1")
+    p_na.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_2d = ag_sub.add_parser("twod-material", help="2D Materials on MRR (Graphene Kubo SLG/DLG, TMDs WS2/MoS2/WSe2/MoSe2, hBN, BP) (<150 tokens)")
+    p_2d.add_argument("--mat-2d", type=str, default="Graphene", dest="material_2d", help="Graphene | WS2 | MoS2 | WSe2 | MoSe2 | hBN | Black_Phosphorus")
+    p_2d.add_argument("--cap", type=str, default="SLG", dest="capacitor_type", help="SLG | DLG")
+    p_2d.add_argument("--mat", type=str, default="Si")
+    p_2d.add_argument("--wl", type=float, default=1550.0, dest="wl_nm")
+    p_2d.add_argument("--r", type=float, default=15.0, dest="r_um")
+    p_2d.add_argument("--spacer", type=float, default=10.0, dest="spacer_ox_nm")
+    p_2d.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -384,6 +425,16 @@ def main() -> None:
             _print_compact(agent_wdm_link(d))
         elif args.agent_cmd == "nonlinear":
             _print_compact(agent_nonlinear_lle(d))
+        elif args.agent_cmd == "advanced":
+            _print_compact(agent_advanced_mrr(d))
+        elif args.agent_cmd == "swg-phc":
+            _print_compact(agent_swg_phc(d))
+        elif args.agent_cmd == "saw-sbs":
+            _print_compact(agent_saw_sbs(d))
+        elif args.agent_cmd == "nanoantenna":
+            _print_compact(agent_nanoantenna_tcmt(d))
+        elif args.agent_cmd == "twod-material":
+            _print_compact(agent_2d_material_mrr(d))
 
 
 if __name__ == "__main__":

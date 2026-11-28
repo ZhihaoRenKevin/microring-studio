@@ -27,6 +27,11 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **PRISM Physics-Closure Audit & Closed-Loop 2D-FEM Optimizer** | `uv run microring agent prism-optimize --mode optimize --problem pn_ring_modulator --iters 8` |
 | **Multi-Ch WDM Ring Link, NRZ/PAM4 Eye & PI Heater Relocking** | `uv run microring agent wdm-link --scenario heater_relocked --n-ch 4 --rate 25 --format nrz` |
 | **Nonlinear Photonics (2D-FEM D_int, LLE Microcomb, FWM-BS, SHG, Bistability)** | `uv run microring agent nonlinear --analysis lle --mat Si3N4 --h 0.80 --w-ring 1.60 --r 23 --p-mw 80 --raman` |
+| **Advanced MRR (CROW/SCISSOR, Euler, Bio/Athermal, TD-CMT, MZI-MRR, Molecule/EP, SFWM, Laser)** | `uv run microring agent advanced --analysis crow --order-n 4 --bw-ghz 40` |
+| **SWG Biosensor Ring & Photonic Crystal Ring (PhCR) Mode Splitting** | `uv run microring agent swg-phc --analysis phcr --mat Si3N4 --h 0.50 --w-ring 1.20 --amp-nm 40` |
+| **Piezo SAW/Lamb Acousto-Optic MRR & 2D Solid-Mechanics Forward/Backward SBS** | `uv run microring agent saw-sbs --analysis saw --mat AlN --idt-um 2.0` |
+| **Nanoantenna / Metasurface TCMT (MIM, Fano/qBIC, SEIRA, EP)** | `uv run microring agent nanoantenna --regime seira_molecular --analyte PMMA` |
+| **2D Materials on MRR (Graphene SLG/DLG Kubo, WS2/MoS2/WSe2/MoSe2 TMDs, hBN, BP)** | `uv run microring agent twod-material --mat-2d Graphene --cap SLG --spacer-nm 10` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

@@ -19,6 +19,43 @@ import time
 import numpy as np
 
 from .active_tuning import export_lumerical_interconnect_bundle, run_active_tuning_analysis
+from .acousto_optic_saw import (
+    SAWAcoustoOpticConfig,
+    SBSBrillouinConfig,
+    simulate_saw_acousto_optic_mrr,
+    simulate_sbs_brillouin_mrr,
+)
+from .advanced_mrr import (
+    EulerBendConfig,
+    HighOrderFilterConfig,
+    LargeSignalTDCMTConfig,
+    MZICoupledMRRConfig,
+    PhotonicMoleculeConfig,
+    SensorAthermalConfig,
+    design_euler_racetrack_bend,
+    simulate_high_order_mrr_filter,
+    simulate_large_signal_td_cmt_modulator,
+    simulate_mrr_sensor_and_athermal,
+    simulate_mzi_coupled_mrr,
+    simulate_photonic_molecule,
+)
+from .quantum_and_laser_mrr import (
+    MRRLaserConfig,
+    QuantumSFWMConfig,
+    simulate_mrr_laser,
+    simulate_quantum_sfwm_mrr,
+)
+from .swg_and_phc_mrr import (
+    PhCMicroringConfig,
+    SWGMicroringConfig,
+    simulate_phc_microring,
+    simulate_swg_microring,
+)
+from .nanoantenna_tcmt import (
+    NanoantennaTCMTConfig,
+    fit_nanoantenna_tcmt_spectrum,
+    simulate_nanoantenna_tcmt,
+)
 from .fab_tolerance import (
     export_fab_bias_array_gds,
     run_fabrication_error_analysis,
@@ -97,6 +134,7 @@ from .nonlinear_lle import (
     simulate_thermal_kerr_bistability,
 )
 from .wdm_link import WDMLinkConfig, simulate_wdm_microring_link
+from .twod_materials_mrr import TwoDMaterialMRRConfig, simulate_2d_material_mrr
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
 
@@ -1295,6 +1333,154 @@ def agent_nonlinear_lle(params: dict) -> dict:
         "eff_pct": m["comb_conversion_eff_pct"],
         "raman_THz": m["raman_shift_THz"],
         "csv": str(csv_path),
+        "ms": res["elapsed_ms"],
+    }
+
+
+def agent_advanced_mrr(params: dict) -> dict:
+    """Advanced MRR engines (<150 tokens): high_order_filter (CROW/SCISSOR), euler_bend, sensor_athermal,
+    td_cmt_modulator, mzi_mrr, photonic_molecule, quantum_sfwm, or mrr_laser."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or params.get("kind") or "high_order_filter").lower().strip()
+    aliases = {
+        "mat": "core_material", "h_um": "film_height_um", "slab_um": "slab_height_um",
+        "w_ring_um": "ring_width_um", "r_um": "ring_radius_um", "wl_nm": "wavelength_nm",
+        "pol": "polarization", "p_mw": "pump_power_mw", "n": "order_n",
+    }
+
+    def _kw(cls):
+        valid = {f.name for f in fields(cls)}
+        return {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+
+    if analysis in ("high_order_filter", "crow", "scissor"):
+        kw = _kw(HighOrderFilterConfig)
+        if analysis in ("crow", "scissor") and "architecture" not in kw:
+            kw["architecture"] = analysis
+        res = simulate_high_order_mrr_filter(HighOrderFilterConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "high_order_filter", "arch": m["architecture"], "N": m["order_N"], "bw3dB_GHz": m["bw_3dB_GHz"], "sf": m["shape_factor_3_to_20dB"], "oob_dB": m["oob_rejection_dB"], "IL_dB": m["drop_IL_dB"], "tau_ps": m["center_group_delay_ps"], "kappas": m["synthesized_kappas_power"], "ms": res["elapsed_ms"]}
+
+    if analysis in ("euler_bend", "euler"):
+        kw = _kw(EulerBendConfig)
+        if "r_um" in params and "effective_radius_um" not in kw:
+            kw["effective_radius_um"] = float(params["r_um"])
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"euler_racetrack_R{kw.get('effective_radius_um', 5.0):.1f}um.gds")
+        res = design_euler_racetrack_bend(EulerBendConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "euler_bend", "R_eff": m["effective_radius_um"], "R_min": m["euler_min_radius_um"], "circ_junc_dB": m["circular_junction_mismatch_dB"], "euler_junc_dB": m["euler_junction_mismatch_dB"], "opt_off_nm": m["optimal_lateral_offset_nm"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+    if analysis in ("sensor_athermal", "sensor", "athermal"):
+        res = simulate_mrr_sensor_and_athermal(SensorAthermalConfig(**_kw(SensorAthermalConfig)))
+        m = res["metrics"]
+        return {"analysis": "sensor_athermal", "S_bulk": m["S_bulk_nm_per_RIU"], "S_surf": m["S_surface_pm_per_nm"], "FoM": m["intrinsic_FoM_per_RIU"], "LOD_RIU": m["LOD_bulk_RIU"], "L_eff_mm": m["effective_gas_path_mm"], "dlam_dT": m["bare_dlambda_dT_pm_per_K"], "h_ath_um": res["athermal"].get("athermal_cap_thickness_um"), "ms": res["elapsed_ms"]}
+
+    if analysis in ("td_cmt_modulator", "td_cmt"):
+        res = simulate_large_signal_td_cmt_modulator(LargeSignalTDCMTConfig(**_kw(LargeSignalTDCMTConfig)))
+        m = res["metrics"]
+        return {"analysis": "td_cmt_modulator", "mod": m["modulation_type"], "Gbps": m["bitrate_Gbps"], "ER_dB": m["dynamic_ER_dB"], "OMA": m["dynamic_OMA_linear"], "eye": m["eye_opening_linear"], "ovsh_pct": m["optical_peaking_overshoot_pct"], "chirp_GHz": m["peak_transient_chirp_GHz"], "alpha_H": m["effective_chirp_alpha_H"], "ms": res["elapsed_ms"]}
+
+    if analysis in ("mzi_mrr", "tunable_kappa"):
+        res = simulate_mzi_coupled_mrr(MZICoupledMRRConfig(**_kw(MZICoupledMRRConfig)))
+        m = res["metrics"]
+        return {"analysis": "mzi_mrr", "FSR_GHz": m["FSR_GHz"], "Q_int": m["Q_int"], "k_cc": m["kappa_critical_coupling"], "phi_cc_rad": m["mzi_phase_critical_coupling_rad"], "Q_range": [m["min_Q_loaded"], m["max_Q_loaded"]], "ms": res["elapsed_ms"]}
+
+    if analysis in ("photonic_molecule", "molecule", "ep"):
+        res = simulate_photonic_molecule(PhotonicMoleculeConfig(**_kw(PhotonicMoleculeConfig)))
+        m = res["metrics"]
+        return {"analysis": "photonic_molecule", "2J_GHz": m["avoided_crossing_2J_GHz"], "EP_4J_GHz": m["exact_EP_loss_contrast_4J_GHz"], "regime": m["pt_regime"], "EP_gain": m["EP_vs_DP_sensitivity_gain_at_1e-3J"], "ms": res["elapsed_ms"]}
+
+    if analysis in ("quantum_sfwm", "sfwm", "quantum", "squeezing"):
+        kw = _kw(QuantumSFWMConfig)
+        if "wl_nm" in params and "pump_wavelength_nm" not in kw:
+            kw["pump_wavelength_nm"] = float(params["wl_nm"])
+        res = simulate_quantum_sfwm_mrr(QuantumSFWMConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "quantum_sfwm", "R_MHz": m["pair_rate_MHz"], "bright_MHz_mW2": m["brightness_MHz_per_mW2"], "CAR": m["CAR"], "g2_0": m["heralded_g2_0"], "purity": m["JSA_spectral_purity"], "sq_onchip_dB": m["max_squeezing_0p85Pth_onchip_dB"], "ms": res["elapsed_ms"]}
+
+    kw = _kw(MRRLaserConfig)
+    if "wl_nm" in params and "lasing_wavelength_nm" not in kw:
+        kw["lasing_wavelength_nm"] = float(params["wl_nm"])
+    res = simulate_mrr_laser(MRRLaserConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": "mrr_laser", "medium": m["gain_medium"], "lasing": m["lasing_achieved"], "th": m["threshold_value"], "unit": m["threshold_unit"], "P_out_mW": m["operating_output_power_mW"], "lw_Hz": m["intrinsic_linewidth_Hz"], "SMSR_dB": m["SMSR_dB"], "f_RO_GHz": m["relaxation_osc_f_RO_GHz"], "ms": res["elapsed_ms"]}
+
+
+def agent_swg_phc(params: dict) -> dict:
+    """First-principles Subwavelength Grating (SWG) & Photonic Crystal Ring (PhCR) solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or params.get("kind") or "swg").lower().strip()
+    aliases = {"mat": "core_material", "h_um": "film_height_um", "w_ring_um": "ring_width_um", "r_um": "ring_radius_um", "wl_nm": "wavelength_nm", "pol": "polarization"}
+
+    def _kw(cls):
+        valid = {f.name for f in fields(cls)}
+        return {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+
+    if analysis in ("phc", "phcr", "photonic_crystal"):
+        kw = _kw(PhCMicroringConfig)
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"phcr_{kw.get('core_material', 'Si3N4')}_A{kw.get('modulation_amplitude_nm', 40):.0f}nm.gds")
+        res = simulate_phc_microring(PhCMicroringConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "phcr", "m": m["target_azimuthal_order_m"], "period_nm": m["corrugation_period_nm"], "split_GHz": m["selective_mode_split_GHz"], "johnson_GHz": m["johnson_field_split_check_GHz"], "ng_slow": m["band_edge_slow_ng_at_1p15g"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+    kw = _kw(SWGMicroringConfig)
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"swg_ring_P{kw.get('swg_period_nm', 220):.0f}nm.gds")
+    res = simulate_swg_microring(SWGMicroringConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": "swg", "neff_swg": m["neff_swg"], "ng_swg": m["ng_swg"], "bragg_edge_nm": m["bragg_band_edge_nm"], "subwl_ok": m["in_subwavelength_regime"], "FSR_GHz": m["FSR_GHz"], "S_bulk": m["S_bulk_nm_per_RIU"], "pillars": m["num_pillars_around_ring"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_saw_sbs(params: dict) -> dict:
+    """First-principles 2D Solid Mechanics / Piezoelectric SAW-Lamb Acousto-Optic & SBS Brillouin FEM (<150 tokens)."""
+    analysis = str(params.get("analysis") or params.get("kind") or "saw").lower().strip()
+    aliases = {"mat": "waveguide_material", "h_um": "film_height_um", "w_ring_um": "ring_width_um", "r_um": "ring_radius_um", "wl_nm": "wavelength_nm", "pol": "polarization"}
+
+    def _kw(cls, extra_alias=None):
+        al = dict(aliases)
+        if extra_alias:
+            al.update(extra_alias)
+        valid = {f.name for f in fields(cls)}
+        return {al.get(k, k): v for k, v in params.items() if v is not None and al.get(k, k) in valid}
+
+    if analysis in ("sbs", "brillouin"):
+        res = simulate_sbs_brillouin_mrr(SBSBrillouinConfig(**_kw(SBSBrillouinConfig, {"mat": "core_material"})))
+        m = res["metrics"]
+        return {"analysis": "sbs", "dir": m["sbs_direction"], "Omega_GHz": m["Omega_B_2pi_GHz"], "G_B": m["G_B_per_W_m"], "G_pe": m["G_B_photoelastic_only"], "G_mb": m["G_B_moving_boundary_only"], "P_th_mW": m["SBS_ring_threshold_mW"], "ms": res["elapsed_ms"]}
+
+    res = simulate_saw_acousto_optic_mrr(SAWAcoustoOpticConfig(**_kw(SAWAcoustoOpticConfig)))
+    m = res["metrics"]
+    return {"analysis": "saw", "mode": m["acoustic_mode_type"], "v_open": m["v_open_m_per_s"], "f_SAW_GHz": m["f_SAW_GHz"], "K2_pct": m["K_eff_sq_pct"], "g0_kHz": m["optomechanical_g0_2pi_kHz"], "V_pi_V": m["V_pi_MRR_V"], "P_pi_mW": m["P_pi_MRR_mW"], "ms": res["elapsed_ms"]}
+
+
+def agent_nanoantenna_tcmt(params: dict) -> dict:
+    """First-principles Nanoantenna / Metasurface TCMT solver (<150 tokens): MIM absorber, Fano/EIT/qBIC, Mid-IR SEIRA & EP."""
+    valid = {f.name for f in fields(NanoantennaTCMTConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    res = simulate_nanoantenna_tcmt(NanoantennaTCMTConfig(**kw))
+    m = res["metrics"]
+    return {k: v for k, v in m.items() if v is not None} | {"ms": res["elapsed_ms"]}
+
+
+def agent_2d_material_mrr(params: dict) -> dict:
+    """First-principles 2D Material on MRR solver (<150 tokens): Graphene (Kubo SLG/DLG), TMDs (WS2/MoS2/WSe2/MoSe2), hBN & BP."""
+    aliases = {"mat_2d": "material_2d", "mat": "core_material", "wl_nm": "wavelength_nm", "r_um": "ring_radius_um", "h_um": "film_height_um", "w_ring_um": "ring_width_um"}
+    valid = {f.name for f in fields(TwoDMaterialMRRConfig)}
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+    res = simulate_2d_material_mrr(TwoDMaterialMRRConfig(**kw))
+    m = res["metrics"]
+    return {
+        "mat_2d": m["material_2d"],
+        "cap": m["capacitor_type"],
+        "alpha_min": m["alpha_2d_min_dB_per_cm"],
+        "alpha_max": m["alpha_2d_max_dB_per_cm"],
+        "EA_dB_cm": m["EA_modulation_depth_dB_per_cm"],
+        "shift_pm": m["max_resonance_shift_pm"],
+        "dn_dk": m["phase_to_loss_ratio_dn_dk"],
+        "MRR_ER_dB": m["MRR_dynamic_ER_dB"],
+        "f_3dB_GHz": m["f_3dB_total_GHz"],
+        "E_fJ": m["energy_per_bit_fJ"],
         "ms": res["elapsed_ms"],
     }
 

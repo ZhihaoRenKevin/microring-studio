@@ -1,0 +1,93 @@
+{
+  "solver": "COMSOL Multiphysics 6.4.0.293 (Solid Mechanics solid + Electrostatics es + PiezoelectricEffect pze + Wave Optics ewfd SurfaceCurrent)",
+  "host": "Windows-AMD64",
+  "total_wall_time_s": 74.7,
+  "suite_saw_piezo_2d": [
+    {
+      "case_id": "AlN_500nm_SiO2_1um_Si_SAW",
+      "comsol_64": {
+        "v_open_m_per_s": 4106.62,
+        "v_short_m_per_s": 4095.39,
+        "f_SAW_GHz": 2.0533,
+        "K_eff_sq_pct": 0.547,
+        "wall_time_s": 26.2
+      },
+      "microring_fem": {
+        "v_open_m_per_s": 4106.6,
+        "v_short_m_per_s": 4095.36,
+        "f_SAW_GHz": 2.0533,
+        "K_eff_sq_pct": 0.547
+      },
+      "rel_err_v_open_pct": 0.0005,
+      "abs_err_Keff2_pct_pts": 0.0001
+    },
+    {
+      "case_id": "ScAlN20_500nm_SiO2_1um_Si_SAW",
+      "comsol_64": {
+        "v_open_m_per_s": 3908.53,
+        "v_short_m_per_s": 3896.39,
+        "f_SAW_GHz": 1.9543,
+        "K_eff_sq_pct": 0.621,
+        "wall_time_s": 10.7
+      },
+      "microring_fem": {
+        "v_open_m_per_s": 3908.51,
+        "v_short_m_per_s": 3896.37,
+        "f_SAW_GHz": 1.9543,
+        "K_eff_sq_pct": 0.621
+      },
+      "rel_err_v_open_pct": 0.0005,
+      "abs_err_Keff2_pct_pts": 0.0003
+    },
+    {
+      "case_id": "LN_Xcut_400nm_Suspended_Lamb_S0",
+      "comsol_64": {
+        "v_open_m_per_s": 6791.29,
+        "v_short_m_per_s": 6737.41,
+        "f_SAW_GHz": 3.3956,
+        "K_eff_sq_pct": 1.587,
+        "wall_time_s": 6.61
+      },
+      "microring_fem": {
+        "v_open_m_per_s": 6791.27,
+        "v_short_m_per_s": 6737.39,
+        "f_SAW_GHz": 3.3956,
+        "K_eff_sq_pct": 1.587
+      },
+      "rel_err_v_open_pct": 0.0003,
+      "abs_err_Keff2_pct_pts": 0.0003
+    }
+  ],
+  "suite_sbs_solid_2d3d": [
+    {
+      "case_id": "Si_220x450_Forward_SBS_qz0",
+      "comsol_64_Omega_B_GHz": 8.4886,
+      "microring_2dfem_Omega_B_GHz": 8.4886,
+      "rel_err_pct": 0.0004,
+      "microring_G_B_per_W_m": 48823.12,
+      "wall_time_s": 12.44
+    },
+    {
+      "case_id": "Si_220x450_Backward_SBS_qz2beta",
+      "comsol_64_Omega_B_GHz": 16.758,
+      "microring_2dfem_Omega_B_GHz": 16.7573,
+      "rel_err_pct": 0.0044,
+      "microring_G_B_per_W_m": 371.86,
+      "wall_time_s": 4.22
+    }
+  ],
+  "suite_graphene_ewfd_surface_current": {
+    "comsol_64": {
+      "bare_neff": 2.41152,
+      "mu0p0eV_alpha_dB_cm": 777.17,
+      "mu0p55eV_alpha_dB_cm": 40.09,
+      "mu0p55eV_delta_neff": -0.0006336
+    },
+    "microring_kubo_2dfem": {
+      "bare_neff": 2.41388,
+      "mu0p0eV_alpha_dB_cm": 778.82,
+      "mu0p55eV_alpha_dB_cm": 41.8,
+      "rel_err_alpha_mu0_pct": 0.212
+    }
+  }
+}

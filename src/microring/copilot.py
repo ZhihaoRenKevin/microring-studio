@@ -97,6 +97,56 @@ from .wdm_link import (
     WDMLinkConfig,
     simulate_wdm_microring_link,
 )
+from .nonlinear_lle import (
+    FWMBSConfig,
+    LLEConfig,
+    SHGConfig,
+    ThermalKerrBistabilityConfig,
+    simulate_chi2_shg_resonator,
+    simulate_fwm_bragg_scattering,
+    simulate_lle_microcomb,
+    simulate_thermal_kerr_bistability,
+)
+from .advanced_mrr import (
+    EulerBendConfig,
+    HighOrderFilterConfig,
+    LargeSignalTDCMTConfig,
+    MZICoupledMRRConfig,
+    PhotonicMoleculeConfig,
+    SensorAthermalConfig,
+    design_euler_racetrack_bend,
+    simulate_high_order_mrr_filter,
+    simulate_large_signal_td_cmt_modulator,
+    simulate_mrr_sensor_and_athermal,
+    simulate_mzi_coupled_mrr,
+    simulate_photonic_molecule,
+)
+from .quantum_and_laser_mrr import (
+    MRRLaserConfig,
+    QuantumSFWMConfig,
+    simulate_mrr_laser,
+    simulate_quantum_sfwm_mrr,
+)
+from .swg_and_phc_mrr import (
+    PhCMicroringConfig,
+    SWGMicroringConfig,
+    simulate_phc_microring,
+    simulate_swg_microring,
+)
+from .acousto_optic_saw import (
+    SAWAcoustoOpticConfig,
+    SBSBrillouinConfig,
+    simulate_saw_acousto_optic_mrr,
+    simulate_sbs_brillouin_mrr,
+)
+from .nanoantenna_tcmt import (
+    NanoantennaTCMTConfig,
+    simulate_nanoantenna_tcmt,
+)
+from .twod_materials_mrr import (
+    TwoDMaterialMRRConfig,
+    simulate_2d_material_mrr,
+)
 
 # Foundry-standard starting presets per core material
 PLATFORM_PRESETS: dict[str, dict] = {
@@ -1031,6 +1081,34 @@ def parse_photonics_intent(message: str) -> dict:
         out["targets"]["ports"] = 4 if is_ad else 2
 
     # 10. Direct Action Triggers
+    # Frontier Physics Modules (LLE/FWM/SHG/Bistability/CROW/SCISSOR/Euler/Sensor/TD-CMT/MZI-MRR/Molecule/Quantum/Laser/SWG/PhCR/SAW/SBS/Nanoantenna TCMT)
+    frontier_map = [
+        ("twod_material", r"graphene|\bws2\b|\bmos2\b|\bwse2\b|\bmose2\b|\bhbn\b|\btmd\b|black[-_\s]*phosphorus|2d[-_\s]*material|kubo|pauli[-_\s]*block|石墨烯|二维材料|二硫化钨|二硫化钼|六方氮化硼|黑磷"),
+        ("nanoantenna_tcmt", r"nanoantenna|metasurface|\bseira\b|mim[-_\s]*absorber|q[-_\s]*bic|fano[-_\s]*tcmt|\btcmt\b|纳米天线|超表面|分子增强红外"),
+        ("saw", r"\bsaw\b|lamb[-_\s]*wave|acousto[-_\s]*optic|piezo[-_\s]*acoustic|rayleigh[-_\s]*wave|声表面波|声光调制|兰姆波"),
+        ("sbs", r"\bsbs\b|brillouin|forward[-_\s]*brillouin|backward[-_\s]*brillouin|布里渊"),
+        ("phcr", r"\bphcr\b|photonic[-_\s]*crystal[-_\s]*ring|corrugated[-_\s]*ring|selective[-_\s]*mode[-_\s]*split|光子晶体微环"),
+        ("swg", r"\bswg\b|sub[-_\s]*wavelength[-_\s]*grating|rytov|亚波长光栅"),
+        ("quantum_sfwm", r"\bsfwm\b|\bjsa\b|schmidt[-_\s]*purity|heralded[-_\s]*photon|quadrature[-_\s]*squeez|quantum[-_\s]*ring|纠缠光子|光子对|压缩态"),
+        ("mrr_laser", r"microring[-_\s]*laser|mrr[-_\s]*laser|erbium[-_\s]*laser|er:tfln|ingaasp[-_\s]*laser|微环激光|掺铒激光"),
+        ("fwm_bs", r"fwm[-_\s]*bs|bragg[-_\s]*scatter|\bqfc\b|quantum[-_\s]*freq.*conv|四波混频|量子频率转换"),
+        ("shg", r"\bshg\b|second[-_\s]*harmonic|\bppln\b|倍频|二次谐波"),
+        ("bistability", r"bistab|shark[-_\s]*fin|thermal[-_\s]*kerr|双稳|鲨鱼鳍"),
+        ("lle", r"\blle\b|lugiato[-_\s]*lefever|kerr[-_\s]*soliton|microcomb|dissipative[-_\s]*soliton|克尔光梳|孤子微梳"),
+        ("scissor", r"\bscissor\b|parallel[-_\s]*ring[-_\s]*array|并联微环"),
+        ("crow", r"\bcrow\b|high[-_\s]*order[-_\s]*(?:ring|mrr|filter)|chebyshev[-_\s]*ring|butterworth[-_\s]*ring|高阶微环|耦合微环滤波器"),
+        ("euler_bend", r"euler[-_\s]*bend|clothoid|racetrack[-_\s]*offset|欧拉弯|克洛索"),
+        ("sensor_athermal", r"biosens|ri[-_\s]*sensor|gas[-_\s]*cavity|athermal|tio2[-_\s]*clad|生物传感|气体传感|无热化"),
+        ("td_cmt_modulator", r"td[-_\s]*cmt|large[-_\s]*signal[-_\s]*mod|transient[-_\s]*chirp|henry[-_\s]*alpha|大信号调制|瞬态啁啾"),
+        ("mzi_mrr", r"mzi[-_\s]*(?:coupled|mrr)|tunable[-_\s]*kappa|tunable[-_\s]*coupler[-_\s]*ring|可调耦合微环"),
+        ("photonic_molecule", r"photonic[-_\s]*molecule|exceptional[-_\s]*point|pt[-_\s]*symmetr|supermode[-_\s]*dimer|光子分子|奇异点"),
+    ]
+    for f_kind, f_pat in frontier_map:
+        if re.search(f_pat, low):
+            out["action"] = "frontier_physics"
+            out["frontier"] = {"analysis": f_kind}
+            return out
+
     if re.search(
         r"\bwdm\b|eye[-_\s]*diagram|eye[-_\s]*open|prbs|ber[-_\s]*est|thermal[-_\s]*lock|heater[-_\s]*relock|wavelength[-_\s]*lock|"
         r"(?:pam[-_\s]*4|nrz).*(?:link|wdm|eye|ring)|眼图|波分复用|热锁定|重锁定|误码率",
@@ -2347,7 +2425,7 @@ def _process_chat_turn_core(
     if (
         "core_material" not in confirmed
         and "wavelength" in confirmed
-        and intent["action"] not in ("design_mzi", "eom_multiphysics", "io_coupler", "high_q_fdtd", "pdk_drc_lvs", "prism_optimize", "wdm_link", "process_corners")
+        and intent["action"] not in ("design_mzi", "eom_multiphysics", "io_coupler", "high_q_fdtd", "pdk_drc_lvs", "prism_optimize", "wdm_link", "process_corners", "frontier_physics")
     ):
         wl_now = float(cfg_dict["wavelength_nm"])
         session["stage"] = "ask_material"
@@ -2370,6 +2448,94 @@ def _process_chat_turn_core(
             "ui_view": "overview",
             "wizard_step": 3,
             "active_tab": "tab-mrr",
+        }
+
+    # ------------------------------------------------------------------
+    # Direct Action 0: Frontier Physics Engines (LLE / Advanced MRR / Quantum / SWG / PhCR / SAW / SBS / Nanoantenna TCMT)
+    # ------------------------------------------------------------------
+    if intent["action"] == "frontier_physics":
+        f_kind = str((intent.get("frontier") or {}).get("analysis") or "lle")
+        if f_kind == "lle":
+            f_res = {"analysis": "lle", **simulate_lle_microcomb(LLEConfig())}
+        elif f_kind == "fwm_bs":
+            f_res = {"analysis": "fwm_bs", **simulate_fwm_bragg_scattering(FWMBSConfig())}
+        elif f_kind == "shg":
+            f_res = {"analysis": "shg", **simulate_chi2_shg_resonator(SHGConfig())}
+        elif f_kind == "bistability":
+            f_res = {"analysis": "bistability", **simulate_thermal_kerr_bistability(ThermalKerrBistabilityConfig())}
+        elif f_kind in ("crow", "scissor"):
+            f_res = {"analysis": f_kind, **simulate_high_order_mrr_filter(HighOrderFilterConfig(architecture=f_kind))}
+        elif f_kind == "euler_bend":
+            f_res = {"analysis": "euler_bend", **design_euler_racetrack_bend(EulerBendConfig())}
+        elif f_kind == "sensor_athermal":
+            f_res = {"analysis": "sensor_athermal", **simulate_mrr_sensor_and_athermal(SensorAthermalConfig())}
+        elif f_kind == "td_cmt_modulator":
+            f_res = {"analysis": "td_cmt_modulator", **simulate_large_signal_td_cmt_modulator(LargeSignalTDCMTConfig())}
+        elif f_kind == "mzi_mrr":
+            f_res = {"analysis": "mzi_mrr", **simulate_mzi_coupled_mrr(MZICoupledMRRConfig())}
+        elif f_kind == "photonic_molecule":
+            f_res = {"analysis": "photonic_molecule", **simulate_photonic_molecule(PhotonicMoleculeConfig())}
+        elif f_kind == "quantum_sfwm":
+            f_res = {"analysis": "quantum_sfwm", **simulate_quantum_sfwm_mrr(QuantumSFWMConfig())}
+        elif f_kind == "mrr_laser":
+            f_res = {"analysis": "mrr_laser", **simulate_mrr_laser(MRRLaserConfig())}
+        elif f_kind == "swg":
+            f_res = {"analysis": "swg", **simulate_swg_microring(SWGMicroringConfig())}
+        elif f_kind == "phcr":
+            f_res = {"analysis": "phcr", **simulate_phc_microring(PhCMicroringConfig())}
+        elif f_kind == "saw":
+            f_res = {"analysis": "saw", **simulate_saw_acousto_optic_mrr(SAWAcoustoOpticConfig())}
+        elif f_kind == "sbs":
+            f_res = {"analysis": "sbs", **simulate_sbs_brillouin_mrr(SBSBrillouinConfig())}
+        elif f_kind == "twod_material":
+            low_msg = user_message.lower()
+            mat2d = "WS2" if "ws2" in low_msg or "二硫化钨" in low_msg else ("MoS2" if "mos2" in low_msg or "二硫化钼" in low_msg else ("hBN" if "hbn" in low_msg or "氮化硼" in low_msg else ("Black_Phosphorus" if "black phosphorus" in low_msg or "黑磷" in low_msg else "Graphene")))
+            cap = "DLG" if ("dlg" in low_msg or "dual" in low_msg or "双层" in low_msg) else "SLG"
+            if mat2d == "hBN":
+                f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="hBN", core_material="Ge", clad_material="CaF2", top_clad_material="Air", film_height_um=1.2, ring_width_um=2.0, ring_radius_um=60.0, wavelength_nm=6800.0, v_gate_sweep_v=(0.0,)))}
+            else:
+                f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d=mat2d, capacitor_type=cap))}
+        else:
+            f_res = {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig())}
+
+        fm = f_res.get("metrics") or {}
+        top_lines = []
+        for k, v in list(fm.items())[:6]:
+            if isinstance(v, (int, float)):
+                top_lines.append(f"- **`{k}`**: `{v:.4g}`")
+            elif isinstance(v, (str, bool)):
+                top_lines.append(f"- **`{k}`**: `{v}`")
+        bullet_txt = "\n".join(top_lines)
+        session["ui_view"] = "frontier"
+        session["wizard_step"] = 6
+        msg = (
+            f"🌌 **已完成前沿物理模块 `{f_kind}` 本机第一性原理求解**（`{f_res.get('elapsed_ms', 0):.0f} ms`）\n{bullet_txt}"
+            if zh
+            else f"🌌 **Solved Frontier Physics Module `{f_kind}` from First Principles** (`{f_res.get('elapsed_ms', 0):.0f} ms`)\n{bullet_txt}"
+        )
+        chips = (
+            [
+                {"label": "🔥 运行 LLE 孤子微梳", "prompt": "运行 Si3N4 LLE 孤子微梳仿真"},
+                {"label": "🧱 仿真 SWG 亚波长光栅微环", "prompt": "仿真 SWG 亚波长光栅微环生物传感"},
+                {"label": "🔊 仿真压电 SAW 声光微环", "prompt": "仿真 AlN 压电 SAW 声光调制微环"},
+                {"label": "📡 仿真纳米天线 SEIRA TCMT", "prompt": "仿真中红外纳米天线 SEIRA TCMT 耦合谱"},
+            ]
+            if zh
+            else [
+                {"label": "🔥 Run LLE Kerr Soliton Comb", "prompt": "Simulate Si3N4 LLE Kerr soliton microcomb"},
+                {"label": "🧱 Run SWG Subwavelength Ring", "prompt": "Simulate SWG subwavelength grating microring biosensor"},
+                {"label": "🔊 Run Piezo SAW Acousto-Optic MRR", "prompt": "Simulate AlN piezo SAW acousto-optic microring"},
+                {"label": "📡 Run Nanoantenna SEIRA TCMT", "prompt": "Simulate Mid-IR nanoantenna SEIRA TCMT spectrum"},
+            ]
+        )
+        session["history"] = (history + [{"role": "assistant", "content": msg}])[-16:]
+        return {
+            "session": session,
+            "assistant_message": msg,
+            "chips": chips,
+            "frontier_result": f_res,
+            "ui_view": "frontier",
+            "wizard_step": 6,
         }
 
     # ------------------------------------------------------------------

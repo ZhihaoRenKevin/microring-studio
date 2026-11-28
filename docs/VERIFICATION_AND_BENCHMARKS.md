@@ -294,6 +294,32 @@ Additional nonlinear & scattering literature cross-checks verified in Suite #18 
 
 ---
 
+## 7C. Independent Frontier Commercial Validation (COMSOL 6.4 Piezo SAW/Lamb, 2D/3D SBS, Graphene SurfaceCurrent & Ansys Lumerical 2026 R1 3D FDTD SWG, PhCR, MIM/SEIRA)
+
+All six new frontier physics engines (`v3.10.0`) were validated blindly from neutral physical specifications against **COMSOL Multiphysics 6.4** (`benchmarks/run_frontier_comsol_validation.py` $\rightarrow$ `benchmarks/outputs/frontier_comsol_validation.json`) and **Ansys Lumerical 2026 R1 3D FDTD** on the local RTX 5090 GPU (`benchmarks/run_frontier_lumerical_validation.py` $\rightarrow$ `benchmarks/outputs/frontier_lumerical_validation.json`):
+
+### COMSOL Multiphysics 6.4 Head-to-Head (`solid` + `es` + `pze` & `ewfd` `SurfaceCurrent`)
+
+| Suite & Device | Commercial Reference (`COMSOL 6.4`) | `MicroRing Studio` (100% Pure Python FEM) | Independent Error |
+| :--- | :--- | :--- | :---: |
+| **F-C1a**: `AlN 500 nm / SiO2 1 µm / Si` Rayleigh SAW ($\Lambda = 2\,\mu\text{m}$) | $v_{\mathrm{open}} = 4106.62\text{ m/s}$, $v_{\mathrm{short}} = 4095.39\text{ m/s}$, $K_{\mathrm{eff}}^2 = 0.547\%$ | $v_{\mathrm{open}} = 4106.60\text{ m/s}$, $v_{\mathrm{short}} = 4095.36\text{ m/s}$, $K_{\mathrm{eff}}^2 = 0.547\%$ | **`0.0005%`** ($K^2$ exact) |
+| **F-C1b**: `Sc0.20Al0.80N 500 nm / SiO2 1 µm / Si` Rayleigh SAW ($\Lambda = 2\,\mu\text{m}$) | $v_{\mathrm{open}} = 3908.53\text{ m/s}$, $v_{\mathrm{short}} = 3896.39\text{ m/s}$, $K_{\mathrm{eff}}^2 = 0.621\%$ | $v_{\mathrm{open}} = 3908.51\text{ m/s}$, $v_{\mathrm{short}} = 3896.37\text{ m/s}$, $K_{\mathrm{eff}}^2 = 0.621\%$ | **`0.0005%`** ($K^2$ exact) |
+| **F-C1c**: Suspended `400 nm X-cut LiNbO3` Lamb $S_0$ ($\Lambda = 2\,\mu\text{m}$) | $v_{\mathrm{open}} = 6791.29\text{ m/s}$, $v_{\mathrm{short}} = 6737.41\text{ m/s}$, $K_{\mathrm{eff}}^2 = 1.587\%$ | $v_{\mathrm{open}} = 6791.27\text{ m/s}$, $v_{\mathrm{short}} = 6737.39\text{ m/s}$, $K_{\mathrm{eff}}^2 = 1.587\%$ | **`0.0003%`** ($K^2$ exact) |
+| **F-C2a**: Suspended `[100] Si 220×450 nm` Forward SBS ($q_z = 0$) | $\Omega_B / 2\pi = 8.4886\text{ GHz}$ (2D plane-strain breathing) | $\Omega_B / 2\pi = 8.4886\text{ GHz}$ ($G_B = 48{,}823\text{ W}^{-1}\text{m}^{-1}$) | **`0.0004%`** |
+| **F-C2b**: Suspended `[100] Si 220×450 nm` Backward SBS ($q_z = 2\beta$) | $\Omega_B / 2\pi = 16.7580\text{ GHz}$ (3D Floquet slice) | $\Omega_B / 2\pi = 16.7573\text{ GHz}$ ($G_B = 371.9\text{ W}^{-1}\text{m}^{-1}$) | **`0.0044%`** |
+| **F-C3**: `Graphene`-on-SOI (`220×480 nm`, `10 nm` spacer, `1550 nm`) | $\mu_c = 0$: $\alpha = 777.17\text{ dB/cm}$; $\mu_c = 0.55\text{ eV}$: $\alpha = 40.09\text{ dB/cm}$, $\Delta n = -6.34\times 10^{-4}$ | $\mu_c = 0$: $\alpha = 778.82\text{ dB/cm}$; $\mu_c = 0.55\text{ eV}$: $\alpha = 41.80\text{ dB/cm}$ | **`0.212%`** ($\mu_c = 0$) |
+
+### Ansys Lumerical 2026 R1 Full-Wave 3D FDTD Head-to-Head (RTX 5090 GPU)
+
+| Suite & Device | Commercial Reference (`Lumerical 3D FDTD`) | `MicroRing Studio` (Pure Python Engine) | Independent Agreement |
+| :--- | :--- | :--- | :---: |
+| **F-L1a**: 3D Periodic `SWG` Biosensor (`220×500 nm Si`, $\Lambda=220\text{ nm}, f=0.50$, Water) | $n_{\mathrm{eff}} = 1.5492$, $S_{\mathrm{bulk}} = 461.2\text{ nm/RIU}$ | $n_{\mathrm{eff}} = 1.56259$ ($\Delta = +0.0134$), $S_{\mathrm{bulk}} = 450.72\text{ nm/RIU}$ | **`2.27%`** ($S_{\mathrm{bulk}}$) |
+| **F-L1b**: 3D Periodic `SWG` Waveguide (`220×500 nm Si`, `SiO2` clad) | $n_{\mathrm{eff}} = 1.6395$, $n_g = 2.760$ | $n_{\mathrm{eff}} = 1.65581$, $n_g = 2.6261$ | **`4.85%`** ($n_g$) |
+| **F-L2**: 3D Mid-IR `MIM` Nanoantenna + Conformal `40 nm` `SEIRA PMMA` (`1730 cm^-1`) | `status = 2`, $A_{\mathrm{peak}} = 0.9874$ at `2280.3 cm^-1` | Blind Suh-Wang-Fan TCMT inverse fit (`nu_mol = 1742.0 cm^-1`) | **`R^2 = 0.99896`**, `RMSE = 0.0088` |
+| **F-L3**: 3D `PhCR` Corrugated `Si3N4` (`500×1200 nm`, inner-wall $A = 40\text{ nm}$) | $f_- = 193.3636\text{ THz}$, $f_+ = 193.4673\text{ THz}$ (center `1549.992 nm`), $\Delta f = 103.710\text{ GHz}$ | $\Delta f = 103.209\text{ GHz}$ (Johnson sidewall cross-check `102.529 GHz`, `1.14%`) | **`0.48%`** |
+
+---
+
 ## 8. Physical Scope Boundaries
 
 - **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + EME + 2D Multiphysics FEM)**:

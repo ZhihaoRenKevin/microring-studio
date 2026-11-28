@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.9.0"
+__version__ = "3.10.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -14,6 +14,7 @@ from .active_tuning import (
 )
 from .agent_tools import (
     agent_active_tuning,
+    agent_advanced_mrr,
     agent_design_mrr,
     agent_design_mzi,
     agent_eom_multiphysics,
@@ -22,13 +23,67 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_nanoantenna_tcmt,
+    agent_2d_material_mrr,
     agent_nonlinear_lle,
     agent_pdk_drc,
     agent_prism_optimize,
+    agent_saw_sbs,
     agent_status,
     agent_sweep_mrr,
+    agent_swg_phc,
     agent_wdm_link,
     agent_width_cutoff,
+)
+from .acousto_optic_saw import (
+    ELASTIC_MATERIAL_PROPS,
+    SAWAcoustoOpticConfig,
+    SBSBrillouinConfig,
+    get_elastic_material_props,
+    simulate_saw_acousto_optic_mrr,
+    simulate_sbs_brillouin_mrr,
+)
+from .advanced_mrr import (
+    EulerBendConfig,
+    HighOrderFilterConfig,
+    LargeSignalTDCMTConfig,
+    MZICoupledMRRConfig,
+    PhotonicMoleculeConfig,
+    SensorAthermalConfig,
+    design_euler_racetrack_bend,
+    simulate_high_order_mrr_filter,
+    simulate_large_signal_td_cmt_modulator,
+    simulate_mrr_sensor_and_athermal,
+    simulate_mzi_coupled_mrr,
+    simulate_photonic_molecule,
+)
+from .quantum_and_laser_mrr import (
+    GAIN_MEDIUM_PRESETS,
+    MRRLaserConfig,
+    QuantumSFWMConfig,
+    simulate_mrr_laser,
+    simulate_quantum_sfwm_mrr,
+)
+from .swg_and_phc_mrr import (
+    PhCMicroringConfig,
+    SWGMicroringConfig,
+    simulate_phc_microring,
+    simulate_swg_microring,
+)
+from .nanoantenna_tcmt import (
+    SEIRA_MOLECULE_PRESETS,
+    NanoantennaTCMTConfig,
+    fit_nanoantenna_tcmt_spectrum,
+    simulate_nanoantenna_tcmt,
+)
+from .twod_materials_mrr import (
+    TWOD_MATERIAL_CATALOG,
+    TwoDMaterialMRRConfig,
+    graphene_gate_voltage_to_mu_c,
+    graphene_kubo_conductivity,
+    hbn_hyperbolic_tensor,
+    simulate_2d_material_mrr,
+    tmd_sheet_conductivity,
 )
 from .eom_electrode import (
     ELECTRODE_METAL_CATALOG,
@@ -244,6 +299,49 @@ __all__ = [
     "simulate_fwm_bragg_scattering",
     "simulate_lle_microcomb",
     "simulate_thermal_kerr_bistability",
+    "ELASTIC_MATERIAL_PROPS",
+    "GAIN_MEDIUM_PRESETS",
+    "EulerBendConfig",
+    "HighOrderFilterConfig",
+    "LargeSignalTDCMTConfig",
+    "MRRLaserConfig",
+    "MZICoupledMRRConfig",
+    "PhCMicroringConfig",
+    "PhotonicMoleculeConfig",
+    "QuantumSFWMConfig",
+    "SAWAcoustoOpticConfig",
+    "SBSBrillouinConfig",
+    "SWGMicroringConfig",
+    "SensorAthermalConfig",
+    "agent_advanced_mrr",
+    "agent_nanoantenna_tcmt",
+    "agent_2d_material_mrr",
+    "TWOD_MATERIAL_CATALOG",
+    "TwoDMaterialMRRConfig",
+    "graphene_gate_voltage_to_mu_c",
+    "graphene_kubo_conductivity",
+    "hbn_hyperbolic_tensor",
+    "simulate_2d_material_mrr",
+    "tmd_sheet_conductivity",
+    "agent_saw_sbs",
+    "agent_swg_phc",
+    "SEIRA_MOLECULE_PRESETS",
+    "NanoantennaTCMTConfig",
+    "fit_nanoantenna_tcmt_spectrum",
+    "simulate_nanoantenna_tcmt",
+    "design_euler_racetrack_bend",
+    "get_elastic_material_props",
+    "simulate_high_order_mrr_filter",
+    "simulate_large_signal_td_cmt_modulator",
+    "simulate_mrr_laser",
+    "simulate_mrr_sensor_and_athermal",
+    "simulate_mzi_coupled_mrr",
+    "simulate_phc_microring",
+    "simulate_photonic_molecule",
+    "simulate_quantum_sfwm_mrr",
+    "simulate_saw_acousto_optic_mrr",
+    "simulate_sbs_brillouin_mrr",
+    "simulate_swg_microring",
     "agent_prism_optimize",
     "agent_status",
     "agent_sweep_mrr",

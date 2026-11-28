@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "microring-studio"
-version = "3.9.0"
-description = "License-free Photonic IC, Microring Resonator, MZI, Active EOM Multiphysics, Foundry PDK DRC/3D-LVS, PRISM Closed-Loop 2D-FEM Optimizer, and WDM Optical Link CAD (Visible 400 nm to Mid-IR 14 um): Switchable Foundry PDKs + Headless Polygon DRC (.lyrdb) + 3D Union-Find LVS + Native GDS Cutline 2D-FEM, Co-Integrated PN + TiN Heater Ring Modulators, PRISM Prediction-Gated Autonomous Optimization + Q-Budget Closure, Multi-Channel WDM Eye/BER + PI Heater Relocking, Multi-Parameter Process Corners (SS/FF/SF/FS), 2D Quasi-TEM RF EOM Electrodes, 2D Poisson-Boltzmann Si PN TCAD, 2D Steady/Transient Thermal FEM, MZI splitters, Butt & 2D-FDFD Grating couplers, and INTERCONNECT export with zero commercial solver licenses."
+version = "3.10.0"
+description = "License-free Photonic IC, Microring Resonator, MZI, Active EOM Multiphysics, Nonlinear LLE Microcombs, SWG/PhCR, Piezo SAW/SBS, Nanoantenna TCMT, 2D Materials (Graphene/TMDs/hBN/BP), Foundry PDK DRC/3D-LVS, PRISM Optimizer, and WDM Optical Link CAD (Visible 400 nm to Mid-IR 14 um) with zero commercial solver licenses."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [

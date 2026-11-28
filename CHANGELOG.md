@@ -2,6 +2,34 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.10.0] - 2026-11-28
+
+### Added (Full Frontier Photonic Physics Suite + COMSOL 6.4 & Lumerical 3D FDTD Validation)
+- **High-Order Filters, Euler Bends, Bio/Athermal, Large-Signal TD-CMT, MZI-MRR & Photonic Molecule / PT-EP (`advanced_mrr.py`)**:
+  - `simulate_high_order_mrr_filter`: Exact 4-entry unitary Redheffer star-product cascade for Butterworth/Chebyshev `CROW` & `SCISSOR` filters with group delay and GDD.
+  - `design_euler_racetrack_bend`: Adiabatic clothoid Euler bend junction mismatch optimization, lateral offset solver, and `.GDS` export.
+  - `simulate_mrr_sensor_and_athermal`: Aqueous/gas bulk & surface adlayer biosensor sensitivities plus negative-$dn/dT$ `TiO2` athermal cladding cap thickness synthesis.
+  - `simulate_large_signal_td_cmt_modulator`: RK4 time-domain coupled-mode modulator contrasting detuning chirp vs chirp-free coupling modulation (`alpha_H = 0`).
+  - `simulate_mzi_coupled_mrr` & `simulate_photonic_molecule`: MZI-tunable-$\kappa$ microrings and dual-ring photonic molecules / $\mathcal{PT}$-symmetric Exceptional Point $\sqrt{\varepsilon}$ splitting.
+- **Quantum SFWM Photon-Pair Sources & Active Gain MRR Lasers (`quantum_and_laser_mrr.py`)**:
+  - `simulate_quantum_sfwm_mrr`: Photon-pair generation rate, CAR, heralded $g_H^{(2)}(0)$, dimensionless JSA SVD Schmidt spectral purity (`0.8557` single-$Q$ -> `0.9763` dual-$Q$), and squeezed vacuum (`dB`).
+  - `simulate_mrr_laser`: Rate-equation active microring lasers (`Er_TFLN`, `Er_Si3N4`, `InGaAsP_MQW`) extracting threshold, L-I curve, Schawlow-Townes linewidth, SMSR, $f_{\mathrm{RO}}$, and RIN.
+- **Subwavelength Grating (`SWG`) & Photonic Crystal Rings (`PhCR`) (`swg_and_phc_mrr.py`)**:
+  - `simulate_swg_microring`: 2nd-order Rytov EMT + 2D curved anisotropic FEM + 1D Bloch-Floquet `SWG` biosensor rings with pillared `.GDS` export.
+  - `simulate_phc_microring`: NIST-style selective CW/CCW Bragg mode splitting via symmetric-interpolated 2D-FEM $\mathrm{d}n_{\mathrm{eff}}/\mathrm{d}W$, vector $E_z$-reversal factor, Johnson sidewall field cross-check, and corrugated `.GDS` export.
+- **Piezoelectric SAW/Lamb Acousto-Optics & 2D Solid-Mechanics SBS (`acousto_optic_saw.py`)**:
+  - `simulate_saw_acousto_optic_mrr`: Multi-layer coupled Christoffel-Piezoelectric 1D-depth P2 FEM with exact static condensation and vacuum DtN capacitance (`AlN`, `ScAlN`, `X-cut TFLN`) plus optomechanical $g_0, V_\pi, P_\pi$.
+  - `simulate_sbs_brillouin_mrr`: Full 2D cross-section 3-component P2 solid-mechanics FEM for Forward ($q_z = 0$) & Backward ($q_z = 2\beta$) SBS breathing/longitudinal acoustic modes and $G_B$.
+- **Nanoantenna / Metasurface TCMT & Blind SEIRA Fitter (`nanoantenna_tcmt.py`)**:
+  - `simulate_nanoantenna_tcmt` & `fit_nanoantenna_tcmt_spectrum`: Exact Suh-Wang-Fan energy-conserving multi-mode TCMT (`mim_absorber`, `fano_eit_qbic`, `seira_molecular` with 5 analyte presets, `metasurface_ep`) and blind nonlinear least-squares FTIR inverse fitting.
+- **2D Materials Integrated on Microrings (`twod_materials_mrr.py`)**:
+  - `simulate_2d_material_mrr`: Finite-$T$ complex Kubo surface conductivity for `Graphene` (`SLG`/`DLG` with oxide+quantum capacitance electrostatics and tangential surface-current perturbation), gate-tunable monolayer TMDs (`WS2`, `MoS2`, `WSe2`, `MoSe2`), Mid-IR hyperbolic `hBN`, and `Black_Phosphorus`.
+- **Independent Commercial Validation (`COMSOL 6.4` & `Lumerical 2026 R1 3D FDTD` RTX 5090 GPU)**:
+  - **COMSOL 6.4 (`benchmarks/run_frontier_comsol_validation.py`)**: SAW/Lamb $v_{\mathrm{open}}$ within `0.0003%–0.0005%` and exact 3-decimal $K_{\mathrm{eff}}^2$ across `AlN` (`0.547%`), `ScAlN20` (`0.621%`), and suspended `X-cut TFLN` (`1.587%`); Forward/Backward `Si` SBS `8.4886 vs 8.4886 GHz` (`0.0004%`) and `16.7573 vs 16.7580 GHz` (`0.0044%`); `Graphene`-on-SOI `ewfd` `SurfaceCurrent` $\alpha(\mu_c=0)$ `778.82 vs 777.17 dB/cm` (`0.212%`).
+  - **Lumerical 3D FDTD (`benchmarks/run_frontier_lumerical_validation.py`)**: 3D `SWG` aqueous $S_{\mathrm{bulk}}$ `450.7 vs 461.2 nm/RIU` (`2.27%`); 3D `PhCR` (`Si3N4 A=40 nm`) selective mode splitting `103.21 vs 103.71 GHz` (`0.48%`, Bragg center `1549.992 nm`); 3D Mid-IR `MIM` + `SEIRA PMMA` blind TCMT inverse fit `R^2 = 0.99896, RMSE = 0.0088`.
+- **Stage 12 Frontier UI, Bilingual Copilot, 21 MCP Tools & 22/22 Verification Suites**:
+  - Added Stage 12 (`🔬 Frontier`, all 19 modes) + Expert Drawer sidewall roughness & broadband $\kappa(\lambda)$ controls (`ui_frontend.py`), `POST /api/frontier_physics` (`app_server.py`), EN/ZH Copilot routing (`copilot.py`), CLI `microring agent advanced | swg-phc | saw-sbs | nanoantenna | twod-material`, MCP tools `#17–#21`, and Tests `#19–#22` (`22/22 PASS`).
+
 ## [3.9.1] - 2026-11-28
 
 ### Added (First-Principles Nonlinear Photonics, Generalized LLE & Sidewall Scattering)
