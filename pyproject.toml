@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "microring-studio"
-version = "3.13.0"
+version = "3.14.0"
 description = "License-free Photonic IC, Microring Resonator, MZI, Active EOM Multiphysics, Nonlinear LLE Microcombs, SWG/PhCR, Piezo SAW/SBS, Nanoantenna TCMT, 2D Materials, Ge-on-Si Photodetectors & O-E-O Neurons, PSR/PBS/MDM, Non-Volatile PCM SET/RESET, PNN MRR Weight Bank & Clements/Reck Mesh, WBG/AWG, Native S-Matrix PIC Circuit Netlist, 2D-FDFD Adjoint Inverse Design, Foundry PDK DRC/3D-LVS, PRISM Optimizer, and WDM Optical Link CAD (Visible 400 nm to Mid-IR 14 um) with zero commercial solver licenses."
 readme = "README.md"
 license = { text = "MIT" }

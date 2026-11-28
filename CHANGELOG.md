@@ -2,6 +2,21 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.14.0] - 2026-11-28
+
+### Added (Complete 10-Application Frontier MRR Ecosystem — 5 Live Modules, 41 MCP Tools, 50 Stage-12 Modes — Validated Against COMSOL 6.4 & Lumerical 3D FDTD RTX 5090 GPU)
+- **External-Cavity Vernier Tunable Laser, Self-Injection-Locked (`SIL`) Laser + `TRN` & Integrated `RFOG` Optical Gyroscope (`mrr_lasers_gyro.py`)**:
+  - Live 2D-FEM `Si3N4`/`SiO2` mode engine (`0.037%` $n_{\mathrm{eff}}$, `0.031%` $n_g$, `0.54%` $A_{\mathrm{eff}}$ vs COMSOL 6.4 `ewfd`), dual-ring Vernier reflection (`M=11×`, `75 dB` SMSR, `0.55 kHz` linewidth), Kondratiev Rayleigh `SIL` locking (`500 kHz -> 0.33 Hz` intrinsic + Huang `TRN` PSD), and `RFOG` relativistic dispersive Sagnac scale factor (`0.000%` analytical identity), Rayleigh lock-in deadband, Kerr $2\times$ XPM bias drift, and shot-noise `ARW` + `.GDS`.
+- **MRR Microwave Photonics (`mrr_microwave_photonics.py`)**:
+  - Cascaded all-pass `TTD`/`OBFN` beamformer (`474.6 ps`, `DBP=2.85`, squint reduction `7.98° -> 1.58°`), ultra-deep `36.9 dB` `RF` notch filter (`RF Gain`/`NF`/`SFDR3`), `OEO` Leeson phase noise (`-105.2 dBc/Hz @ 10 kHz`), and all-optical temporal differentiator (`7.87%` RMSE) & zero-padded causal integrator (`3.03%` RMSE) + `.GDS`.
+- **Resonant `EO` Frequency Comb (`1R`/`2R`), Synthetic Frequency Dimension (`SFD`), Kerr `SSB` Magnet-Free Isolator & $\chi^{(3)}/\chi^{(2)}$ `MRR OPO` (`mrr_eocomb_opo_ssb.py`)**:
+  - Exact `241`-mode Floquet-CMT `TFLN` EO comb (`7.42% -> 68.05%` `9.17×` efficiency boost with coupled auxiliary ring), dual-harmonic `SFD` band-structure & Bloch oscillation readout, Kerr `SSB` passive magnet-free optical isolator (`20.2 dB` isolation), and live 2D-FEM `Si3N4` $\chi^{(3)}$ OPO (`0.181%` $n_{\mathrm{eff}}$ vs COMSOL 6.4) & `TFLN` $\chi^{(2)}$ `DROPO` (`0.05 µW` threshold) + `.GDS`.
+- **Angular-Grating `OAM` Vortex `MRR`, Cavity Optomechanics / Quantum Transducer & Topological `MRR` Lattices (`mrr_oam_optomech_topo.py`)**:
+  - 2D bent FEM + 3D discrete vector dipole `OAM` emitter (blind `.GDS` import into Ansys Lumerical 2026 R1 `3D FDTD` RTX 5090 GPU confirmed **`98.06%`** vortex purity, **`3.000`** integer phase winding, and **`-27.9 dB`** central doughnut null!), Heisenberg-Langevin `OMIT` / ground-state cooling ($n_f = 0.618 < 1$) & microwave-to-optical quantum transducer ($N_{\mathrm{add}} = 0.029 < 1$), plus `1D SSH` (`0.000 GHz` zero-mode drift under `15%` disorder) & `2D Hafezi` Quantum Hall chiral edge routing around a missing edge ring + `.GDS`.
+- **Silicon `MRR` Photonic Reservoir Computer (`PRC`), `N×N` Switch Matrix, Nanoparticle Sizing & Dual-Comb Spectroscopy (`mrr_reservoir_switch_sensing.py`)**:
+  - Nonlinear TPA/FCD/Thermal Silicon MRR ODEs achieving `100.0%` held-out `1-bit delayed XOR` (`NMSE = 0.0628`) & `NARMA-10`, `4×4–16×16` Crossbar/Benes non-blocking MRR switch fabrics + `.GDS`, Zhu-2010 self-referenced nanoparticle/virion sizing (`45.000 nm`, `0.000%` error), and `HCN`/`CO2`/`CH4`/`NH3` dual-comb spectroscopy (`5000×` RF compression, `R^2 = 1.0000`).
+- **Full-Stack Integration**: Stage-12 Frontier UI expanded to **`50` live modes**, Bilingual EN/ZH Copilot routing, CLI (`5` new subcommands), **`41` MCP tools** (`<150 tokens/call`), and Test `#32` (`32/32` suites).
+
 ## [3.13.0] - 2026-11-28
 
 ### Added (End-to-End EOM RF Packaging HFSS-Class ABCD Engine + 100G–400G NRZ/PAM4 Eye Diagram, BER, IEEE 802.3bs TDECQ & MMSE FFE — Validated Against Ansys HFSS 2026 R1)

@@ -24,6 +24,7 @@ from .agent_tools import (
     agent_eam_soa,
     agent_eom_multiphysics,
     agent_eom_rf_eye,
+    agent_eocomb_opo_ssb,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_gnlse_ppln,
@@ -31,11 +32,13 @@ from .agent_tools import (
     agent_inspect_gds,
     agent_io_coupler,
     agent_isolator_mems,
+    agent_mrr_mwp,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
     agent_mrr_ep,
     agent_nonlinear_lle,
+    agent_oam_optomech_topo,
     agent_opa_lidar,
     agent_pcm_photonics,
     agent_pdk_drc,
@@ -44,12 +47,14 @@ from .agent_tools import (
     agent_pic_netlist,
     agent_polarization_mdm,
     agent_prism_optimize,
+    agent_reservoir_switch_sensing,
     agent_routing_crossings,
     agent_saw_sbs,
     agent_slab_diffractive,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
+    agent_vernier_sil_gyro,
     agent_wbg_awg,
     agent_wdm_link,
     agent_width_cutoff,
@@ -474,6 +479,32 @@ def main() -> None:
     p_eye.add_argument("--s2p", action="store_true", dest="export_s2p")
     p_eye.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_vsg = ag_sub.add_parser("vernier-sil-gyro", help="Live External-Cavity Vernier Laser, SIL Laser + TRN & RFOG Optical Gyroscope")
+    p_vsg.add_argument("--analysis", type=str, default="vernier_ecl", help="vernier_ecl | self_injection_locked | rfog")
+    p_vsg.add_argument("--gds", action="store_true", dest="export_gds")
+    p_vsg.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_mwp = ag_sub.add_parser("mrr-mwp", help="Live MRR Microwave Photonics (TTD/OBFN, RF Notch, OEO, Optical Diff/Integrator)")
+    p_mwp.add_argument("--mode", type=str, default="ttd_obfn", help="ttd_obfn | rf_notch_filter | oeo_oscillator | temporal_calculus")
+    p_mwp.add_argument("--op", type=str, default="differentiator", dest="calculus_op")
+    p_mwp.add_argument("--gds", action="store_true", dest="export_gds")
+    p_mwp.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_eoc = ag_sub.add_parser("eocomb-opo-ssb", help="Live Resonant EO Comb (1R/2R), SFD, Kerr SSB Isolator & chi(3)/chi(2) MRR OPO")
+    p_eoc.add_argument("--analysis", type=str, default="coupled_ring_eocomb")
+    p_eoc.add_argument("--gds", action="store_true", dest="export_gds")
+    p_eoc.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_oot = ag_sub.add_parser("oam-optomech-topo", help="Live OAM Vortex MRR, Cavity Optomechanics/Quantum Transducer & Topological MRR Lattices")
+    p_oot.add_argument("--analysis", type=str, default="oam_vortex_mrr")
+    p_oot.add_argument("--gds", action="store_true", dest="export_gds")
+    p_oot.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_rss = ag_sub.add_parser("reservoir-switch-sensing", help="Live Silicon MRR Reservoir Computer, N×N Switch Matrix, Nanoparticle Sizing & Dual-Comb DCS")
+    p_rss.add_argument("--analysis", type=str, default="photonic_reservoir")
+    p_rss.add_argument("--gds", action="store_true", dest="export_gds")
+    p_rss.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -588,6 +619,16 @@ def main() -> None:
             _print_compact(agent_isolator_mems(d))
         elif args.agent_cmd == "eom-rf-eye":
             _print_compact(agent_eom_rf_eye(d))
+        elif args.agent_cmd == "vernier-sil-gyro":
+            _print_compact(agent_vernier_sil_gyro(d))
+        elif args.agent_cmd == "mrr-mwp":
+            _print_compact(agent_mrr_mwp(d))
+        elif args.agent_cmd == "eocomb-opo-ssb":
+            _print_compact(agent_eocomb_opo_ssb(d))
+        elif args.agent_cmd == "oam-optomech-topo":
+            _print_compact(agent_oam_optomech_topo(d))
+        elif args.agent_cmd == "reservoir-switch-sensing":
+            _print_compact(agent_reservoir_switch_sensing(d))
 
 
 if __name__ == "__main__":

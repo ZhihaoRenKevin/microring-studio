@@ -47,6 +47,11 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **2D TE-FDFD MMI Waveguide Crossing, Milton-Burns Taper & PIC Auto-Router** | `uv run microring agent routing-crossings --analysis crossing --gds` |
 | **Ce:YIG / Spatiotemporal Optical Isolator & Photonic MEMS Pull-In Switch** | `uv run microring agent isolator-mems --analysis isolator --iso-type magneto_optic_ceyig --gds` |
 | **EOM RF Packaging ABCD (Pad/Taper/Wirebond/Flip-Chip) + 100G–400G Eye/BER/TDECQ/FFE** | `uv run microring agent eom-rf-eye --launch flip_chip_bump --fmt PAM4 --baud 112 --ffe 5 --s2p` |
+| **Vernier Tunable Laser, Self-Injection-Locked (SIL) Laser + TRN & RFOG Optical Gyroscope** | `uv run microring agent vernier-sil-gyro --analysis rfog --gds` |
+| **MRR Microwave Photonics (TTD/OBFN, RF Notch, OEO Phase Noise, Optical Diff/Integrator)** | `uv run microring agent mrr-mwp --mode ttd_obfn --gds` |
+| **Resonant EO Comb (1R/2R), SFD, Kerr SSB Magnet-Free Isolator & chi(3)/chi(2) MRR OPO** | `uv run microring agent eocomb-opo-ssb --analysis kerr_ssb_isolator --gds` |
+| **Angular-Grating OAM Vortex MRR, Cavity Optomechanics/Transducer & Topological SSH/Hafezi** | `uv run microring agent oam-optomech-topo --analysis oam_vortex_mrr --gds` |
+| **Silicon MRR Photonic Reservoir (XOR/NARMA-10), N×N Switch, Nanoparticle Sizing & Dual-Comb** | `uv run microring agent reservoir-switch-sensing --analysis photonic_reservoir` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

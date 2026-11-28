@@ -6,7 +6,7 @@
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.13.0](https://img.shields.io/badge/release-v3.13.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.13.0)
+[![Release: v3.14.0](https://img.shields.io/badge/release-v3.14.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.14.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
@@ -19,7 +19,7 @@
 
 ## 100% 独立第一性原理物理引擎：绝非“预制菜”，任意参数实时重算
 
-> **MicroRing Studio（`v3.13.0`：`36` 个 MCP 工具、`40` 个前沿交互模式、`29` 种体材料 + `27` 种二维范德华材料）中的每一个模块都是真正独立运行的底层数值物理求解器——绝非预制演示、绝非查表插值、绝非拟合经验公式。**
+> **MicroRing Studio（`v3.14.0`：`41` 个 MCP 工具、`50` 个前沿交互模式、`29` 种体材料 + `27` 种二维范德华材料）中的每一个模块都是真正独立运行的底层数值物理求解器——绝非预制演示、绝非查表插值、绝非拟合经验公式。**
 >
 > 只要你修改**任意**物理参数——波导宽/高/侧壁倾角、耦合间距、微环半径、阵列节距、天线阵元数、材料体系、二维材料面内晶轴转角 $\theta$、工作波长（`400 nm – 18 µm`）、偏置电压、金丝键合跨距与拱高、倒装微凸点高度与填料介电常数、波特率（`NRZ`/`PAM4`）、`FFE` 抽头数、泵浦功率、脉冲脉宽或悬臂梁尺寸——软件都会**在你的本机 CPU/GPU 上从零重新求解真实偏微分/常微分控制方程与 ABCD 级联网络**：
 > - **2D 保形全矢量麦克斯韦有限元（`Nedelec1 + P2`）**：实时求解直波导、弯曲环、双芯超模、应变锗探测器、相变 `PCM` 及 `Ce:YIG` 旋磁波导截面；
@@ -55,6 +55,7 @@
 | **V11** | `Ge`-on-`Si` 探测器、`PSR` 偏振杂化、`Sb2Se3`/`GSST` 相变 (`ewfd`+`ht`)、`MDM` 与伴随逆向 `.GDS` Y分支 | **COMSOL 6.4** & **Lumerical `3D FDTD`**（GPU） | `Ge-Si PD` 吸收 **`2.2484 vs 2.2485 dB/µm`（`0.00%`）**；`PSR` 反交叉间隙误差 **`0.26%`**；`Sb2Se3`/`GSST` 相变 $\Delta n$ 误差 **`0.03%`/`0.00%`**、$\alpha_c$ 误差 **`0.01%`**、`RESET` $\Delta T$ 误差 `4.13%`；3D FDTD `MDM TE0->TE1` 转换 **`99.04%`（插损 `0.04 dB`, 串扰 `-35.7 dB`）**；盲导伴随逆向 `2.4 µm` Y 分支 `.GDS` 实算 **`97.78%`（插损 `0.098 dB`）** |
 | **V12** | `OPA` 互耦、`GeSi` FKE `EAM`、`TFLN PPLN`、`Ce:YIG` 3×3 旋磁 `NRPS`、`MEMS` 谐振、`27` 种 2D vdW、`EP3` 间距与盲导 `MMI` 交叉 `.GDS` | **COMSOL 6.4**（`ewfd`+`solid`）& **Lumerical `3D FDTD`**（GPU） | `OPA` 互耦 **`0.33%`**；`GeSi EAM` 吸收 **`0.01%`**；`PPLN` $\Lambda_{\mathrm{QPM}}$ **`3.9791 vs 3.9793 µm`（`0.01%`）**；`Ce:YIG` 3×3 旋磁 `NRPS` **`46.054 vs 45.985 rad/cm`（`0.15%`）**；`MEMS` 悬臂/双固支 $f_0$ **`2.44%–2.49%`**（精确 $\sqrt{1-\nu^2}$）；2D vdW（`MXene` `0.36%`、`α-MoO₃` `0°/90°` `1.34%/2.14%`）；`EP3` 环间距 **`0.10%`**；3D FDTD 盲导 `MMI` 交叉 `.GDS` **`94.88%`（`0.228 vs 0.246 dB`）** |
 | **V13** | 3D GSG 焊盘+渐变线（`10–110 GHz`）、3D 拱形 `350 µm` 金丝键合（`5–65 GHz`）、3D 倒装 `40 µm` 微凸点（`10–110 GHz`）与 IEEE 802.3bs `TDECQ` | **Ansys HFSS 2026 R1（`3D Modal`）** & IEEE 802.3bs | GSG 焊盘渐变线 `|S21|` 平均误差 **`0.112 dB`（`1.28%`）**、相位误差 `2.92°`；3D 金丝键合环路电感 $L_{\mathrm{eff}}$ **`0.3335 vs 0.3210 nH`（`3.90%`）**、`S21` 误差 **`0.173 dB`**；3D 倒装微凸点 `|S21|` 误差 **`0.026 dB`**（`50 GHz S11 -31.51 vs -31.49 dB`）；零 ISI `TDECQ = 0.0000 dB` 精确闭合 |
+| **V14** | 超低损/厚膜 `Si3N4` 激光/陀螺/克尔波导、盲导角向光栅 `OAM` 涡旋微环 `.GDS` 与 10 大前沿微环应用 | **COMSOL 6.4 (`ewfd`)** & **Lumerical `3D FDTD`**（GPU） | `100×2800 nm` 超低损波导 $n_{\mathrm{eff}}$ **`0.037%`**、$n_g$ **`0.031%`**、$A_{\mathrm{eff}}$ `0.54%`；`800×1600 nm` 厚膜 $n_{\mathrm{eff}}$ **`0.181%`**、$n_g$ **`0.163%`**；3D FDTD 盲导 `OAM` 微环 `.GDS` 实测纯度 **`98.06%`** 涡旋辐射（绕数 `3.000`、中心暗核 `-27.9 dB`）；精确萨格纳克公式（`0.000%`）、纳米颗粒自校准测径（`0.000%`）、储备池留出 XOR `100%` 与 `1D SSH` `0.000 GHz` 无序免疫 |
 
 <details>
 <summary><b>展开查看 18 子图四方商业软件对比总图（套件 1–13：MicroRing vs. Lumerical / COMSOL / HFSS 3D）</b></summary>
@@ -71,7 +72,13 @@
 
 ## 核心亮点
 
-- **端到端 EOM 射频封装（HFSS 级 ABCD 级联）与 `100G–400G` `NRZ`/`PAM4` 眼图、`BER`、`TDECQ` 及 `FFE` 均衡引擎（`v3.13.0`，`36` 个 MCP 工具，`40` 个 Stage-12 模式）**：
+- **全套 10 大前沿微环应用实时物理引擎（`v3.14.0`，`41` 个 MCP 工具，`50` 个 Stage-12 模式，5 个全新独立模块）**：
+  - **外腔游标可调激光器、自注入锁定（`SIL`）超窄线宽激光器 + 热折射噪声（`TRN`）与集成 `RFOG` 光学陀螺（`mrr_lasers_gyro.py`）**：实时 2D-FEM 求解 `Si3N4`/`SiO2` 模场（与 COMSOL 6.4 误差 `0.031%–0.037%`），覆盖双环游标反射（`11×` 展宽、`75 dB` SMSR、`0.55 kHz` 线宽）、Kondratiev 瑞利背向散射自注入锁定（`500 kHz -> 0.33 Hz` 本征线宽 + `TRN` 噪声谱）以及集成 `RFOG` 萨格纳克标度因子（精确解析 `0.000%`）、锁区死区、克尔非互易漂移与散粒噪声 `ARW` + `.GDS`。
+  - **微环微波光子学处理器（`mrr_microwave_photonics.py`）**：多环级联真时延波束成形（`TTD/OBFN`，`474.6 ps`，`DBP = 2.85`）、`36.9 dB` 超深射频陷波滤波器（`RF Gain`/`NF`/`SFDR3`）、光电振荡器 `OEO` Leeson 相噪（`-105.2 dBc/Hz @ 10 kHz`）及全光时域微分器（RMSE `7.87%`）/ 积分器（RMSE `3.03%`）+ `.GDS`。
+  - **谐振电光光频梳（单环 / 双环耦合高效梳）、合成频率维（`SFD`）、克尔对称性破缺无磁光隔离器与 $\chi^{(3)}/\chi^{(2)}$ 微环参量振荡器（`mrr_eocomb_opo_ssb.py`）**：`241` 模 Floquet-CMT `TFLN` 电光梳（引入辅助环将转化效率从 `7.42%` 跃升至 `68.05%`，`9.17×` 提升）、双谐波 `SFD` 能带/布洛赫振荡读出、克尔 `SSB` 无磁光隔离器（`20.2 dB` 隔离度）及 `Si3N4` $\chi^{(3)}$ OPO / `TFLN` $\chi^{(2)}$ `DROPO`（`0.05 µW` 阈值）+ `.GDS`。
+  - **角向光栅 `OAM` 涡旋光束微环发射器、腔光力学 / 微波-光量子换能器与拓扑光子微环晶格（`mrr_oam_optomech_topo.py`）**：2D 弯曲 FEM + 3D 矢量偶极子辐射积分（盲导 `.GDS` 进 Lumerical 3D FDTD 实测纯度 **`98.06%`** 涡旋辐射、`3.000` 整数相位绕数与 `-27.9 dB` 中心暗核），海森堡-朗之万 `OMIT` / 边带基态冷却（$n_f = 0.62 < 1$）与压电光力微波转光换能器（$N_{\mathrm{add}} = 0.029 < 1$），以及 `1D SSH`（`15%` 无序下边界态 `0.000 GHz` 漂移）与 `2D Hafezi` 量子霍尔绕缺陷单向手性边界传输 + `.GDS`。
+  - **全光非线性硅微环光子储备池（`PRC`）、`N×N` 无阻塞光交换矩阵、单纳米颗粒自校准模式劈裂测径与双光梳吸收光谱（`mrr_reservoir_switch_sensing.py`）**：联立 TPA/FCD/热效应硅微环 ODE 实现留出测试 `100.0%` 延迟 XOR 精度（`NMSE = 0.063`）与 `NARMA-10` 预测，`4×4–16×16` Crossbar/Benes 微环光交换矩阵 + `.GDS`，瑞利劈裂/展宽自校准纳米颗粒与病毒测径（`45.0 nm` 零误差 `0.000%`），以及 `HCN`/`CO2`/`CH4`/`NH3` 双光梳外差吸收光谱（`5000×` 射频压缩、`R^2 = 1.0000`）。
+- **端到端 EOM 射频封装（HFSS 级 ABCD 级联）与 `100G–400G` `NRZ`/`PAM4` 眼图、`BER`、`TDECQ` 及 `FFE` 均衡引擎（`v3.13.0`）**：
   - **HFSS 级 3D 射频封装过渡 ABCD 级联（`eom_rf_link_eye.py`）**：直接耦合实时求解的 `design_eom_electrode` 有源行波电极，串联多层有限地保角映射 GSG 焊盘与 16 段线性渐变线（`10–110 GHz` 对比 Ansys HFSS 2026 R1 `|S21|` 平均误差 **`0.112 dB`**）、精确 3/4 导体 Neumann/Rosa 3D 拱形金丝键合（$L_{\mathrm{eff}}$ **`0.3335 vs 0.3210 nH`，误差 `3.90%`**）、含下填料 3D 倒装微凸点（`10–110 GHz` `|S21|` 误差 **`0.026 dB`**）、可选 M2/通孔跨桥及分布式片上薄膜终端电阻，输出含封装多次反射的完整复数 `S11/S21_RF/S21_EO(f)` 与 Touchstone `.s2p`。
   - **时域 `NRZ`/`PAM4` 眼图、半解析 `BER`、IEEE 802.3bs `TDECQ` 与 Wiener-Hopf `MMSE FFE`**：将 PRBS-9/11 码流通过精确复数封装 `S21_EO(f)` FFT、非线性马赫-曾德尔光场传递函数（推挽零啁啾或单臂含啁啾）、可选 ITU-T G.652 SMF-28 色散光纤、4 阶 Bessel-Thomson 接收机（含热噪声/散粒噪声/RIN）与带精确有色噪声增强 $\mathbf{w}^T\mathbf{R}_{\mathrm{BT4}}\mathbf{w}$ 的 `N` 抽头 `MMSE FFE` 均衡器，直接输出 2-UI 眼图、`OMA`、`ER`、`Q` 因子、低至 `1e-18` 的半解析 `BER` 与 `TDECQ`（`224 Gbps PAM4` 倒装微凸点 `TDECQ = 2.64 dB`、`BER = 1.38e-7` 满足 KP4-FEC，而 `350 µm` 金丝键合带宽跌至 `42.0 GHz`）。*（边界说明：`>100 GHz` 不规则三维金属腔盒模与多通道连接器辐射串扰仍需全波 3D HFSS。）*
 - **全实时独立物理引擎：`OPA` 激光雷达、可训练片上衍射 `PDDNN`/`FPR`、`EAM`/`SOA`·`EDWA`、单程 `GNLSE`/`PPLN`、2D-FDFD `MMI` 交叉与自动布线、非互易隔离器与硅光 `MEMS`（`v3.12.0`）**：

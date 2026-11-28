@@ -23,6 +23,7 @@ from .agent_tools import (
     agent_eam_soa,
     agent_eom_multiphysics,
     agent_eom_rf_eye,
+    agent_eocomb_opo_ssb,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_gnlse_ppln,
@@ -30,11 +31,13 @@ from .agent_tools import (
     agent_inspect_gds,
     agent_io_coupler,
     agent_isolator_mems,
+    agent_mrr_mwp,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
     agent_mrr_ep,
     agent_nonlinear_lle,
+    agent_oam_optomech_topo,
     agent_opa_lidar,
     agent_pcm_photonics,
     agent_pdk_drc,
@@ -43,12 +46,14 @@ from .agent_tools import (
     agent_pic_netlist,
     agent_polarization_mdm,
     agent_prism_optimize,
+    agent_reservoir_switch_sensing,
     agent_routing_crossings,
     agent_saw_sbs,
     agent_slab_diffractive,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
+    agent_vernier_sil_gyro,
     agent_wbg_awg,
     agent_wdm_link,
     agent_width_cutoff,
@@ -691,6 +696,79 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_vernier_sil_gyro",
+        "description": "Live External-Cavity Vernier Tunable Laser, Self-Injection-Locked (SIL) Ultra-Narrow-Linewidth Laser + Huang TRN Noise & Integrated RFOG Sagnac Optical Gyroscope + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "vernier_ecl | self_injection_locked | rfog"},
+                "core_material": {"type": "string"},
+                "ring1_radius_um": {"type": "number"},
+                "ring2_radius_um": {"type": "number"},
+                "ring_radius_um": {"type": "number"},
+                "q_int": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_mrr_mwp",
+        "description": "Live MRR Microwave Photonics: Cascaded True-Time Delay (TTD/OBFN), Ultra-Deep RF Notch Filter (RF Gain/NF/SFDR3), OEO Leeson Phase Noise & All-Optical Differentiator/Integrator + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "mode": {"type": "string", "description": "ttd_obfn | rf_notch_filter | oeo_oscillator | temporal_calculus"},
+                "num_ttd_rings": {"type": "integer"},
+                "calculus_op": {"type": "string", "description": "differentiator | integrator"},
+                "pulse_fwhm_ps": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_eocomb_opo_ssb",
+        "description": "Live Resonant EO Frequency Comb (Single/Coupled Ring), Synthetic Frequency Dimension (SFD), Kerr SSB Magnet-Free Passive Isolator & Integrated chi(3)/chi(2) MRR OPO + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "single_ring_eocomb | coupled_ring_eocomb | synthetic_freq_dim | kerr_ssb_isolator | chi3_opo | chi2_dropo"},
+                "core_material": {"type": "string"},
+                "pump_power_mw": {"type": "number"},
+                "rf_mod_index_beta": {"type": "number"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_oam_optomech_topo",
+        "description": "Live Angular-Grating OAM Vortex Beam MRR Emitter, Cavity Optomechanics (OMIT/Cooling) & Microwave-to-Optical Quantum Transducer, and 1D SSH / 2D Hafezi Topological MRR Lattices + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "oam_vortex_mrr | cavity_optomechanics | quantum_transducer | ssh_1d | hafezi_2d_qh"},
+                "target_oam_charge_l": {"type": "integer"},
+                "laser_power_mw": {"type": "number"},
+                "inject_edge_defect": {"type": "boolean"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "microring_reservoir_switch_sensing",
+        "description": "Live All-Optical Silicon MRR Photonic Reservoir Computer (XOR/NARMA-10), N×N Non-Blocking MRR Switch Matrix, Single-Nanoparticle Mode-Splitting Sizing & Dual-Comb Spectroscopy (DCS) + GDS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "photonic_reservoir | switch_fabric | nanoparticle_sizing | dual_comb_spectroscopy"},
+                "prc_task": {"type": "string", "description": "delayed_xor | narma10"},
+                "switch_ports_n": {"type": "integer"},
+                "particle_radius_nm": {"type": "number"},
+                "gas_species": {"type": "string", "description": "HCN | CO2 | CH4 | NH3"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -730,6 +808,11 @@ _DISPATCH = {
     "microring_routing_crossings": agent_routing_crossings,
     "microring_isolator_mems": agent_isolator_mems,
     "microring_eom_rf_eye": agent_eom_rf_eye,
+    "microring_vernier_sil_gyro": agent_vernier_sil_gyro,
+    "microring_mrr_mwp": agent_mrr_mwp,
+    "microring_eocomb_opo_ssb": agent_eocomb_opo_ssb,
+    "microring_oam_optomech_topo": agent_oam_optomech_topo,
+    "microring_reservoir_switch_sensing": agent_reservoir_switch_sensing,
 }
 
 

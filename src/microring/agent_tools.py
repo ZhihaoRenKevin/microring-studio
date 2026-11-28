@@ -179,6 +179,23 @@ from .eam_and_soa import EAMConfig, OpticalAmplifierConfig, simulate_eam_modulat
 from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnlse_supercontinuum, simulate_ppln_qpm
 from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
 from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
+from .mrr_lasers_gyro import MRRGyroscopeConfig, VernierSILLaserConfig, simulate_mrr_optical_gyroscope, simulate_vernier_sil_laser
+from .mrr_microwave_photonics import MRRMWPConfig, simulate_mrr_mwp_processor
+from .mrr_eocomb_opo_ssb import EOCombSFDConfig, MRROPOSSBConfig, simulate_eo_comb_and_sfd, simulate_mrr_opo_and_kerr_ssb
+from .mrr_oam_optomech_topo import (
+    MRROAMEmitterConfig,
+    MRROptomechConfig,
+    TopologicalMRRConfig,
+    simulate_mrr_oam_emitter,
+    simulate_mrr_optomechanics_transducer,
+    simulate_topological_mrr_lattice,
+)
+from .mrr_reservoir_switch_sensing import (
+    MRRSensingSpecConfig,
+    MRRSystemAppConfig,
+    simulate_mrr_nanoparticle_and_dcs,
+    simulate_mrr_reservoir_and_switch,
+)
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
 
@@ -1856,6 +1873,143 @@ def agent_eom_rf_eye(params: dict) -> dict:
     if s2p_path:
         out["s2p"] = s2p_path
     return out
+
+
+def agent_vernier_sil_gyro(params: dict) -> dict:
+    """Live External-Cavity Vernier Tunable Laser, Self-Injection-Locked (SIL) Laser + TRN & RFOG Optical Gyroscope (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or params.get("mode") or "vernier_ecl").lower().strip()
+    if analysis in ("rfog", "gyro", "gyroscope", "mrr_gyroscope"):
+        valid = {f.name for f in fields(MRRGyroscopeConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if "ring_radius_um" in params and "ring_radius_mm" not in kw and params["ring_radius_um"] is not None:
+            kw["ring_radius_mm"] = float(params["ring_radius_um"]) * 1e-3
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"rfog_R{kw.get('ring_radius_mm', 5.0):.1f}mm.gds")
+        res = simulate_mrr_optical_gyroscope(MRRGyroscopeConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "rfog", "Sf_Hz_dps": m["sagnac_scale_factor_Hz_per_deg_s"], "lockin_dps": m["rayleigh_lockin_deadband_deg_per_s"], "kerr_dph": m["kerr_nonreciprocal_bias_deg_per_h"], "ARW": m["shot_noise_ARW_deg_per_rt_h"], "Q_load": m["loaded_Q"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(VernierSILLaserConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if analysis in ("vernier_ecl", "self_injection_locked") and "mode" not in kw:
+        kw["mode"] = analysis
+    elif analysis in ("sil", "sil_laser", "trn"):
+        kw["mode"] = "self_injection_locked"
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mrr_{kw.get('mode', 'vernier_ecl')}.gds")
+    res = simulate_vernier_sil_laser(VernierSILLaserConfig(**kw))
+    m = res["metrics"]
+    if res["mode"] == "self_injection_locked":
+        return {"analysis": "sil_laser", "K": m["SIL_stabilization_K"], "lock_GHz": m["locking_bandwidth_GHz"], "lw_free_kHz": m["free_running_linewidth_kHz"], "lw_SIL_Hz": m["SIL_intrinsic_linewidth_Hz"], "TRN_Hz": m["TRN_integrated_linewidth_Hz"], "S10k": m["freq_noise_10kHz_Hz2_per_Hz"], "ms": res["elapsed_ms"]}
+    return {"analysis": "vernier_ecl", "M": m["vernier_enhancement_M"], "tune_nm": m["vernier_tuning_range_nm"], "SMSR_dB": m["estimated_SMSR_dB"], "dR_dB": m["sidemode_discrimination_dB"], "lw_kHz": m["intrinsic_linewidth_kHz"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_mrr_mwp(params: dict) -> dict:
+    """Live MRR Microwave Photonics: Cascaded TTD/OBFN, Ultra-Deep RF Notch, OEO Phase Noise & Optical Diff/Integrator (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    valid = {f.name for f in fields(MRRMWPConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("analysis") and "mode" not in kw:
+        kw["mode"] = str(params["analysis"]).lower().strip()
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mrr_mwp_{kw.get('mode', 'ttd_obfn')}.gds")
+    res = simulate_mrr_mwp_processor(MRRMWPConfig(**kw))
+    m = res["metrics"]
+    return {"mode": res["mode"]} | {k: v for k, v in list(m.items())[:8] if v is not None} | {"ms": res["elapsed_ms"]}
+
+
+def agent_eocomb_opo_ssb(params: dict) -> dict:
+    """Live Resonant EO Comb (1R/2R), Synthetic Frequency Dimension (SFD), Kerr SSB Magnet-Free Isolator & chi(3)/chi(2) OPO (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or params.get("mode") or "coupled_ring_eocomb").lower().strip()
+    if analysis in ("kerr_ssb_isolator", "kerr_ssb", "ssb", "chi3_opo", "chi2_dropo", "opo"):
+        valid = {f.name for f in fields(MRROPOSSBConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("kerr_ssb", "ssb"):
+            kw["mode"] = "kerr_ssb_isolator"
+        elif analysis == "opo":
+            kw["mode"] = "chi3_opo"
+        elif analysis in ("kerr_ssb_isolator", "chi3_opo", "chi2_dropo"):
+            kw["mode"] = analysis
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mrr_{kw.get('mode', 'kerr_ssb_isolator')}.gds")
+        res = simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(**kw))
+        m = res["metrics"]
+        return {"mode": res["mode"]} | {k: v for k, v in list(m.items())[:8] if v is not None} | {"ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(EOCombSFDConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if analysis in ("single_ring_eocomb", "coupled_ring_eocomb", "synthetic_freq_dim") and "mode" not in kw:
+        kw["mode"] = analysis
+    elif analysis in ("sfd", "synthetic_freq"):
+        kw["mode"] = "synthetic_freq_dim"
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mrr_{kw.get('mode', 'coupled_ring_eocomb')}.gds")
+    res = simulate_eo_comb_and_sfd(EOCombSFDConfig(**kw))
+    m = res["metrics"]
+    return {"mode": res["mode"]} | {k: v for k, v in list(m.items())[:8] if v is not None} | {"ms": res["elapsed_ms"]}
+
+
+def agent_oam_optomech_topo(params: dict) -> dict:
+    """Live Angular-Grating OAM Vortex MRR, Cavity Optomechanics / Quantum Transducer & 1D SSH / 2D Hafezi Topological MRR (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or params.get("mode") or "oam_vortex_mrr").lower().strip()
+    if analysis in ("cavity_optomechanics", "quantum_transducer", "optomech", "omit", "transducer"):
+        valid = {f.name for f in fields(MRROptomechConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("quantum_transducer", "transducer"):
+            kw["mode"] = "quantum_transducer"
+        else:
+            kw["mode"] = "cavity_optomechanics"
+        res = simulate_mrr_optomechanics_transducer(MRROptomechConfig(**kw))
+        m = res["metrics"]
+        return {"mode": res["mode"]} | {k: v for k, v in list(m.items())[:8] if v is not None} | {"ms": res["elapsed_ms"]}
+    if analysis in ("ssh_1d", "hafezi_2d_qh", "topological", "topo", "topological_mrr"):
+        valid = {f.name for f in fields(TopologicalMRRConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("ssh_1d", "hafezi_2d_qh"):
+            kw["mode"] = analysis
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"topo_{kw.get('mode', 'hafezi_2d_qh')}.gds")
+        res = simulate_topological_mrr_lattice(TopologicalMRRConfig(**kw))
+        m = res["metrics"]
+        return {"mode": res["mode"]} | {k: v for k, v in list(m.items())[:8] if v is not None} | {"ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(MRROAMEmitterConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"oam_mrr_l{kw.get('target_oam_charge_l', 2)}.gds")
+    res = simulate_mrr_oam_emitter(MRROAMEmitterConfig(**kw))
+    m = res["metrics"]
+    return {"mode": "oam_vortex_mrr", "l": m["OAM_topological_charge_ell"], "m": m["azimuthal_WGM_order_m"], "q": m["grating_teeth_q"], "wind": m["measured_phase_winding"], "purity_pct": m["OAM_mode_purity_pct"], "theta_deg": m["divergence_peak_theta_deg"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_reservoir_switch_sensing(params: dict) -> dict:
+    """Live Silicon MRR Photonic Reservoir Computer (XOR/NARMA-10), N×N Optical Switch Fabric, Nanoparticle Sizing & Dual-Comb DCS (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or params.get("mode") or "photonic_reservoir").lower().strip()
+    if analysis in ("nanoparticle_sizing", "nanoparticle", "dual_comb_spectroscopy", "dcs", "dual_comb"):
+        valid = {f.name for f in fields(MRRSensingSpecConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("dual_comb_spectroscopy", "dcs", "dual_comb"):
+            kw["mode"] = "dual_comb_spectroscopy"
+        else:
+            kw["mode"] = "nanoparticle_sizing"
+        res = simulate_mrr_nanoparticle_and_dcs(MRRSensingSpecConfig(**kw))
+        m = res["metrics"]
+        return {"mode": res["mode"]} | {k: v for k, v in list(m.items())[:8] if v is not None} | {"ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(MRRSystemAppConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if analysis in ("switch_fabric", "switch", "crossbar", "benes"):
+        kw["mode"] = "switch_fabric"
+        if analysis == "benes":
+            kw.setdefault("switch_topology", "benes_2x2")
+    else:
+        kw["mode"] = "photonic_reservoir"
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mrr_switch_{kw.get('switch_ports_n', 8)}x{kw.get('switch_ports_n', 8)}.gds")
+    res = simulate_mrr_reservoir_and_switch(MRRSystemAppConfig(**kw))
+    m = res["metrics"]
+    return {"mode": res["mode"]} | {k: v for k, v in list(m.items())[:8] if v is not None} | {"ms": res["elapsed_ms"]}
+
 
 
 

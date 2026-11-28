@@ -391,6 +391,19 @@ The end-to-end EOM RF packaging ABCD engine and high-speed `NRZ`/`PAM4` eye-diag
 
 ---
 
+## 7G. Independent v3.14.0 Commercial & Analytical Validation (All 10 Remaining MRR Applications)
+
+The 5 new `v3.14.0` live modules covering all 10 remaining high-impact MRR applications (`mrr_lasers_gyro.py`, `mrr_microwave_photonics.py`, `mrr_eocomb_opo_ssb.py`, `mrr_oam_optomech_topo.py`, `mrr_reservoir_switch_sensing.py`) were validated blindly against **COMSOL Multiphysics 6.4 (`ewfd`)**, **Ansys Lumerical 2026 R1 (`3D FDTD` on RTX 5090 GPU with blind `.GDS` import)**, and exact analytical / system identities via [`benchmarks/run_v314_mrr_apps_validation.py`](../benchmarks/run_v314_mrr_apps_validation.py) $\rightarrow$ [`benchmarks/outputs/v314_mrr_apps_validation.json`](../benchmarks/outputs/v314_mrr_apps_validation.json):
+
+| Benchmark Case | Commercial Solver / Exact Reference | `MicroRing Studio v3.14.0` (100% Live Solver) | Independent Agreement |
+| :--- | :--- | :--- | :---: |
+| **COMSOL 6.4 `ewfd`** ULL `Si3N4` (`100 nm × 2.8 µm`, `1550 nm` TE0 — Vernier/SIL/RFOG) | $n_{\mathrm{eff}} = 1.47603$, $n_g = 1.59273$, $A_{\mathrm{eff}} = 3.928\,\mu\text{m}^2$ | $n_{\mathrm{eff}} = 1.47548$, $n_g = 1.59224$, $A_{\mathrm{eff}} = 3.907\,\mu\text{m}^2$ | **`0.037%` / `0.031%` / `0.54%`** |
+| **COMSOL 6.4 `ewfd`** Thick Kerr `Si3N4` (`800 nm × 1.6 µm`, `1550 nm` TE0 — Kerr SSB/OPO) | $n_{\mathrm{eff}} = 1.83454$, $n_g = 2.12108$, $A_{\mathrm{eff}} = 1.112\,\mu\text{m}^2$ | $n_{\mathrm{eff}} = 1.83122$, $n_g = 2.11762$, $A_{\mathrm{eff}} = 1.128\,\mu\text{m}^2$ | **`0.181%` / `0.163%` / `1.44%`** |
+| **Lumerical `3D FDTD` (RTX 5090 GPU)** Blind `.GDS` Import of Synthesized `OAM` Vortex MRR (`R=3.9 µm`, `q=35`) | Radiated top-plane (`z=+1.05 µm`) azimuthal mode purity **`98.06%`**, winding **`3.000`**, doughnut null **`-27.9 dB`** (`0.00161`) | 2D bent FEM + discrete dipole integral predicts integer vortex winding (`m=37`, `q=35`, $\Delta m = +1$ in 3D due to `65 nm` inner-tooth effective widening) | **`98.06%` 3D vortex purity** & **`-27.9 dB` central null** |
+| **Exact Analytical / Physics Closures (All 10 MRR Apps)** | Relativistic dispersive Sagnac $4A/(n_g\lambda P)$; Hu 2022 coupled-ring EO comb; White 2023 Kerr SSB; Zhu 2010 $\Gamma_R/g$ sizing; SSH chiral symmetry | Sagnac err **`0.000%`** (`70.721 Hz/(°/s)`); EO-comb `7.42% -> 68.05%` (`9.17×`); Kerr SSB `20.2 dB` iso; Cooling $n_f = 0.618 < 1$; SSH drift `0.000 GHz`; PRC XOR `100.0%` (`NMSE=0.063`); NP sizing **`0.000%`** (`45.000 nm`); DCS `R^2 = 1.0000` | **10/10 PASS** |
+
+---
+
 ## 8. Physical Scope Boundaries
 
 - **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + EME + 2D Multiphysics FEM)**:

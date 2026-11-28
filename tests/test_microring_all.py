@@ -396,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 36
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 41
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -2594,6 +2594,131 @@ def test_eom_rf_packaging_eye_ber_tdecq_and_36mcp() -> None:
     assert len(txt) < 620, f"MCP microring_eom_rf_eye too verbose ({len(txt)} chars): {txt}"
 
 
+def test_all_10_mrr_applications_and_41mcp() -> None:
+    from microring import (
+        EOCombSFDConfig,
+        MRRGyroscopeConfig,
+        MRRMWPConfig,
+        MRROAMEmitterConfig,
+        MRROPOSSBConfig,
+        MRROptomechConfig,
+        MRRSensingSpecConfig,
+        MRRSystemAppConfig,
+        TopologicalMRRConfig,
+        VernierSILLaserConfig,
+        simulate_eo_comb_and_sfd,
+        simulate_mrr_mwp_processor,
+        simulate_mrr_nanoparticle_and_dcs,
+        simulate_mrr_oam_emitter,
+        simulate_mrr_opo_and_kerr_ssb,
+        simulate_mrr_optical_gyroscope,
+        simulate_mrr_optomechanics_transducer,
+        simulate_mrr_reservoir_and_switch,
+        simulate_topological_mrr_lattice,
+        simulate_vernier_sil_laser,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        # 1. Vernier ECL + Self-Injection-Locked Laser (TRN) + RFOG Optical Gyroscope
+        v_ecl = simulate_vernier_sil_laser(VernierSILLaserConfig(mode="vernier_ecl", export_gds_path=str(tp / "vernier.gds")))
+        assert v_ecl["metrics"]["vernier_enhancement_M"] > 9.0 and v_ecl["metrics"]["estimated_SMSR_dB"] > 45.0
+        assert Path(v_ecl["metrics"]["gds_path"]).is_file()
+        v_sil = simulate_vernier_sil_laser(VernierSILLaserConfig(mode="self_injection_locked"))
+        assert v_sil["metrics"]["SIL_stabilization_K"] > 100.0 and v_sil["metrics"]["SIL_intrinsic_linewidth_Hz"] < 5.0
+        g_res = simulate_mrr_optical_gyroscope(MRRGyroscopeConfig(export_gds_path=str(tp / "rfog.gds")))
+        assert g_res["metrics"]["sagnac_scale_factor_Hz_per_deg_s"] > 50.0 and g_res["metrics"]["shot_noise_ARW_deg_per_rt_h"] < 0.5
+        assert Path(g_res["metrics"]["gds_path"]).is_file()
+
+        # 2. MRR Microwave Photonics (TTD/OBFN, RF Notch, OEO, Optical Differentiator & Integrator)
+        m_ttd = simulate_mrr_mwp_processor(MRRMWPConfig(mode="ttd_obfn", export_gds_path=str(tp / "ttd.gds")))
+        assert m_ttd["metrics"]["mean_group_delay_ps"] > 200.0 and m_ttd["metrics"]["delay_bandwidth_product"] > 1.5
+        assert Path(m_ttd["metrics"]["gds_path"]).is_file()
+        m_nch = simulate_mrr_mwp_processor(MRRMWPConfig(mode="rf_notch_filter"))
+        assert m_nch["metrics"]["notch_rejection_dB"] > 30.0
+        m_oeo = simulate_mrr_mwp_processor(MRRMWPConfig(mode="oeo_oscillator"))
+        assert m_oeo["metrics"]["phase_noise_10kHz_dBc_Hz"] < -95.0
+        m_dif = simulate_mrr_mwp_processor(MRRMWPConfig(mode="temporal_calculus", calculus_op="differentiator"))
+        m_int = simulate_mrr_mwp_processor(MRRMWPConfig(mode="temporal_calculus", calculus_op="integrator", pulse_fwhm_ps=15.0))
+        assert m_dif["metrics"]["normalized_RMSE_pct"] < 10.0 and m_int["metrics"]["normalized_RMSE_pct"] < 5.0
+
+        # 3. Resonant EO Frequency Comb (1R vs Coupled 2R >5x boost), SFD, Kerr SSB Isolator (>20 dB) & chi(3)/chi(2) OPO
+        e_1r = simulate_eo_comb_and_sfd(EOCombSFDConfig(mode="single_ring_eocomb"))
+        e_2r = simulate_eo_comb_and_sfd(EOCombSFDConfig(mode="coupled_ring_eocomb", export_gds_path=str(tp / "eocomb.gds")))
+        assert e_2r["metrics"]["pump_to_comb_efficiency_pct"] > 5.0 * e_1r["metrics"]["pump_to_comb_efficiency_pct"]
+        assert Path(e_2r["metrics"]["gds_path"]).is_file()
+        e_sfd = simulate_eo_comb_and_sfd(EOCombSFDConfig(mode="synthetic_freq_dim"))
+        assert e_sfd["metrics"]["band_chiral_asymmetry"] > 0.1
+        o_ssb = simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(mode="kerr_ssb_isolator"))
+        assert o_ssb["metrics"]["symmetry_broken"] and o_ssb["metrics"]["passive_isolation_dB"] > 19.0
+        o_c3 = simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(mode="chi3_opo"))
+        assert 0.2 < o_c3["metrics"]["OPO_threshold_mW"] < 15.0 and o_c3["metrics"]["conversion_efficiency_pct"] > 10.0
+        o_c2 = simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(mode="chi2_dropo", core_material="LN_Xcut", wavelength_nm=775.0, film_height_um=0.60, slab_height_um=0.30, waveguide_width_um=1.20))
+        assert o_c2["metrics"]["DROPO_threshold_uW"] < 10.0 and o_c2["metrics"]["g2_coupling_MHz"] > 0.5
+
+        # 4. OAM Vortex Emitter (+GDS), Cavity Optomechanics (Ground-State Cooling), Quantum Transducer & Topological SSH/Hafezi
+        oam = simulate_mrr_oam_emitter(MRROAMEmitterConfig(target_oam_charge_l=2, export_gds_path=str(tp / "oam.gds")))
+        assert oam["metrics"]["OAM_topological_charge_ell"] == 2 and abs(oam["metrics"]["measured_phase_winding"] - 2.0) < 0.05
+        assert oam["metrics"]["OAM_mode_purity_pct"] > 95.0 and Path(oam["metrics"]["gds_path"]).is_file()
+        om_c = simulate_mrr_optomechanics_transducer(MRROptomechConfig(mode="cavity_optomechanics", laser_power_mw=4.0))
+        assert om_c["metrics"]["ground_state_cooled"] and om_c["metrics"]["final_cooled_phonons_n_f"] < 1.0
+        om_q = simulate_mrr_optomechanics_transducer(MRROptomechConfig(mode="quantum_transducer"))
+        assert om_q["metrics"]["quantum_enabled_Nadd_lt_1"] and om_q["metrics"]["quantum_efficiency_pct"] > 1.0
+        tp_1d = simulate_topological_mrr_lattice(TopologicalMRRConfig(mode="ssh_1d", export_gds_path=str(tp / "ssh.gds")))
+        assert tp_1d["metrics"]["topological_protection_verified"] and tp_1d["metrics"]["max_edge_drift_under_disorder_GHz"] == 0.0
+        assert Path(tp_1d["metrics"]["gds_path"]).is_file()
+        tp_2d = simulate_topological_mrr_lattice(TopologicalMRRConfig(mode="hafezi_2d_qh", export_gds_path=str(tp / "hafezi.gds")))
+        assert tp_2d["metrics"]["chiral_directionality_dB"] > 4.0 and tp_2d["metrics"]["edge_field_confinement_pct"] > 60.0
+        assert Path(tp_2d["metrics"]["gds_path"]).is_file()
+
+        # 5. Silicon MRR Photonic Reservoir (Held-Out XOR), 8x8 Switch Fabric (+GDS), Nanoparticle Sizing (0% err) & Dual-Comb DCS
+        pr_xor = simulate_mrr_reservoir_and_switch(MRRSystemAppConfig(mode="photonic_reservoir", prc_task="delayed_xor"))
+        assert pr_xor["metrics"]["heldout_test_accuracy_pct"] >= 92.0 and pr_xor["metrics"]["heldout_test_NMSE"] < 0.25
+        sw_8 = simulate_mrr_reservoir_and_switch(MRRSystemAppConfig(mode="switch_fabric", switch_ports_n=8, export_gds_path=str(tp / "sw8.gds")))
+        assert sw_8["metrics"]["total_microrings"] == 64 and sw_8["metrics"]["worst_case_IL_dB"] < 5.0 and Path(sw_8["metrics"]["gds_path"]).is_file()
+        np_m = simulate_mrr_nanoparticle_and_dcs(MRRSensingSpecConfig(mode="nanoparticle_sizing", particle_radius_nm=45.0))
+        assert abs(np_m["metrics"]["retrieved_radius_nm"] - 45.0) < 0.05 and np_m["metrics"]["sizing_error_pct"] < 0.1
+        dcs_m = simulate_mrr_nanoparticle_and_dcs(MRRSensingSpecConfig(mode="dual_comb_spectroscopy", gas_species="HCN"))
+        assert dcs_m["metrics"]["absorbance_R2"] > 0.999 and dcs_m["metrics"]["RF_compression_factor"] == 5000.0
+
+        # 6. Zero commercial runtime imports inside src/microring/*.py (AST-verified)
+        import ast as _ast
+        src_dir = Path(__file__).resolve().parents[1] / "src" / "microring"
+        for pyf in src_dir.glob("*.py"):
+            tree = _ast.parse(pyf.read_text(encoding="utf-8"))
+            for node in _ast.walk(tree):
+                if isinstance(node, _ast.Import):
+                    for alias in node.names:
+                        assert alias.name.split(".")[0] not in {"lumapi", "mph", "pyaedt"}, f"Commercial import {alias.name} in {pyf.name}"
+                elif isinstance(node, _ast.ImportFrom) and node.module:
+                    assert node.module.split(".")[0] not in {"lumapi", "mph", "pyaedt"}, f"Commercial import {node.module} in {pyf.name}"
+
+        # 7. Bilingual Copilot + HTTP /api/frontier_physics + 5 New MCP Tools (#37-#41, < 620 chars)
+        c_en = process_chat_turn(create_initial_session(lang="en"), "Design an angular-grating OAM vortex beam MRR emitter", gds_export_dir=tp)
+        assert c_en["ui_view"] == "frontier" and c_en["frontier_result"]["analysis"] == "oam_vortex_mrr"
+        c_zh = process_chat_turn(create_initial_session(lang="zh"), "仿真克尔对称性破缺无磁光隔离器", gds_export_dir=tp, lang="zh")
+        assert c_zh["ui_view"] == "frontier" and c_zh["frontier_result"]["analysis"] == "opo_kerr_ssb"
+
+    async def _check_v314_http() -> None:
+        for analysis_k in ("vernier_sil_laser", "mrr_gyroscope", "mrr_mwp", "eo_comb_sfd", "opo_kerr_ssb", "oam_vortex_mrr", "optomech_transducer", "topological_mrr", "reservoir_switch", "nanoparticle_dcs"):
+            st, body = await _asgi_request("POST", "/api/frontier_physics", json_body={"analysis": analysis_k})
+            assert st == 200 and "metrics" in json.loads(body), f"HTTP frontier failed for {analysis_k}"
+
+    asyncio.run(_check_v314_http())
+
+    for tool_name, args in [
+        ("microring_vernier_sil_gyro", {"analysis": "rfog"}),
+        ("microring_mrr_mwp", {"mode": "ttd_obfn"}),
+        ("microring_eocomb_opo_ssb", {"analysis": "kerr_ssb_isolator"}),
+        ("microring_oam_optomech_topo", {"analysis": "ssh_1d"}),
+        ("microring_reservoir_switch_sensing", {"analysis": "nanoparticle_sizing"}),
+    ]:
+        mcp_r = handle_mcp_request({"jsonrpc": "2.0", "id": 801, "method": "tools/call", "params": {"name": tool_name, "arguments": args}})
+        assert mcp_r is not None and not mcp_r["result"]["isError"]
+        txt = mcp_r["result"]["content"][0]["text"]
+        assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
+
+
 
 def main() -> None:
     tests = [
@@ -2628,12 +2753,13 @@ def main() -> None:
         ("Live GeSi/InP EAM, Traveling-Wave SOA/EDWA & Single-Pass GNLSE/PPLN", test_eam_soa_and_single_pass_gnlse_ppln),
         ("Live 2D-FDFD MMI Crossing, Taper, Auto-Router, Ce:YIG Isolator, MEMS & 35-MCP Integration", test_crossings_router_isolator_mems_and_v312_fullstack),
         ("Live HFSS-Class EOM RF Packaging ABCD, 100G-224G NRZ/PAM4 Eye/BER/TDECQ/FFE & 36-MCP", test_eom_rf_packaging_eye_ber_tdecq_and_36mcp),
+        ("All 10 Remaining MRR Applications (Vernier/SIL/RFOG, MWP, EO-Comb/SFD, Kerr SSB/OPO, OAM, Optomech/Topo, PRC/Switch/NP/DCS) & 41-MCP", test_all_10_mrr_applications_and_41mcp),
     ]
     if len(sys.argv) > 1:
         toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]
         tests = [(lbl, fn) for lbl, fn in tests if any(tk in lbl.lower() or tk in fn.__name__.lower() for tk in toks)]
     print("=" * 72)
-    print("Running MicroRing Studio v3.13.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.14.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

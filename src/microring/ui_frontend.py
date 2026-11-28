@@ -1963,6 +1963,16 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
                 <option value="routing_crossings">✚ 2D-FDFD MMI Waveguide Crossing, Milton-Burns Taper &amp; PIC Auto-Router</option>
                 <option value="isolator_mems">🧲 Non-Reciprocal Ce:YIG/Spatiotemporal Isolator &amp; Photonic MEMS Pull-In Switch</option>
                 <option value="eom_rf_eye">👁️ EOM RF Packaging (GSG Taper / Wirebond / Flip-Chip) + 100G–400G Eye/BER/TDECQ/FFE</option>
+                <option value="vernier_sil_laser">🔦 External-Cavity Vernier Tunable Laser &amp; Self-Injection-Locked (SIL) Laser + TRN</option>
+                <option value="mrr_gyroscope">🧭 Integrated RFOG Sagnac Optical Gyroscope (Lock-In, Kerr Bias &amp; ARW)</option>
+                <option value="mrr_mwp">📻 MRR Microwave Photonics (TTD/OBFN · RF Notch · OEO · Optical Diff/Integrator)</option>
+                <option value="eo_comb_sfd">🎹 Resonant EO Frequency Comb (1R / Coupled 2R) &amp; Synthetic Frequency Dimension</option>
+                <option value="opo_kerr_ssb">🌀 Kerr SSB Magnet-Free Passive Isolator &amp; Integrated χ⁽³⁾ / χ⁽²⁾ MRR OPO</option>
+                <option value="oam_vortex_mrr">🌪️ Integrated Angular-Grating OAM Vortex Beam MRR Emitter (3D Vector Dipole + GDS)</option>
+                <option value="optomech_transducer">🔬 Cavity Optomechanics (OMIT / Cooling) &amp; Microwave-to-Optical Quantum Transducer</option>
+                <option value="topological_mrr">🛡️ Topological Photonic MRR Lattices (1D SSH Zero-Mode &amp; 2D Hafezi Quantum Hall)</option>
+                <option value="reservoir_switch">🧠 Silicon MRR Photonic Reservoir Computer (XOR / NARMA-10) &amp; N×N Optical Switch Matrix</option>
+                <option value="nanoparticle_dcs">🦠 Single-Nanoparticle Mode-Splitting Sizing &amp; Dual-MRR Comb Spectroscopy (DCS)</option>
               </select>
             </div>
             <div class="form-row" style="margin:0;">
@@ -6955,6 +6965,56 @@ function onFrontierModeChange(skipRun) {
     ]);
     lblP1.textContent = 'Symbol Rate [GBaud]'; p1.value = '112';
     lblP2.textContent = 'Drive V_pp [V]'; p2.value = '2.5';
+  } else if (mode === 'vernier_sil_laser') {
+    lblSub.textContent = 'Laser Regime';
+    setOpts([['vernier_ecl', 'External-Cavity Dual-Ring Vernier Tunable Laser'], ['self_injection_locked', 'Self-Injection-Locked (SIL) Laser + Huang TRN']]);
+    lblP1.textContent = 'R₁ / Ring R [µm]'; p1.value = '100';
+    lblP2.textContent = 'R₂ [µm] / Q_int (×10⁶)'; p2.value = '110';
+  } else if (mode === 'mrr_gyroscope') {
+    lblSub.textContent = 'RFOG Platform';
+    setOpts([['Si3N4', 'Ultra-Low-Loss Si₃N₄ RFOG (100 nm × 2.8 µm)'], ['SiO2', 'Silica-on-Silicon Waveguide RFOG']]);
+    lblP1.textContent = 'Ring Radius R [µm]'; p1.value = '5000';
+    lblP2.textContent = 'Intrinsic Q_int (×10⁶)'; p2.value = '30';
+  } else if (mode === 'mrr_mwp') {
+    lblSub.textContent = 'MWP Processor Mode';
+    setOpts([['ttd_obfn', 'Cascaded All-Pass MRR True-Time Delay (TTD/OBFN)'], ['rf_notch_filter', 'Ultra-Deep RF Photonic Notch Filter (Gain/NF/SFDR₃)'], ['oeo_oscillator', 'MRR Optoelectronic Oscillator (OEO Leeson Phase Noise)'], ['temporal_calculus_diff', 'All-Optical 1st-Order Temporal Differentiator'], ['temporal_calculus_int', 'All-Optical Temporal Integrator']]);
+    lblP1.textContent = 'N Rings / Pulse FWHM [ps]'; p1.value = '4';
+    lblP2.textContent = 'Ring R [µm] / f_RF [GHz]'; p2.value = '150';
+  } else if (mode === 'eo_comb_sfd') {
+    lblSub.textContent = 'EO-Comb / SFD Mode';
+    setOpts([['coupled_ring_eocomb', 'High-Efficiency Coupled-Ring EO Comb (>60% eff.)'], ['single_ring_eocomb', 'Single-Ring TFLN Resonant EO Frequency Comb'], ['synthetic_freq_dim', 'Synthetic Frequency Dimension (SFD Band & Bloch Osc.)']]);
+    lblP1.textContent = 'RF Mod Index β [rad]'; p1.value = '1.2';
+    lblP2.textContent = 'Aux Coupling μ_c [GHz] / φ [°]'; p2.value = '1.8';
+  } else if (mode === 'opo_kerr_ssb') {
+    lblSub.textContent = 'Nonlinear MRR Mode';
+    setOpts([['kerr_ssb_isolator', 'Kerr SSB Magnet-Free Passive Optical Isolator (>20 dB)'], ['chi3_opo', 'Widely-Tunable χ⁽³⁾ Si₃N₄ MRR OPO'], ['chi2_dropo', 'TFLN χ⁽²⁾ Doubly-Resonant OPO (µW Threshold)']]);
+    lblP1.textContent = 'Pump Power [mW]'; p1.value = '14.5';
+    lblP2.textContent = 'Detuning Δ/(κ/2) / d_eff'; p2.value = '10';
+  } else if (mode === 'oam_vortex_mrr') {
+    lblSub.textContent = 'OAM Platform';
+    setOpts([['Si', '220 nm SOI Angular-Grating OAM Vortex Emitter'], ['Si3N4', '400 nm Si₃N₄ Angular-Grating OAM Emitter']]);
+    lblP1.textContent = 'Target OAM Charge ℓ'; p1.value = '2';
+    lblP2.textContent = 'Ring Radius R [µm]'; p2.value = '3.9';
+  } else if (mode === 'optomech_transducer') {
+    lblSub.textContent = 'Optomechanics Mode';
+    setOpts([['cavity_optomechanics', 'Cavity Optomechanics (OMIT, Cooling & Optical Spring)'], ['quantum_transducer', 'Piezo-Optomechanical Microwave↔Optical Transducer']]);
+    lblP1.textContent = 'Pump Power [mW]'; p1.value = '4';
+    lblP2.textContent = 'Bath Temp T [K]'; p2.value = '4';
+  } else if (mode === 'topological_mrr') {
+    lblSub.textContent = 'Topological Lattice';
+    setOpts([['hafezi_2d_qh', '2D Hafezi Quantum Hall MRR Array (Defect Routing)'], ['ssh_1d', '1D SSH Alternating-Coupling MRR Chain (Disorder Immunity)']]);
+    lblP1.textContent = 'N Rings / Disorder [%]'; p1.value = '15';
+    lblP2.textContent = 'Flux α (e.g. 0.25) / J₂ [GHz]'; p2.value = '0.25';
+  } else if (mode === 'reservoir_switch') {
+    lblSub.textContent = 'System Architecture';
+    setOpts([['photonic_reservoir_xor', 'Silicon MRR Photonic Reservoir: 1-Bit Delayed XOR'], ['photonic_reservoir_narma', 'Silicon MRR Photonic Reservoir: NARMA-10'], ['switch_fabric_crossbar', 'N×N Non-Blocking MRR Crossbar Switch Matrix'], ['switch_fabric_benes', 'N×N Non-Blocking MRR Benes Switch Matrix']]);
+    lblP1.textContent = 'Virtual Nodes / Ports N'; p1.value = '24';
+    lblP2.textContent = 'Pump Power [mW] / Ring ER [dB]'; p2.value = '14';
+  } else if (mode === 'nanoparticle_dcs') {
+    lblSub.textContent = 'Sensing / Spectroscopy';
+    setOpts([['nanoparticle_sizing', 'Single-Nanoparticle / Virus Self-Referenced Mode-Splitting Sizing'], ['dual_comb_HCN', 'Dual-MRR Comb Absorption Spectroscopy (HCN 1542 nm)'], ['dual_comb_CO2', 'Dual-MRR Comb Absorption Spectroscopy (CO₂ 1572 nm)'], ['dual_comb_CH4', 'Dual-MRR Comb Absorption Spectroscopy (CH₄ 1653 nm)']]);
+    lblP1.textContent = 'Particle Radius a [nm] / Conc [ppm]'; p1.value = '45';
+    lblP2.textContent = 'Particle n / Δf_rep [MHz]'; p2.value = '1.59';
   } else {
     lblSub.textContent = 'Nanoantenna Mode';
     setOpts([['seira_molecular', 'SEIRA Molecular (Au MIM + PMMA 1730 cm⁻¹)'], ['mim_absorber', '1-Port MIM Perfect Absorber'], ['fano_eit_qbic', '2-Mode Fano / EIT / q-BIC Metasurface'], ['metasurface_ep', 'Exceptional Point Coupled Metasurface']]);
@@ -7100,6 +7160,41 @@ async function runFrontierPhysicsUI() {
     body.baud_rate_gbaud = Math.max(10, Math.min(240, v1));
     body.v_pp_drive_v = Math.max(0.4, Math.min(10.0, v2));
     body.ffe_taps = isNrz ? 0 : 5;
+  } else if (mode === 'vernier_sil_laser') {
+    body.mode = sub1;
+    if (sub1 === 'vernier_ecl') { body.ring1_radius_um = Math.max(20, v1); body.ring2_radius_um = Math.max(22, v2); }
+    else { body.sil_ring_radius_um = Math.max(50, v1 * 5); body.sil_q_int = Math.max(1e5, v2 * 1e6); }
+  } else if (mode === 'mrr_gyroscope') {
+    body.core_material = sub1; body.ring_radius_mm = Math.max(0.5, v1 / 1000.0); body.q_int = Math.max(1e5, v2 * 1e6);
+  } else if (mode === 'mrr_mwp') {
+    if (sub1 === 'temporal_calculus_diff') { body.mode = 'temporal_calculus'; body.calculus_op = 'differentiator'; body.pulse_fwhm_ps = Math.max(10, v1 > 8 ? v1 : 60); }
+    else if (sub1 === 'temporal_calculus_int') { body.mode = 'temporal_calculus'; body.calculus_op = 'integrator'; body.pulse_fwhm_ps = Math.max(5, v1 > 8 ? v1 : 15); }
+    else { body.mode = sub1; body.num_ttd_rings = Math.max(1, Math.min(16, Math.round(v1))); body.ring_radius_um = Math.max(20, v2); }
+  } else if (mode === 'eo_comb_sfd') {
+    body.mode = sub1; body.rf_mod_index_beta = Math.max(0.1, v1);
+    if (sub1 === 'synthetic_freq_dim') { body.sfd_phase_deg = v2; } else { body.aux_ring_coupling_ghz = Math.max(0.1, v2); }
+  } else if (mode === 'opo_kerr_ssb') {
+    body.mode = sub1; body.pump_power_mw = Math.max(0.1, v1);
+    if (sub1 === 'kerr_ssb_isolator') { body.ssb_detuning_linewidths = Math.max(2.0, v2); }
+    else if (sub1 === 'chi2_dropo') { body.core_material = 'LN_Xcut'; body.wavelength_nm = 775.0; body.film_height_um = 0.60; body.slab_height_um = 0.30; body.waveguide_width_um = 1.20; }
+  } else if (mode === 'oam_vortex_mrr') {
+    body.core_material = sub1; body.target_oam_charge_l = Math.round(v1); body.ring_radius_um = Math.max(2.5, v2);
+  } else if (mode === 'optomech_transducer') {
+    body.mode = sub1; body.laser_power_mw = Math.max(0.05, v1); body.bath_temperature_k = Math.max(0.01, v2);
+  } else if (mode === 'topological_mrr') {
+    body.mode = sub1;
+    if (sub1 === 'ssh_1d') { body.ssh_disorder_pct = Math.max(0, v1); } else { body.flux_alpha = Math.max(0.05, Math.min(0.45, v2)); }
+  } else if (mode === 'reservoir_switch') {
+    if (sub1.startsWith('switch_fabric')) {
+      body.mode = 'switch_fabric'; body.switch_topology = sub1.endsWith('benes') ? 'benes_2x2' : 'crossbar';
+      body.switch_ports_n = Math.max(4, Math.min(16, Math.round(v1 <= 16 ? v1 : 8)));
+    } else {
+      body.mode = 'photonic_reservoir'; body.prc_task = sub1.endsWith('narma') ? 'narma10' : 'delayed_xor';
+      body.prc_num_virtual_nodes = Math.max(8, Math.min(64, Math.round(v1))); body.prc_pump_power_mw = Math.max(1, v2);
+    }
+  } else if (mode === 'nanoparticle_dcs') {
+    if (sub1 === 'nanoparticle_sizing') { body.mode = 'nanoparticle_sizing'; body.particle_radius_nm = Math.max(5, v1); body.particle_n = Math.max(1.35, v2); }
+    else { body.mode = 'dual_comb_spectroscopy'; body.gas_species = sub1.split('_')[2] || 'HCN'; body.gas_concentration_ppm = Math.max(50, v1 > 100 ? v1 : 2000); body.delta_f_rep_mhz = Math.max(0.5, v2 > 1.8 ? v2 : 5.0); }
   }
 
   try {

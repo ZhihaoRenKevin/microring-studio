@@ -148,6 +148,23 @@ from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnls
 from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
 from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
 from .eom_rf_link_eye import EOMRFLinkConfig, simulate_eom_eye_ber_link, simulate_eom_rf_packaging
+from .mrr_lasers_gyro import MRRGyroscopeConfig, VernierSILLaserConfig, simulate_mrr_optical_gyroscope, simulate_vernier_sil_laser
+from .mrr_microwave_photonics import MRRMWPConfig, simulate_mrr_mwp_processor
+from .mrr_eocomb_opo_ssb import EOCombSFDConfig, MRROPOSSBConfig, simulate_eo_comb_and_sfd, simulate_mrr_opo_and_kerr_ssb
+from .mrr_oam_optomech_topo import (
+    MRROAMEmitterConfig,
+    MRROptomechConfig,
+    TopologicalMRRConfig,
+    simulate_mrr_oam_emitter,
+    simulate_mrr_optomechanics_transducer,
+    simulate_topological_mrr_lattice,
+)
+from .mrr_reservoir_switch_sensing import (
+    MRRSensingSpecConfig,
+    MRRSystemAppConfig,
+    simulate_mrr_nanoparticle_and_dcs,
+    simulate_mrr_reservoir_and_switch,
+)
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1724,6 +1741,54 @@ def _advanced_frontier_sync(payload: dict) -> dict:
         if analysis in ("wirebond", "flip_chip_bump") and "launch_type" not in kw:
             kw["launch_type"] = analysis
         return {"analysis": "eom_rf_eye", **simulate_eom_eye_ber_link(EOMRFLinkConfig(**kw))}
+    if analysis in ("vernier_sil_laser", "vernier_ecl", "self_injection_locked", "sil_laser"):
+        kw = _filter_dataclass_kwargs(VernierSILLaserConfig, payload)
+        if analysis in ("vernier_ecl", "self_injection_locked") and "mode" not in kw:
+            kw["mode"] = analysis
+        elif analysis == "sil_laser" and "mode" not in kw:
+            kw["mode"] = "self_injection_locked"
+        return {"analysis": "vernier_sil_laser", **simulate_vernier_sil_laser(VernierSILLaserConfig(**kw))}
+    if analysis in ("mrr_gyroscope", "rfog", "gyro", "sagnac_mrr"):
+        kw = _filter_dataclass_kwargs(MRRGyroscopeConfig, payload)
+        return {"analysis": "mrr_gyroscope", **simulate_mrr_optical_gyroscope(MRRGyroscopeConfig(**kw))}
+    if analysis in ("mrr_mwp", "ttd_obfn", "rf_notch_filter", "oeo_oscillator", "temporal_calculus"):
+        kw = _filter_dataclass_kwargs(MRRMWPConfig, payload)
+        if analysis != "mrr_mwp" and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "mrr_mwp", **simulate_mrr_mwp_processor(MRRMWPConfig(**kw))}
+    if analysis in ("eo_comb_sfd", "single_ring_eocomb", "coupled_ring_eocomb", "synthetic_freq_dim"):
+        kw = _filter_dataclass_kwargs(EOCombSFDConfig, payload)
+        if analysis != "eo_comb_sfd" and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "eo_comb_sfd", **simulate_eo_comb_and_sfd(EOCombSFDConfig(**kw))}
+    if analysis in ("opo_kerr_ssb", "kerr_ssb_isolator", "chi3_opo", "chi2_dropo"):
+        kw = _filter_dataclass_kwargs(MRROPOSSBConfig, payload)
+        if analysis != "opo_kerr_ssb" and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "opo_kerr_ssb", **simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(**kw))}
+    if analysis in ("oam_vortex_mrr", "oam", "vortex_mrr"):
+        kw = _filter_dataclass_kwargs(MRROAMEmitterConfig, payload)
+        return {"analysis": "oam_vortex_mrr", **simulate_mrr_oam_emitter(MRROAMEmitterConfig(**kw))}
+    if analysis in ("optomech_transducer", "cavity_optomechanics", "quantum_transducer"):
+        kw = _filter_dataclass_kwargs(MRROptomechConfig, payload)
+        if analysis != "optomech_transducer" and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "optomech_transducer", **simulate_mrr_optomechanics_transducer(MRROptomechConfig(**kw))}
+    if analysis in ("topological_mrr", "ssh_1d", "hafezi_2d_qh"):
+        kw = _filter_dataclass_kwargs(TopologicalMRRConfig, payload)
+        if analysis != "topological_mrr" and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "topological_mrr", **simulate_topological_mrr_lattice(TopologicalMRRConfig(**kw))}
+    if analysis in ("reservoir_switch", "photonic_reservoir", "switch_fabric"):
+        kw = _filter_dataclass_kwargs(MRRSystemAppConfig, payload)
+        if analysis != "reservoir_switch" and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "reservoir_switch", **simulate_mrr_reservoir_and_switch(MRRSystemAppConfig(**kw))}
+    if analysis in ("nanoparticle_dcs", "nanoparticle_sizing", "dual_comb_spectroscopy"):
+        kw = _filter_dataclass_kwargs(MRRSensingSpecConfig, payload)
+        if analysis != "nanoparticle_dcs" and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "nanoparticle_dcs", **simulate_mrr_nanoparticle_and_dcs(MRRSensingSpecConfig(**kw))}
     return _nonlinear_lle_sync(payload)
 
 

@@ -158,6 +158,23 @@ from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnls
 from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
 from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
 from .eom_rf_link_eye import EOMRFLinkConfig, simulate_eom_eye_ber_link
+from .mrr_lasers_gyro import MRRGyroscopeConfig, VernierSILLaserConfig, simulate_mrr_optical_gyroscope, simulate_vernier_sil_laser
+from .mrr_microwave_photonics import MRRMWPConfig, simulate_mrr_mwp_processor
+from .mrr_eocomb_opo_ssb import EOCombSFDConfig, MRROPOSSBConfig, simulate_eo_comb_and_sfd, simulate_mrr_opo_and_kerr_ssb
+from .mrr_oam_optomech_topo import (
+    MRROAMEmitterConfig,
+    MRROptomechConfig,
+    TopologicalMRRConfig,
+    simulate_mrr_oam_emitter,
+    simulate_mrr_optomechanics_transducer,
+    simulate_topological_mrr_lattice,
+)
+from .mrr_reservoir_switch_sensing import (
+    MRRSensingSpecConfig,
+    MRRSystemAppConfig,
+    simulate_mrr_nanoparticle_and_dcs,
+    simulate_mrr_reservoir_and_switch,
+)
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1134,8 +1151,18 @@ def parse_photonics_intent(message: str) -> dict:
         ("optical_amplifier", r"\bsoa\b|\bedwa\b|optical[-_\s]*amplifier|erbium[-_\s]*waveguide|光放大器|掺铒波导放大"),
         ("gnlse_ppln", r"\bgnlse\b|supercontinuum|dispersive[-_\s]*wave|single[-_\s]*pass[-_\s]*ppln|periodically[-_\s]*poled|超连续谱|色散波|周期极化"),
         ("routing_crossings", r"waveguide[-_\s]*crossing|mmi[-_\s]*crossing|adiabatic[-_\s]*taper|milton[-_\s]*burns|auto[-_\s]*rout|length[-_\s]*match|波导交叉|绝热锥形|自动布线|等长延时"),
+        ("opo_kerr_ssb", r"kerr[-_\s]*ssb|spontaneous[-_\s]*symmetry[-_\s]*break|magnet[-_\s]*free[-_\s]*isolator|chi3[-_\s]*opo|chi2[-_\s]*opo|\bdropo\b|mrr[-_\s]*opo|parametric[-_\s]*oscillator|克尔对称性破缺|无磁.*隔离|参量振荡器"),
         ("isolator_mems", r"optical[-_\s]*isolator|ce:?yig|magneto[-_\s]*optic|\bnrps\b|spatiotemporal[-_\s]*iso|photonic[-_\s]*mems|pull[-_\s]*in|光隔离器|磁光隔离|悬臂开关|微机电"),
         ("eom_rf_eye", r"\btdecq\b|wirebond|bond[-_\s]*wire|flip[-_\s]*chip|micro[-_\s]*bump|rf[-_\s]*packag|gsg[-_\s]*taper|\beom\b.*\b(?:eye|ber|pam4|ffe)\b|\b(?:eye|ber|pam4|ffe)\b.*\beom\b|\b(?:100g|112g|200g|224g|400g)\b.*\b(?:eom|tfln|modulator|pam4)\b|金丝键合|倒装封装|封装.*眼图|调制器.*眼图|眼图.*误码率.*(?:eom|调制|金丝|倒装)"),
+        ("vernier_sil_laser", r"vernier[-_\s]*(?:ecl|laser|tunable)|self[-_\s]*injection[-_\s]*lock|\bsil[-_\s]*laser\b|thermorefractive[-_\s]*noise|huang[-_\s]*trn|游标.*激光|自注入锁定|热折射噪声"),
+        ("mrr_gyroscope", r"\brfog\b|optical[-_\s]*gyro|sagnac[-_\s]*(?:mrr|ring|gyro)|光学陀螺|微环陀螺|萨格纳克"),
+        ("mrr_mwp", r"\bmwp\b|microwave[-_\s]*photonic|true[-_\s]*time[-_\s]*delay|\bttd\b|\bobfn\b|rf[-_\s]*notch|optoelectronic[-_\s]*oscillator|oeo[-_\s]*oscillator|leeson|optical[-_\s]*differentiator|optical[-_\s]*integrator|temporal[-_\s]*calculus|微波光子|真时延|射频陷波|光电振荡器|光微分器|光积分器"),
+        ("eo_comb_sfd", r"(?:eo|electro[-_\s]*optic)[-_\s]*(?:freq(?:uency)?[-_\s]*)?comb|synthetic[-_\s]*freq|bloch[-_\s]*oscill|电光光频梳|电光梳|合成频率维"),
+        ("oam_vortex_mrr", r"\boam\b|orbital[-_\s]*angular[-_\s]*momentum|vortex[-_\s]*beam|angular[-_\s]*grating|轨道角动量|涡旋光束|角向光栅"),
+        ("optomech_transducer", r"optomechan|\bomit\b|sideband[-_\s]*cool|optical[-_\s]*spring|quantum[-_\s]*transduc|microwave[-_\s]*to[-_\s]*optical|光力学|边带冷却|微波转光|量子换能"),
+        ("topological_mrr", r"topological[-_\s]*(?:photonic|mrr|ring|lattice)|\bssh\b[-_\s]*(?:chain|ring|mrr|lattice)|hafezi|quantum[-_\s]*hall[-_\s]*(?:ring|mrr|lattice)|chiral[-_\s]*edge|拓扑光子|手性边界态|哈菲兹"),
+        ("reservoir_switch", r"photonic[-_\s]*reservoir|\bprc\b|narma[-_\s]*10|delayed[-_\s]*xor|switch[-_\s]*fabric|switch[-_\s]*matrix|crossbar[-_\s]*mrr|benes[-_\s]*mrr|光子储备池|储备池计算|光交换矩阵"),
+        ("nanoparticle_dcs", r"nanoparticle|virion|mode[-_\s]*splitting[-_\s]*siz|dual[-_\s]*comb|absorption[-_\s]*spectroscop|纳米颗粒|病毒测径|双光梳光谱"),
         ("mrr_ep", r"exceptional[-_\s]*surface|chiral[-_\s]*ep|anti[-_\s]*pt|\bep2\b|\bep3\b|\bep4\b|ep[-_\s]*encircl|petermann|mrr[-_\s]*ep|ring[-_\s]*ep|奇异面|高阶奇异点|手性奇异点|反pt|环绕奇异点|微环.*ep|微环.*奇异点"),
         ("awg", r"\bawg\b|arrayed[-_\s]*waveguide[-_\s]*grating|阵列波导光栅"),
         ("wbg", r"\bwbg\b|waveguide[-_\s]*bragg|pi[-_\s]*phase[-_\s]*shift|apodized[-_\s]*bragg|波导布拉格光栅"),
@@ -2699,6 +2726,60 @@ def _process_chat_turn_core(
                 100.0 if (fmt == "NRZ" and "100g" in low_m) else 56.0
             )
             f_res = {"analysis": "eom_rf_eye", **simulate_eom_eye_ber_link(EOMRFLinkConfig(launch_type=lt, modulation_format=fmt, baud_rate_gbaud=baud))}
+        elif f_kind == "vernier_sil_laser":
+            low_m = user_message.lower()
+            vm = "self_injection_locked" if ("self" in low_m or "sil" in low_m or "trn" in low_m or "自注入" in low_m or "热折射" in low_m) else "vernier_ecl"
+            f_res = {"analysis": "vernier_sil_laser", **simulate_vernier_sil_laser(VernierSILLaserConfig(mode=vm))}
+        elif f_kind == "mrr_gyroscope":
+            f_res = {"analysis": "mrr_gyroscope", **simulate_mrr_optical_gyroscope(MRRGyroscopeConfig())}
+        elif f_kind == "mrr_mwp":
+            low_m = user_message.lower()
+            if "notch" in low_m or "陷波" in low_m:
+                f_res = {"analysis": "mrr_mwp", **simulate_mrr_mwp_processor(MRRMWPConfig(mode="rf_notch_filter"))}
+            elif "oscillator" in low_m or "leeson" in low_m or "振荡器" in low_m:
+                f_res = {"analysis": "mrr_mwp", **simulate_mrr_mwp_processor(MRRMWPConfig(mode="oeo_oscillator"))}
+            elif "integrat" in low_m or "积分" in low_m:
+                f_res = {"analysis": "mrr_mwp", **simulate_mrr_mwp_processor(MRRMWPConfig(mode="temporal_calculus", calculus_op="integrator", pulse_fwhm_ps=15.0))}
+            elif "differentiat" in low_m or "微分" in low_m:
+                f_res = {"analysis": "mrr_mwp", **simulate_mrr_mwp_processor(MRRMWPConfig(mode="temporal_calculus", calculus_op="differentiator"))}
+            else:
+                f_res = {"analysis": "mrr_mwp", **simulate_mrr_mwp_processor(MRRMWPConfig(mode="ttd_obfn"))}
+        elif f_kind == "eo_comb_sfd":
+            low_m = user_message.lower()
+            em = "synthetic_freq_dim" if ("synthetic" in low_m or "bloch" in low_m or "合成频率" in low_m) else (
+                "single_ring_eocomb" if ("single" in low_m or "单环" in low_m) else "coupled_ring_eocomb"
+            )
+            f_res = {"analysis": "eo_comb_sfd", **simulate_eo_comb_and_sfd(EOCombSFDConfig(mode=em))}
+        elif f_kind == "opo_kerr_ssb":
+            low_m = user_message.lower()
+            if "chi2" in low_m or "dropo" in low_m or "tfln" in low_m:
+                f_res = {"analysis": "opo_kerr_ssb", **simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(mode="chi2_dropo", core_material="LN_Xcut", wavelength_nm=775.0, film_height_um=0.60, slab_height_um=0.30, waveguide_width_um=1.20))}
+            elif "opo" in low_m or "参量" in low_m:
+                f_res = {"analysis": "opo_kerr_ssb", **simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(mode="chi3_opo"))}
+            else:
+                f_res = {"analysis": "opo_kerr_ssb", **simulate_mrr_opo_and_kerr_ssb(MRROPOSSBConfig(mode="kerr_ssb_isolator"))}
+        elif f_kind == "oam_vortex_mrr":
+            f_res = {"analysis": "oam_vortex_mrr", **simulate_mrr_oam_emitter(MRROAMEmitterConfig())}
+        elif f_kind == "optomech_transducer":
+            low_m = user_message.lower()
+            om = "quantum_transducer" if ("transduc" in low_m or "microwave" in low_m or "微波转光" in low_m or "量子换能" in low_m) else "cavity_optomechanics"
+            f_res = {"analysis": "optomech_transducer", **simulate_mrr_optomechanics_transducer(MRROptomechConfig(mode=om))}
+        elif f_kind == "topological_mrr":
+            low_m = user_message.lower()
+            tm = "ssh_1d" if ("ssh" in low_m or "1d" in low_m) else "hafezi_2d_qh"
+            f_res = {"analysis": "topological_mrr", **simulate_topological_mrr_lattice(TopologicalMRRConfig(mode=tm))}
+        elif f_kind == "reservoir_switch":
+            low_m = user_message.lower()
+            if "switch" in low_m or "crossbar" in low_m or "benes" in low_m or "交换" in low_m:
+                st = "benes_2x2" if "benes" in low_m else "crossbar"
+                f_res = {"analysis": "reservoir_switch", **simulate_mrr_reservoir_and_switch(MRRSystemAppConfig(mode="switch_fabric", switch_topology=st))}
+            else:
+                pt = "narma10" if "narma" in low_m else "delayed_xor"
+                f_res = {"analysis": "reservoir_switch", **simulate_mrr_reservoir_and_switch(MRRSystemAppConfig(mode="photonic_reservoir", prc_task=pt))}
+        elif f_kind == "nanoparticle_dcs":
+            low_m = user_message.lower()
+            nm = "dual_comb_spectroscopy" if ("dual" in low_m or "comb" in low_m or "spectro" in low_m or "双光梳" in low_m) else "nanoparticle_sizing"
+            f_res = {"analysis": "nanoparticle_dcs", **simulate_mrr_nanoparticle_and_dcs(MRRSensingSpecConfig(mode=nm))}
         else:
             f_res = {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig())}
 

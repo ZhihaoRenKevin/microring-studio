@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.13.0"
+__version__ = "3.14.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -20,6 +20,7 @@ from .agent_tools import (
     agent_eam_soa,
     agent_eom_multiphysics,
     agent_eom_rf_eye,
+    agent_eocomb_opo_ssb,
     agent_fab_tolerance,
     agent_fit_spectrum,
     agent_gnlse_ppln,
@@ -27,11 +28,13 @@ from .agent_tools import (
     agent_inspect_gds,
     agent_io_coupler,
     agent_isolator_mems,
+    agent_mrr_mwp,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
     agent_mrr_ep,
     agent_nonlinear_lle,
+    agent_oam_optomech_topo,
     agent_opa_lidar,
     agent_pcm_photonics,
     agent_pdk_drc,
@@ -40,15 +43,47 @@ from .agent_tools import (
     agent_pic_netlist,
     agent_polarization_mdm,
     agent_prism_optimize,
+    agent_reservoir_switch_sensing,
     agent_routing_crossings,
     agent_saw_sbs,
     agent_slab_diffractive,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
+    agent_vernier_sil_gyro,
     agent_wbg_awg,
     agent_wdm_link,
     agent_width_cutoff,
+)
+from .mrr_lasers_gyro import (
+    MRRGyroscopeConfig,
+    VernierSILLaserConfig,
+    simulate_mrr_optical_gyroscope,
+    simulate_vernier_sil_laser,
+)
+from .mrr_microwave_photonics import (
+    MRRMWPConfig,
+    simulate_mrr_mwp_processor,
+)
+from .mrr_eocomb_opo_ssb import (
+    EOCombSFDConfig,
+    MRROPOSSBConfig,
+    simulate_eo_comb_and_sfd,
+    simulate_mrr_opo_and_kerr_ssb,
+)
+from .mrr_oam_optomech_topo import (
+    MRROAMEmitterConfig,
+    MRROptomechConfig,
+    TopologicalMRRConfig,
+    simulate_mrr_oam_emitter,
+    simulate_mrr_optomechanics_transducer,
+    simulate_topological_mrr_lattice,
+)
+from .mrr_reservoir_switch_sensing import (
+    MRRSensingSpecConfig,
+    MRRSystemAppConfig,
+    simulate_mrr_nanoparticle_and_dcs,
+    simulate_mrr_reservoir_and_switch,
 )
 from .photodetector_oeo import (
     OEONeuronConfig,
@@ -358,7 +393,32 @@ __all__ = [
     "agent_design_mzi",
     "agent_eom_multiphysics",
     "agent_eom_rf_eye",
+    "agent_eocomb_opo_ssb",
     "agent_fab_tolerance",
+    "agent_mrr_mwp",
+    "agent_oam_optomech_topo",
+    "agent_reservoir_switch_sensing",
+    "agent_vernier_sil_gyro",
+    "VernierSILLaserConfig",
+    "MRRGyroscopeConfig",
+    "simulate_vernier_sil_laser",
+    "simulate_mrr_optical_gyroscope",
+    "MRRMWPConfig",
+    "simulate_mrr_mwp_processor",
+    "EOCombSFDConfig",
+    "MRROPOSSBConfig",
+    "simulate_eo_comb_and_sfd",
+    "simulate_mrr_opo_and_kerr_ssb",
+    "MRROAMEmitterConfig",
+    "MRROptomechConfig",
+    "TopologicalMRRConfig",
+    "simulate_mrr_oam_emitter",
+    "simulate_mrr_optomechanics_transducer",
+    "simulate_topological_mrr_lattice",
+    "MRRSystemAppConfig",
+    "MRRSensingSpecConfig",
+    "simulate_mrr_reservoir_and_switch",
+    "simulate_mrr_nanoparticle_and_dcs",
     "LAUNCH_TYPE_CATALOG",
     "EOMRFLinkConfig",
     "compute_gsg_flip_chip_bump_abcd",

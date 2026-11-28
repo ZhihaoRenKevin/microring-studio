@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-11-28 17:30:46",
+  "machine": "Kevin",
+  "elapsed_s": 110.3,
+  "comsol_6_4": {
+    "ull_si3n4_100x2800nm_laser_gyro": {
+      "comsol_n_eff": 1.47603,
+      "microring_n_eff": 1.47548,
+      "neff_rel_err_pct": 0.0373,
+      "comsol_n_g": 1.59273,
+      "microring_n_g": 1.59224,
+      "ng_rel_err_pct": 0.031,
+      "comsol_A_eff_um2": 3.928,
+      "microring_A_eff_um2": 3.907,
+      "aeff_rel_err_pct": 0.54
+    },
+    "thick_si3n4_800x1600nm_kerr_ssb_opo": {
+      "comsol_n_eff": 1.83454,
+      "microring_n_eff": 1.83122,
+      "neff_rel_err_pct": 0.1811,
+      "comsol_n_g": 2.12108,
+      "microring_n_g": 2.11762,
+      "ng_rel_err_pct": 0.163,
+      "comsol_A_eff_um2": 1.112,
+      "microring_A_eff_um2": 1.128,
+      "aeff_rel_err_pct": 1.44,
+      "microring_kerr_gamma_W_m": 1.045
+    }
+  },
+  "lumerical_3d_fdtd_gpu_oam_blind_gds": {
+    "microring_predicted_m": 37,
+    "microring_grating_teeth_q": 35,
+    "microring_predicted_ell_1550nm": 2,
+    "microring_predicted_FSR_nm": 22.44,
+    "lumerical_3D_FDTD_FSR_nm": null,
+    "lumerical_3D_FDTD_adjacent_Delta_ell": null,
+    "lumerical_3D_FDTD_resonances": [
+      {
+        "wavelength_nm": 1568.53,
+        "thru_transmission": 0.9857,
+        "dominant_OAM_ell_3D_FDTD": 3,
+        "dominant_OAM_purity_pct": 98.06,
+        "measured_phase_winding_3D_FDTD": 3.0,
+        "doughnut_center_null_ratio": 0.00161
+      }
+    ]
+  },
+  "analytical_10_apps": {
+    "1_vernier_sil_laser": {
+      "vernier_M": 11.0,
+      "vernier_SMSR_dB": 75.0,
+      "sil_K": 621.92,
+      "sil_narrowed_lw_Hz": 0.33,
+      "sil_TRN_lw_Hz": 34077.46
+    },
+    "2_mrr_mwp": {
+      "ttd_delay_ps": 474.62,
+      "ttd_DBP": 2.848,
+      "notch_rejection_dB": 36.9,
+      "oeo_PN_10kHz_dBc_Hz": -105.22,
+      "diff_RMSE_pct": 7.87,
+      "int_RMSE_pct": 3.03
+    },
+    "3_rfog_gyroscope": {
+      "sagnac_Sf_sim_Hz_dps": 70.721,
+      "sagnac_Sf_exact_Hz_dps": 70.721,
+      "sagnac_identity_err_pct": 0.0005,
+      "shot_ARW_deg_rt_h": 0.09499,
+      "lockin_deadband_dps": 353.4997
+    },
+    "4_eocomb_sfd": {
+      "single_ring_eff_pct": 7.42,
+      "coupled_ring_eff_pct": 68.05,
+      "efficiency_boost_x": 9.17,
+      "sfd_chiral_asym": 0.2271
+    },
+    "5_opo_kerr_ssb": {
+      "kerr_ssb_isolation_dB": 20.2,
+      "kerr_ssb_IL_dB": 4.29,
+      "chi3_opo_Pth_mW": 1.352,
+      "chi2_dropo_Pth_uW": 0.05
+    },
+    "6_oam_vortex_mrr": {
+      "ell": 2,
+      "phase_winding": 2.0,
+      "purity_pct": 100.0
+    },
+    "7_optomech_transducer": {
+      "C_om": 52.214,
+      "cooled_n_f": 0.618,
+      "ground_state_cooled": true,
+      "transducer_eta_MO_pct": 3.194
+    },
+    "8_topological_mrr": {
+      "ssh_edge_drift_GHz": 0.0,
+      "ssh_bulk_drift_GHz": 0.791,
+      "hafezi_chiral_dir_dB": 7.03,
+      "hafezi_T_around_defect_dB": -3.53
+    },
+    "9_reservoir_switch": {
+      "prc_xor_heldout_acc_pct": 100.0,
+      "prc_xor_NMSE": 0.0628,
+      "switch_8x8_worst_IL_dB": 3.11
+    },
+    "10_nanoparticle_dcs": {
+      "np_true_nm": 45.0,
+      "np_retrieved_nm": 45.0,
+      "np_err_pct": 0.0,
+      "dcs_R2": 1.0,
+      "dcs_compression_x": 5000.0
+    }
+  }
+}
