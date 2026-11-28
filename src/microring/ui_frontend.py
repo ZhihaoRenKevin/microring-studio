@@ -1941,7 +1941,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
                 <option value="saw">🔊 2D Piezoelectric SAW / Lamb S₀ Acousto-Optic MRR</option>
                 <option value="sbs">🌊 2D Solid-Mechanics Forward &amp; Backward SBS Brillouin Gain</option>
                 <option value="nanoantenna_tcmt">📡 Nanoantenna / Metasurface TCMT (MIM / Fano / SEIRA / EP)</option>
-                <option value="twod_material">🧪 2D Materials on MRR (Graphene Kubo · WS₂/MoS₂ · hBN · BP)</option>
+                <option value="twod_material">🧪 2D vdW Materials on MRR (27 Materials: Graphene/BLG · TMDs · α-MoO₃ · MXene · NbOCl₂)</option>
                 <option value="waveguide_pd">⚡ On-Chip Ge-on-Si PIN / MUTC Waveguide Photodetector</option>
                 <option value="oeo_neuron">🧠 On-Chip O-E-O Photodetector → MRM Nonlinear Neuron</option>
                 <option value="psr">🔄 Adiabatic Polarization Splitter-Rotator (PSR: TM₀↔TE₁)</option>
@@ -6795,10 +6795,39 @@ function onFrontierModeChange(skipRun) {
     lblP1.textContent = 'Waveguide W [µm]'; p1.value = '0.45';
     lblP2.textContent = 'Waveguide H [µm]'; p2.value = '0.22';
   } else if (mode === 'twod_material') {
-    lblSub.textContent = '2D Material & Capacitor';
-    setOpts([['Graphene_SLG', 'Graphene SLG (Exact Kubo)'], ['Graphene_DLG', 'Graphene DLG Capacitor'], ['WS2', 'Monolayer WS₂ Exciton Gating'], ['MoS2', 'Monolayer MoS₂'], ['WSe2', 'Monolayer WSe₂'], ['hBN', 'Mid-IR Hyperbolic hBN'], ['Black_Phosphorus', 'Black Phosphorus (Mid-IR)']]);
+    lblSub.textContent = '2D vdW Material (27-Material Library)';
+    setOpts([
+      ['Graphene_SLG', 'Graphene SLG (Exact Kubo)'],
+      ['Graphene_DLG', 'Graphene DLG Capacitor'],
+      ['Bilayer_Graphene', 'AB-Bilayer Graphene (Gapped · γ₁=0.39 eV)'],
+      ['WS2', 'Monolayer WS₂ (Record Telecom Δn/Δk)'],
+      ['MoS2', 'Monolayer MoS₂ (A/B Exciton)'],
+      ['WSe2', 'Monolayer WSe₂ (747 nm Exciton)'],
+      ['MoSe2', 'Monolayer MoSe₂ (790 nm Exciton)'],
+      ['MoTe2', '2H-MoTe₂ (O-Band 1.10 eV Telecom TMD)'],
+      ['MoS2_Bulk_vdW', 'Multilayer MoS₂ vdW (n∥=4.28, Δn=1.57)'],
+      ['WS2_Bulk_vdW', 'Multilayer WS₂ vdW (n∥=3.99, Δn=1.43)'],
+      ['PtSe2', '1T-PtSe₂ (Broadband Telecom/Mid-IR PD)'],
+      ['PdSe2', 'Pentagonal PdSe₂ (Anisotropic Narrow-Gap)'],
+      ['ReS2', '1T′-ReS₂ (Biaxial Linear Dichroism)'],
+      ['hBN', 'Natural hBN (Hyperbolic Type-I/II Mid-IR)'],
+      ['hBN_Isotopic_10B', 'Isotopic h¹⁰BN (3× Lower Phonon Loss)'],
+      ['alpha_MoO3', 'α-MoO₃ (In-Plane Biaxial Hyperbolic 10.5 µm)'],
+      ['alpha_V2O5', 'α-V₂O₅ (In-Plane Biaxial Hyperbolic 11 µm)'],
+      ['Black_Phosphorus', 'Black Phosphorus (Anisotropic 3.5 µm)'],
+      ['b_AsP', 'Black As₀.₈₃P₀.₁₇ (LWIR 8.3 µm Anisotropic)'],
+      ['Te_Tellurene', '2D Chiral Tellurene (Air-Stable MWIR)'],
+      ['Ti3C2Tx_MXene', 'Ti₃C₂Tₓ MXene (Telecom ENZ ~1.24 µm)'],
+      ['Nb2CTx_MXene', 'Nb₂CTₓ MXene (SWIR/Mid-IR Plasmonic)'],
+      ['Bi2Se3', 'Bi₂Se₃ Topological Insulator (Dirac Surface)'],
+      ['WTe2', 'Td-WTe₂ Type-II Weyl (Hyperbolic 12 µm)'],
+      ['NbOCl2', 'NbOCl₂ Giant-χ⁽²⁾ Biaxial EO (d=140 pm/V)'],
+      ['In2Se3_alpha', 'α-In₂Se₃ 2D Room-T Ferroelectric EO'],
+      ['CuInP2S6', 'CuInP₂S₆ (CIPS) Transparent Ferroelectric'],
+      ['GaSe', 'ε-GaSe Broadband 0.65–18 µm χ⁽²⁾ vdW']
+    ]);
     lblP1.textContent = 'Wavelength [nm]'; p1.value = '1550';
-    lblP2.textContent = 'Spacer t_ox [nm]'; p2.value = '10';
+    lblP2.textContent = 'Crystal Angle θ [deg]'; p2.value = '0';
   } else if (mode === 'waveguide_pd') {
     lblSub.textContent = 'PD Architecture';
     setOpts([['vertical_pin', 'Vertical Ge-on-Si PIN'], ['lateral_pin', 'Lateral Ge-on-Si PIN'], ['mutc', 'High-Speed MUTC PD']]);
@@ -6927,8 +6956,18 @@ async function runFrontierPhysicsUI() {
     if (sub1 === 'Graphene_DLG') { body.material_2d = 'Graphene'; body.capacitor_type = 'DLG'; }
     else if (sub1 === 'Graphene_SLG') { body.material_2d = 'Graphene'; body.capacitor_type = 'SLG'; }
     else { body.material_2d = sub1; }
-    body.wavelength_nm = v1; body.spacer_ox_nm = v2;
-    if (sub1 === 'hBN' && v1 < 4000) { body.wavelength_nm = 6800; body.core_material = 'Ge'; body.clad_material = 'CaF2'; body.top_clad_material = 'Air'; body.film_height_um = 1.2; body.ring_width_um = 2.0; body.ring_radius_um = 60.0; }
+    body.wavelength_nm = v1; body.crystal_angle_deg = v2;
+    const midirPresets = {
+      'hBN': 6800, 'hBN_Isotopic_10B': 6700, 'alpha_MoO3': 10800, 'alpha_V2O5': 11500,
+      'WTe2': 12000, 'b_AsP': 6500, 'Black_Phosphorus': 3400, 'Te_Tellurene': 3200
+    };
+    if (midirPresets[sub1] && v1 < 2500) {
+      const wDef = midirPresets[sub1];
+      body.wavelength_nm = wDef; body.core_material = 'Ge'; body.clad_material = 'CaF2'; body.top_clad_material = 'Air';
+      body.film_height_um = wDef > 8000 ? 1.8 : 1.2; body.ring_width_um = wDef > 8000 ? 3.2 : 2.0; body.ring_radius_um = wDef > 8000 ? 90.0 : 60.0;
+    } else if (sub1 === 'MoTe2' && Math.abs(v1 - 1550) < 20) {
+      body.wavelength_nm = 1310;
+    }
   } else if (mode === 'waveguide_pd') {
     body.pd_architecture = sub1; body.ge_length_um = v1; body.reverse_bias_v = v2;
   } else if (mode === 'oeo_neuron') {

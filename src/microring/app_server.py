@@ -1610,7 +1610,7 @@ def _advanced_frontier_sync(payload: dict) -> dict:
     if analysis in ("nanoantenna_tcmt", "nanoantenna", "seira", "tcmt"):
         kw = _filter_dataclass_kwargs(NanoantennaTCMTConfig, payload)
         return {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig(**kw))}
-    if analysis in ("twod_material", "2d_material", "graphene", "tmd", "ws2", "hbn"):
+    if analysis in ("twod_material", "2d_material", "graphene", "tmd", "ws2", "hbn", "moo3", "mxene", "mote2", "nbocl2", "wte2", "bi2se3"):
         kw = _filter_dataclass_kwargs(TwoDMaterialMRRConfig, payload)
         return {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(**kw))}
     if analysis in ("waveguide_pd", "ge_pd", "photodetector"):

@@ -38,7 +38,7 @@
 - SWG & Photonic Crystal Ring (PhCR): `uv run microring agent swg-phc --analysis phcr --mat Si3N4 --h 0.50 --w-ring 1.20 --amp-nm 40`
 - Piezo SAW/Lamb & 2D Solid-Mechanics SBS: `uv run microring agent saw-sbs --analysis saw --mat AlN --idt-um 2.0`
 - Nanoantenna / Metasurface TCMT & SEIRA: `uv run microring agent nanoantenna --regime seira_molecular --analyte PMMA`
-- 2D Materials on MRR (Graphene / TMDs / hBN / BP): `uv run microring agent twod-material --mat-2d Graphene --cap SLG --spacer-nm 10`
+- 27-Material 2D vdW Library on MRR (`--list` for all 27): `uv run microring agent twod-material --mat-2d Graphene --cap SLG --spacer-nm 10`
 - Ge-on-Si Waveguide PD & O-E-O Neuron: `uv run microring agent photodetector --analysis waveguide_pd --arch vertical_pin --len 15 --gds`
 - PSR Rotator, PBS & MDM Mode Multiplexer: `uv run microring agent polarization-mdm --analysis mdm_te1 --gap 0.20 --gds`
 - Non-Volatile PCM MRR & SET/RESET Thermal Pulse: `uv run microring agent pcm-photonics --analysis pcm_mrr --pcm Sb2Se3 --gds`

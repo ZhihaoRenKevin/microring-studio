@@ -31,7 +31,7 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **SWG Biosensor Ring & Photonic Crystal Ring (PhCR) Mode Splitting** | `uv run microring agent swg-phc --analysis phcr --mat Si3N4 --h 0.50 --w-ring 1.20 --amp-nm 40` |
 | **Piezo SAW/Lamb Acousto-Optic MRR & 2D Solid-Mechanics Forward/Backward SBS** | `uv run microring agent saw-sbs --analysis saw --mat AlN --idt-um 2.0` |
 | **Nanoantenna / Metasurface TCMT (MIM, Fano/qBIC, SEIRA, EP)** | `uv run microring agent nanoantenna --regime seira_molecular --analyte PMMA` |
-| **2D Materials on MRR (Graphene SLG/DLG Kubo, WS2/MoS2/WSe2/MoSe2 TMDs, hBN, BP)** | `uv run microring agent twod-material --mat-2d Graphene --cap SLG --spacer-nm 10` |
+| **27-Material 2D vdW Library on MRR (Graphene/BLG, TMDs, Bulk vdW, a-MoO3/h10BN, MXenes, WTe2/Bi2Se3, NbOCl2/FE)** | `uv run microring agent twod-material --mat-2d alpha_MoO3 --wl 10800 --angle 0` *(or `--list`)* |
 | **Ge-on-Si Waveguide Photodetector (PIN/MUTC) & O-E-O Photonic Neuron** | `uv run microring agent photodetector --analysis waveguide_pd --arch vertical_pin --len 15 --gds` |
 | **Polarization Splitter-Rotator (PSR), PBS & Mode-Division Multiplexer (MDM)** | `uv run microring agent polarization-mdm --analysis mdm_te1 --gap 0.20 --gds` |
 | **Non-Volatile PCM (Sb2Se3/GSST/GST/VO2) MRR & Transient SET/RESET Pulse FEM** | `uv run microring agent pcm-photonics --analysis pcm_mrr --pcm Sb2Se3 --gds` |

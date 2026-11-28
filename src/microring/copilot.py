@@ -1127,7 +1127,7 @@ def parse_photonics_intent(message: str) -> dict:
         ("mdm_te1", r"\bmdm\b|mode[-_\s]*multiplex|\bpbs\b|te0[-_\s]*te1|模式复用"),
         ("oeo_neuron", r"o[-_\s]*e[-_\s]*o|photonic[-_\s]*neuron|nonlinear[-_\s]*activation|光子神经元|非线性激活"),
         ("waveguide_pd", r"photodetector|ge[-_\s]*on[-_\s]*si|\bmutc\b|responsivity|光电探测器|锗探测器"),
-        ("twod_material", r"graphene|\bws2\b|\bmos2\b|\bwse2\b|\bmose2\b|\bhbn\b|\btmd\b|black[-_\s]*phosphorus|2d[-_\s]*material|kubo|pauli[-_\s]*block|石墨烯|二维材料|二硫化钨|二硫化钼|六方氮化硼|黑磷"),
+        ("twod_material", r"graphene|bilayer[-_\s]*graphene|\bws2\b|\bmos2\b|\bwse2\b|\bmose2\b|\bmote2\b|\bptse2\b|\bpdse2\b|\bres2\b|\bhbn\b|h10bn|moo3|v2o5|\btmd\b|black[-_\s]*phosphorus|b[-_\s]*asp|tellurene|mxene|ti3c2|nb2c|bi2se3|wte2|nbocl2|in2se3|cuinp2s6|\bcips\b|\bgase\b|2d[-_\s]*material|vdw|kubo|pauli[-_\s]*block|石墨烯|双层石墨烯|二维材料|二硫化钨|二硫化钼|二碲化钼|二硒化铂|六方氮化硼|三氧化钼|五氧化二钒|黑磷|碲烯|拓扑绝缘体|外尔半金属|范德华"),
         ("nanoantenna_tcmt", r"nanoantenna|metasurface|\bseira\b|mim[-_\s]*absorber|q[-_\s]*bic|fano[-_\s]*tcmt|\btcmt\b|纳米天线|超表面|分子增强红外"),
         ("saw", r"\bsaw\b|lamb[-_\s]*wave|acousto[-_\s]*optic|piezo[-_\s]*acoustic|rayleigh[-_\s]*wave|声表面波|声光调制|兰姆波"),
         ("sbs", r"\bsbs\b|brillouin|forward[-_\s]*brillouin|backward[-_\s]*brillouin|布里渊"),
@@ -2533,12 +2533,58 @@ def _process_chat_turn_core(
             f_res = {"analysis": "sbs", **simulate_sbs_brillouin_mrr(SBSBrillouinConfig())}
         elif f_kind == "twod_material":
             low_msg = user_message.lower()
-            mat2d = "WS2" if "ws2" in low_msg or "二硫化钨" in low_msg else ("MoS2" if "mos2" in low_msg or "二硫化钼" in low_msg else ("hBN" if "hbn" in low_msg or "氮化硼" in low_msg else ("Black_Phosphorus" if "black phosphorus" in low_msg or "黑磷" in low_msg else "Graphene")))
-            cap = "DLG" if ("dlg" in low_msg or "dual" in low_msg or "双层" in low_msg) else "SLG"
-            if mat2d == "hBN":
-                f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="hBN", core_material="Ge", clad_material="CaF2", top_clad_material="Air", film_height_um=1.2, ring_width_um=2.0, ring_radius_um=60.0, wavelength_nm=6800.0, v_gate_sweep_v=(0.0,)))}
+            mat_kw_map = [
+                ("Bilayer_Graphene", ("bilayer graphene", "双层石墨烯", "blg")),
+                ("hBN_Isotopic_10B", ("h10bn", "isotopic", "同位素氮化硼")),
+                ("alpha_MoO3", ("moo3", "三氧化钼")),
+                ("alpha_V2O5", ("v2o5", "五氧化二钒")),
+                ("MoS2_Bulk_vdW", ("bulk mos2", "mos2_bulk", "多层二硫化钼")),
+                ("WS2_Bulk_vdW", ("bulk ws2", "ws2_bulk", "多层二硫化钨")),
+                ("MoTe2", ("mote2", "二碲化钼")),
+                ("PtSe2", ("ptse2", "二硒化铂")),
+                ("PdSe2", ("pdse2", "二硒化钯")),
+                ("ReS2", ("res2", "二硫化铼")),
+                ("WS2", ("ws2", "二硫化钨")),
+                ("MoS2", ("mos2", "二硫化钼")),
+                ("WSe2", ("wse2", "二硒化钨")),
+                ("MoSe2", ("mose2", "二硒化钼")),
+                ("hBN", ("hbn", "氮化硼")),
+                ("b_AsP", ("b_asp", "b-asp", "黑砷磷")),
+                ("Te_Tellurene", ("tellurene", "碲烯")),
+                ("Black_Phosphorus", ("black phosphorus", "黑磷")),
+                ("Ti3C2Tx_MXene", ("ti3c2", "mxene")),
+                ("Nb2CTx_MXene", ("nb2c",)),
+                ("Bi2Se3", ("bi2se3", "拓扑绝缘体")),
+                ("WTe2", ("wte2", "外尔半金属")),
+                ("NbOCl2", ("nbocl2",)),
+                ("In2Se3_alpha", ("in2se3", "硒化铟")),
+                ("CuInP2S6", ("cuinp2s6", "cips")),
+                ("GaSe", ("gase", "硒化镓")),
+            ]
+            mat2d = "Graphene"
+            for m_key, pats in mat_kw_map:
+                if any(p in low_msg for p in pats):
+                    mat2d = m_key
+                    break
+            cap = "DLG" if ("dlg" in low_msg or "dual" in low_msg or "双层电容" in low_msg) else "SLG"
+            mir_defaults = {
+                "hBN": (6800.0, 1.2, 2.0, 60.0),
+                "hBN_Isotopic_10B": (6700.0, 1.2, 2.0, 60.0),
+                "alpha_MoO3": (10800.0, 1.8, 3.2, 90.0),
+                "alpha_V2O5": (11500.0, 1.8, 3.2, 90.0),
+                "WTe2": (12000.0, 1.8, 3.2, 90.0),
+                "b_AsP": (6500.0, 1.2, 2.0, 60.0),
+            }
+            if mat2d in mir_defaults:
+                wl_m, hf_m, wr_m, rr_m = mir_defaults[mat2d]
+                f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(
+                    material_2d=mat2d, core_material="Ge", clad_material="CaF2", top_clad_material="Air",
+                    film_height_um=hf_m, ring_width_um=wr_m, ring_radius_um=rr_m, wavelength_nm=wl_m,
+                    v_gate_sweep_v=(0.0,) if mat2d in ("hBN", "hBN_Isotopic_10B", "alpha_MoO3", "alpha_V2O5") else (0.0, 3.0, 6.0),
+                ))}
             else:
-                f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d=mat2d, capacitor_type=cap))}
+                wl_use = 1310.0 if mat2d == "MoTe2" else 1550.0
+                f_res = {"analysis": "twod_material", **simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d=mat2d, capacitor_type=cap, wavelength_nm=wl_use))}
         elif f_kind == "waveguide_pd":
             f_res = {"analysis": "waveguide_pd", **simulate_waveguide_photodetector(WaveguidePDConfig())}
         elif f_kind == "oeo_neuron":

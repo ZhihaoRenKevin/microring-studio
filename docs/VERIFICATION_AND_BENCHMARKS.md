@@ -334,6 +334,19 @@ All new `v3.11.0` physical engines were validated blindly against **COMSOL Multi
 | **Lumerical `3D FDTD`** Synthesized `MDM TE0 -> TE1` (`W_bus = 0.8744 um, L = 24.6 um`) | $T_{\mathrm{TE1}} = 99.04\%$ (`IL = 0.04 dB`), `XT_TE0 = -35.7 dB` | `IL = 0.00 dB`, `XT = -31.0 dB` | **`0.04 dB`** (`99.04%`) |
 | **Lumerical `3D FDTD`** Blind `.GDS` Import of `2.4 µm` Adjoint Inverse Y-Branch | Linear ref `0.199 dB` $\rightarrow$ **Adjoint `.GDS` `0.098 dB` (`97.78%`)** | 2D-FDFD Adjoint `0.047 dB` (`98.93%`) | **`0.098 dB`** (3D loss halved!) |
 
+### 7D.1 Expanded 27-Material 2D vdW Full Anisotropic Tensor Validation (`COMSOL 6.4 ewfd`)
+
+Expanded `twod_materials_mrr.py` (`27` peer-reviewed 2D vdW materials across `8` physical families with full rotated in-plane biaxial tensor $\sigma_{xx}, \sigma_{zz}, \sigma_{xz}$ + normal $\varepsilon_{yy}$ perturbation) was validated against **COMSOL Multiphysics 6.4 `ewfd`** with explicit 3×3 complex permittivity tensors via [`benchmarks/run_2d_library_comsol_validation.py`](../benchmarks/run_2d_library_comsol_validation.py) $\rightarrow$ [`benchmarks/outputs/v311_2d_library_comsol_validation.json`](../benchmarks/outputs/v311_2d_library_comsol_validation.json):
+
+| 2D vdW Material Benchmark | COMSOL 6.4 `ewfd` (3×3 Anisotropic Tensor) | `MicroRing Studio` (Full-Tensor Perturbation) | Independent Agreement |
+| :--- | :--- | :--- | :---: |
+| **`Ti3C2Tx_MXene`** (`5 nm`, `1550 nm`, `220×480 nm` SOI) | $\Delta n_{\mathrm{eff}} = -7.364\times 10^{-3}$, $\alpha = 1667.2\text{ dB/cm}$ | $\Delta n_{\mathrm{eff}} = -7.391\times 10^{-3}$, $\alpha = 1689.2\text{ dB/cm}$ | **`0.36%`** ($\Delta n$), **`1.32%`** ($\alpha$) |
+| **`alpha_MoO3` (`0°`, `[100]` $\parallel x$)** (`25 nm`, `10.8 µm`, `Ge/CaF2/Air`) | $\Delta n_{\mathrm{eff}} = -1.578\times 10^{-3}$, $\alpha = 4.22\text{ dB/cm}$ | $\Delta n_{\mathrm{eff}} = -1.557\times 10^{-3}$, $\alpha = 3.74\text{ dB/cm}$ | **`1.34%`** ($\Delta n$) |
+| **`alpha_MoO3` (`90°`, `[001]` $\parallel x$)** (`25 nm`, `10.8 µm`, `Ge/CaF2/Air`) | $\Delta n_{\mathrm{eff}} = -4.691\times 10^{-4}$, $\alpha = 2.14\text{ dB/cm}$ | $\Delta n_{\mathrm{eff}} = -4.591\times 10^{-4}$, $\alpha = 2.11\text{ dB/cm}$ | **`2.14%`** ($\Delta n$), **`1.31%`** ($\alpha$) |
+| **`hBN_Isotopic_10B`** (`10 nm`, `6.7 µm`, Type-II Reststrahlen) | $\Delta n_{\mathrm{eff}} = -4.476\times 10^{-3}$ | $\Delta n_{\mathrm{eff}} = -4.351\times 10^{-3}$ | **`2.80%`** ($\Delta n$) |
+| **`NbOCl2`** (`15 nm`, `1550 nm`, giant-$\chi^{(2)}$ biaxial EO) | $\Delta n_{\mathrm{eff}} = +1.671\times 10^{-2}$, $\alpha = 0.00\text{ dB/cm}$ | $\Delta n_{\mathrm{eff}} = +1.608\times 10^{-2}$, $\alpha = 0.00\text{ dB/cm}$ | **`3.80%`** ($\Delta n$), **`0.00%`** ($\alpha$) |
+| **`MoS2_Bulk_vdW`** (`10 nm`, `1550 nm`, $n_\parallel=4.28, n_\perp=2.71$) | $\Delta n_{\mathrm{eff}} = +6.558\times 10^{-2}$ (non-perturbative `+0.066` shift) | $\Delta n_{\mathrm{eff}} = +5.956\times 10^{-2}$ | **`9.18%`** ($\Delta n$) |
+
 ---
 
 ## 8. Physical Scope Boundaries

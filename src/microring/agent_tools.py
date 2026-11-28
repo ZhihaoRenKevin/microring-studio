@@ -166,7 +166,7 @@ from .nonlinear_lle import (
     simulate_thermal_kerr_bistability,
 )
 from .wdm_link import WDMLinkConfig, simulate_wdm_microring_link
-from .twod_materials_mrr import TwoDMaterialMRRConfig, simulate_2d_material_mrr
+from .twod_materials_mrr import TWOD_MATERIAL_CATALOG, TwoDMaterialMRRConfig, list_2d_materials, simulate_2d_material_mrr
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
 
@@ -1496,14 +1496,22 @@ def agent_nanoantenna_tcmt(params: dict) -> dict:
 
 
 def agent_2d_material_mrr(params: dict) -> dict:
-    """First-principles 2D Material on MRR solver (<150 tokens): Graphene (Kubo SLG/DLG), TMDs (WS2/MoS2/WSe2/MoSe2), hBN & BP."""
-    aliases = {"mat_2d": "material_2d", "mat": "core_material", "wl_nm": "wavelength_nm", "r_um": "ring_radius_um", "h_um": "film_height_um", "w_ring_um": "ring_width_um"}
+    """First-principles 27-Material 2D vdW on MRR solver (<150 tokens): Graphene/BLG, TMDs, Bulk vdW, PtSe2/PdSe2/ReS2, hBN/h10BN/a-MoO3/a-V2O5, BP/b-AsP/Te, MXenes, Bi2Se3/WTe2, NbOCl2/In2Se3/CIPS/GaSe."""
+    if params.get("list_materials"):
+        mats = list_2d_materials(family=params.get("family"), wavelength_nm=params.get("wl_nm") or params.get("wavelength_nm"))
+        return {"count": len(mats), "materials": [f"{m['name']}({m['family']})" for m in mats]}
+    aliases = {
+        "mat_2d": "material_2d", "mat": "core_material", "wl_nm": "wavelength_nm",
+        "r_um": "ring_radius_um", "h_um": "film_height_um", "w_ring_um": "ring_width_um",
+        "angle_deg": "crystal_angle_deg", "t_2d_nm": "thickness_nm_override",
+    }
     valid = {f.name for f in fields(TwoDMaterialMRRConfig)}
     kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
     res = simulate_2d_material_mrr(TwoDMaterialMRRConfig(**kw))
     m = res["metrics"]
     return {
         "mat_2d": m["material_2d"],
+        "fam": m["family"],
         "cap": m["capacitor_type"],
         "alpha_min": m["alpha_2d_min_dB_per_cm"],
         "alpha_max": m["alpha_2d_max_dB_per_cm"],
@@ -1513,6 +1521,7 @@ def agent_2d_material_mrr(params: dict) -> dict:
         "MRR_ER_dB": m["MRR_dynamic_ER_dB"],
         "f_3dB_GHz": m["f_3dB_total_GHz"],
         "E_fJ": m["energy_per_bit_fJ"],
+        "regime": m["dispersion_regime"],
         "ms": res["elapsed_ms"],
     }
 

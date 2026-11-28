@@ -447,16 +447,20 @@ MCP_TOOLS = [
     },
     {
         "name": "microring_2d_material_mrr",
-        "description": "2D Materials on Microring Resonators: Graphene (exact finite-T Kubo SLG/DLG + quantum capacitance), monolayer TMDs (WS2/MoS2/WSe2/MoSe2 exciton gating), Mid-IR hyperbolic hBN & Black Phosphorus.",
+        "description": "27-Material 2D vdW Library on Microring Resonators (full rotated anisotropic tensor + normal perturbation): Graphene/Bilayer_Graphene, TMDs (WS2/MoS2/WSe2/MoSe2/MoTe2), Bulk vdW (MoS2_Bulk_vdW/WS2_Bulk_vdW), Noble/Biaxial TMDs (PtSe2/PdSe2/ReS2), Hyperbolic Phonons (hBN/hBN_Isotopic_10B/alpha_MoO3/alpha_V2O5), Mid-IR Anisotropic (Black_Phosphorus/b_AsP/Te_Tellurene), MXenes (Ti3C2Tx_MXene/Nb2CTx_MXene), Topological/Weyl (Bi2Se3/WTe2), and Ferroelectric/chi2 EO (NbOCl2/In2Se3_alpha/CuInP2S6/GaSe).",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "material_2d": {"type": "string", "description": "Graphene | WS2 | MoS2 | WSe2 | MoSe2 | hBN | Black_Phosphorus"},
-                "capacitor_type": {"type": "string", "description": "SLG | DLG"},
+                "material_2d": {"type": "string", "description": "Any of 27 catalog keys: Graphene, Bilayer_Graphene, WS2, MoS2, WSe2, MoSe2, MoTe2, MoS2_Bulk_vdW, WS2_Bulk_vdW, PtSe2, PdSe2, ReS2, hBN, hBN_Isotopic_10B, alpha_MoO3, alpha_V2O5, Black_Phosphorus, b_AsP, Te_Tellurene, Ti3C2Tx_MXene, Nb2CTx_MXene, Bi2Se3, WTe2, NbOCl2, In2Se3_alpha, CuInP2S6, GaSe"},
+                "capacitor_type": {"type": "string", "description": "SLG | DLG (for Graphene)"},
                 "mat": {"type": "string", "description": "Core waveguide material (Si | Si3N4 | LN_Xcut | Ge)"},
                 "wl_nm": {"type": "number"},
                 "r_um": {"type": "number"},
                 "spacer_ox_nm": {"type": "number"},
+                "crystal_angle_deg": {"type": "number", "description": "In-plane crystal principal axis angle vs waveguide x-axis [deg]"},
+                "thickness_nm_override": {"type": "number", "description": "Optional flake thickness override [nm]"},
+                "list_materials": {"type": "boolean", "description": "Set true to list all 27 2D materials and families"},
+                "family": {"type": "string", "description": "Optional family filter when list_materials=true"},
             },
         },
     },

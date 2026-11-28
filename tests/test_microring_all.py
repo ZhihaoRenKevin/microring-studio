@@ -2157,18 +2157,42 @@ def test_nanoantenna_tcmt_and_frontier_stage12_integration() -> None:
     fit = fit_nanoantenna_tcmt_spectrum(nu, r_sig, with_molecule=True, nu_mol_guess_cm1=1725.0)
     assert fit["metrics"]["r_squared"] > 0.999 and abs(fit["metrics"]["nu0_molecule_cm1"] - 1730.0) < 1.5
 
-    # 2b. 2D Materials on MRR (Graphene SLG/DLG Kubo Pauli blocking, WS2 sub-bandgap phase-only, hBN hyperbolic)
+    # 2b. Expanded 27-Material 2D vdW Library on MRR (Graphene SLG/DLG/BLG, TMDs, Bulk vdW, Biaxial a-MoO3, MXene, Weyl WTe2, Ferroelectric/chi2)
+    from microring import TWOD_MATERIAL_CATALOG, evaluate_2d_material_tensor, list_2d_materials
+    assert len(TWOD_MATERIAL_CATALOG) == 27 and len(list_2d_materials()) == 27
     gr = simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="Graphene", capacitor_type="SLG"))
     ws2 = simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="WS2", v_gate_sweep_v=(0.0, 3.0, 6.0)))
     hbn = simulate_2d_material_mrr(TwoDMaterialMRRConfig(
         material_2d="hBN", core_material="Ge", clad_material="CaF2", top_clad_material="Air",
         film_height_um=1.2, ring_width_um=2.0, ring_radius_um=60.0, wavelength_nm=6800.0, v_gate_sweep_v=(0.0,),
     ))
+    moo3_0 = simulate_2d_material_mrr(TwoDMaterialMRRConfig(
+        material_2d="alpha_MoO3", core_material="Ge", clad_material="CaF2", top_clad_material="Air",
+        film_height_um=1.8, ring_width_um=3.2, ring_radius_um=90.0, wavelength_nm=10800.0,
+        crystal_angle_deg=0.0, v_gate_sweep_v=(0.0,),
+    ))
+    moo3_90 = simulate_2d_material_mrr(TwoDMaterialMRRConfig(
+        material_2d="alpha_MoO3", core_material="Ge", clad_material="CaF2", top_clad_material="Air",
+        film_height_um=1.8, ring_width_um=3.2, ring_radius_um=90.0, wavelength_nm=10800.0,
+        crystal_angle_deg=90.0, v_gate_sweep_v=(0.0,),
+    ))
+    wte2_t = evaluate_2d_material_tensor("WTe2", 12000.0)
+    mx_t = evaluate_2d_material_tensor("Ti3C2Tx_MXene", 1550.0)
+    blg_t = evaluate_2d_material_tensor("Bilayer_Graphene", 3200.0, v_gate_v=5.0)
+    fe_r = simulate_2d_material_mrr(TwoDMaterialMRRConfig(material_2d="In2Se3_alpha", v_gate_sweep_v=(0.0, 2.0, 5.0)))
     assert 600.0 < gr["metrics"]["alpha_2d_max_dB_per_cm"] < 950.0
     assert gr["metrics"]["alpha_2d_min_dB_per_cm"] < 80.0 and gr["metrics"]["MRR_dynamic_ER_dB"] > 2.0
     assert ws2["metrics"]["phase_to_loss_ratio_dn_dk"] > 20.0
     assert hbn["metrics"]["hbn_dispersion_regime"] == "Hyperbolic_Type_II_Reststrahlen"
+    assert moo3_0["metrics"]["dispersion_regime"] == "InPlane_Hyperbolic_Biaxial"
+    # High-index Ge waveguide longitudinal E_z makes 90 deg weaker negative (-4.6e-4) vs 0 deg (-1.56e-3), verified 1.3-2.1% vs COMSOL 6.4!
+    assert moo3_0["metrics"]["delta_neff_V0"] < moo3_90["metrics"]["delta_neff_V0"] < 0.0
+    assert abs(moo3_0["metrics"]["delta_neff_V0"]) > 3.0 * abs(moo3_90["metrics"]["delta_neff_V0"])
+    assert wte2_t["dispersion_regime"] == "InPlane_Hyperbolic_Plasmonic"
+    assert mx_t["eps_u"].real < 0.0 and blg_t["bandgap_eV"] > 0.15
+    assert fe_r["metrics"]["dispersion_regime"] == "Ferroelectric_NonVolatile_EO" and fe_r["metrics"]["max_resonance_shift_pm"] > 50.0
     assert len(json.dumps(agent_2d_material_mrr({"material_2d": "Graphene"}))) < 620
+    assert agent_2d_material_mrr({"list_materials": True})["count"] == 27
 
     # 3. Stage 12 HTTP ASGI /api/frontier_physics + UI pill-frontier + Copilot EN/ZH + MCP tools #17-#21
     with tempfile.TemporaryDirectory() as td:

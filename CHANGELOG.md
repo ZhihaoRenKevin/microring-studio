@@ -22,7 +22,10 @@ All notable changes to **MicroRing Studio** are documented in this file.
 - **Native S-Matrix PIC Circuit Netlist (`pic_circuit_netlist.py`) & 2D-FDFD Exact Adjoint Inverse Optimizer (`inverse_design_adjoint.py`)**:
   - `simulate_pic_circuit_netlist`: Arbitrary-topology Schur-complement scattering network simulator with strict singular-value passivity audit and Touchstone `.sNp` export.
   - `optimize_inverse_photonic_device`: 2D-FDFD exact Maxwell adjoint-gradient spline shape optimizer cutting compact `2.4 µm` SOI Y-branch loss to `0.047 dB` in 2D-FDFD and **`0.098 dB` (`97.78%`)** when its `.GDS` is imported blindly into Lumerical 3D FDTD (RTX 5090 GPU)!
-- **Full-Stack Integration**: Expanded Stage 12 UI (`31` frontier modes), Bilingual Copilot, CLI (`7` new subcommands), **`28` MCP tools**, and **`26/26` automated verification suites PASS**.
+- **Expanded 27-Material 2D van der Waals Library (`twod_materials_mrr.py`)**:
+  - Expanded from `7` to **`27` peer-reviewed 2D vdW materials across `8` physical families (`400 nm – 18 µm`)** with exact rotated in-plane biaxial surface-conductivity tensor ($\sigma_{xx}, \sigma_{zz}, \sigma_{xz}$) and out-of-plane $\varepsilon_{yy}$ perturbation (`list_2d_materials`, `evaluate_2d_material_tensor`, `bilayer_graphene_conductivity`, `biaxial_phonon_tensor`): `Graphene`, `Bilayer_Graphene`, `WS2`, `MoS2`, `WSe2`, `MoSe2`, `MoTe2`, `MoS2_Bulk_vdW`, `WS2_Bulk_vdW`, `PtSe2`, `PdSe2`, `ReS2`, `hBN`, `hBN_Isotopic_10B`, `alpha_MoO3`, `alpha_V2O5`, `Black_Phosphorus`, `b_AsP`, `Te_Tellurene`, `Ti3C2Tx_MXene`, `Nb2CTx_MXene`, `Bi2Se3`, `WTe2`, `NbOCl2`, `In2Se3_alpha`, `CuInP2S6`, and `GaSe`.
+  - Validated 6 new anisotropic/hyperbolic/plasmonic/ferroelectric benchmarks against **COMSOL 6.4 `ewfd`** 3×3 complex tensors (`Ti3C2Tx_MXene` `0.36%`/`1.32%`, `alpha_MoO3` `0°`/`90°` `1.34%`/`2.14%`, `hBN_Isotopic_10B` `2.80%`, `NbOCl2` `3.80%`, `MoS2_Bulk_vdW` `9.18%`).
+- **Full-Stack Integration**: Expanded Stage 12 UI (`31` frontier modes, `27`-material 2D selector), Bilingual Copilot, CLI (`7` new subcommands + `twod-material --angle/--t2d/--list`), **`28` MCP tools**, and **`26/26` automated verification suites PASS**.
 
 ## [3.10.0] - 2026-11-28
 
