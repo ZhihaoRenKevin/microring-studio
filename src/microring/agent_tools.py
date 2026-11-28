@@ -168,6 +168,12 @@ from .nonlinear_lle import (
 from .wdm_link import WDMLinkConfig, simulate_wdm_microring_link
 from .twod_materials_mrr import TWOD_MATERIAL_CATALOG, TwoDMaterialMRRConfig, list_2d_materials, simulate_2d_material_mrr
 from .ep_microring import MRRExceptionalPointConfig, simulate_mrr_exceptional_point
+from .optical_phased_array import OPALiDARConfig, simulate_optical_phased_array
+from .slab_diffractive_pic import SlabDiffractiveConfig, simulate_slab_diffractive_pic
+from .eam_and_soa import EAMConfig, OpticalAmplifierConfig, simulate_eam_modulator, simulate_optical_amplifier
+from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnlse_supercontinuum, simulate_ppln_qpm
+from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
+from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
 
@@ -1676,6 +1682,129 @@ def agent_mrr_ep(params: dict) -> dict:
         if k in m:
             out[k] = m[k]
     return out
+
+
+def agent_opa_lidar(params: dict) -> dict:
+    """Live first-principles 1D/2D Optical Phased Array & LiDAR solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    aliases = {"mat": "core_material", "n": "num_antennas", "pitch_um": "array_pitch_um", "wl_nm": "wavelength_nm", "steer_deg": "steer_theta_deg"}
+    valid = {f.name for f in fields(OPALiDARConfig)}
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"opa_N{kw.get('num_antennas', 16)}.gds")
+    res = simulate_optical_phased_array(OPALiDARConfig(**kw))
+    m = res["metrics"]
+    return {"N": m["num_antennas"], "layout": m["pitch_layout"], "peak_deg": m["steered_peak_theta_deg"], "FWHM_deg": m["beam_FWHM_theta_deg"], "SLSR_dB": m["SLSR_sidelobe_suppression_dB"], "FoV_x": m["FoV_theta_deg"], "dpsi_dlam": m["wavelength_steering_deg_per_nm"], "spots_2D": m["resolvable_2D_spots"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_slab_diffractive(params: dict) -> dict:
+    """Live first-principles 2D ASM Slab Rowland FPR & trainable On-Chip Diffractive PDDNN solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    aliases = {"mat": "core_material", "wl_nm": "wavelength_nm", "layers": "num_diffractive_layers", "slots": "num_phase_slots", "task": "target_task"}
+    valid = {f.name for f in fields(SlabDiffractiveConfig)}
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"slab_{kw.get('mode', 'diffractive_pddnn')}.gds")
+    res = simulate_slab_diffractive_pic(SlabDiffractiveConfig(**kw))
+    m = res["metrics"]
+    return {k: v for k, v in m.items() if k != "initial_loss"} | {"ms": res["elapsed_ms"]}
+
+
+def agent_eam_soa(params: dict) -> dict:
+    """Live first-principles GeSi FKE / InP QCSE EAM & Traveling-Wave SOA/EDWA solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "eam").lower().strip()
+    if analysis in ("soa", "edwa", "amplifier", "soa_ingaasp", "edwa_si3n4"):
+        valid = {f.name for f in fields(OpticalAmplifierConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("edwa", "edwa_si3n4") and "amp_type" not in kw:
+            kw["amp_type"] = "edwa_si3n4"
+            kw.setdefault("length_mm", 100.0)
+            kw.setdefault("pump_or_current_ma", 250.0)
+            kw.setdefault("internal_loss_db_per_cm", 0.15)
+            kw.setdefault("active_width_um", 1.6)
+            kw.setdefault("active_height_um", 0.8)
+            kw.setdefault("confinement_gamma", 0.75)
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"amp_{kw.get('amp_type', 'soa_ingaasp')}.gds")
+        res = simulate_optical_amplifier(OpticalAmplifierConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": m["amp_type"], "G0_dB": m["small_signal_gain_G0_dB"], "G_op_dB": m["operating_gain_dB"], "Psat_dBm": m["P_sat_out_3dB_dBm"], "NF_dB": m["noise_figure_NF_dB"], "ripple_dB": m["facet_gain_ripple_dB"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(EAMConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"eam_{kw.get('eam_type', 'gesi_fke')}.gds")
+    res = simulate_eam_modulator(EAMConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": m["eam_type"], "IL_dB": m["insertion_loss_dB"], "ER_dB": m["extinction_ratio_dB"], "OMA_dB": m["OMA_dB"], "chirp": m["henry_chirp_alpha_H"], "f_3dB_GHz": m["f_3dB_RC_GHz"], "E_fJ": m["energy_per_bit_fJ"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_gnlse_ppln(params: dict) -> dict:
+    """Live first-principles Single-Pass GNLSE Supercontinuum & PPLN QPM SHG/SFG/DFG solver (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "ppln").lower().strip()
+    if analysis in ("gnlse", "supercontinuum", "sc"):
+        aliases = {"mat": "core_material", "wl_nm": "pump_wavelength_nm", "p_w": "peak_power_w", "l_mm": "waveguide_length_mm"}
+        valid = {f.name for f in fields(GNLSEConfig)}
+        kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+        res = simulate_gnlse_supercontinuum(GNLSEConfig(**kw))
+        m = res["metrics"]
+        return {"analysis": "gnlse", "mat": m["core_material"], "beta2": m["beta2_ps2_per_km"], "gamma": m["gamma_Kerr_W_per_m"], "N_sol": m["soliton_order_N"], "SC_nm": m["SC_20dB_bandwidth_nm"], "octaves": m["SC_20dB_octaves"], "ms": res["elapsed_ms"]}
+    aliases = {"mat": "core_material", "wl_nm": "pump_wavelength_nm", "p_mw": "pump_power_mw", "l_mm": "length_mm"}
+    valid = {f.name for f in fields(PPLNQPMConfig)}
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"ppln_{kw.get('process', 'shg')}.gds")
+    res = simulate_ppln_qpm(PPLNQPMConfig(**kw))
+    m = res["metrics"]
+    return {"analysis": f"ppln_{m['process']}", "Lambda_um": m["QPM_poling_period_um"], "eta0_pct_Wcm2": m["normalized_efficiency_pct_per_W_cm2"], "P_out_mW": m["output_generated_power_mW"], "eff_pct": m["conversion_efficiency_pct"], "FWHM_nm": m["acceptance_FWHM_nm"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_routing_crossings(params: dict) -> dict:
+    """Live first-principles 2D-FDFD MMI Waveguide Crossing, Adiabatic Taper & PIC Auto-Router (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "crossing").lower().strip()
+    if analysis in ("taper", "adiabatic_taper"):
+        valid = {f.name for f in fields(AdiabaticTaperConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"taper_{kw.get('profile', 'milton_burns')}.gds")
+        res = simulate_adiabatic_taper(AdiabaticTaperConfig(**kw))
+        return res["metrics"] | {"ms": res["elapsed_ms"]}
+    if analysis in ("router", "auto_router", "route"):
+        valid = {f.name for f in fields(PICAutoRouterConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"pic_route_N{kw.get('num_channels', 4)}.gds")
+        res = route_pic_waveguides(PICAutoRouterConfig(**kw))
+        return res["metrics"] | {"ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(WaveguideCrossingConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / "mmi_crossing.gds")
+    res = simulate_waveguide_crossing(WaveguideCrossingConfig(**kw))
+    return res["metrics"] | {"ms": res["elapsed_ms"]}
+
+
+def agent_isolator_mems(params: dict) -> dict:
+    """Live first-principles Ce:YIG / Spatiotemporal Optical Isolator & Photonic MEMS Switch (<150 tokens)."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or "isolator").lower().strip()
+    if analysis in ("mems", "mems_switch", "cantilever", "doubly_clamped"):
+        valid = {f.name for f in fields(PhotonicMEMSConfig)}
+        kw = {k: v for k, v in params.items() if v is not None and k in valid}
+        if analysis in ("cantilever", "doubly_clamped") and "beam_type" not in kw:
+            kw["beam_type"] = analysis
+        if params.get("export_gds") and not kw.get("export_gds_path"):
+            kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mems_{kw.get('beam_type', 'cantilever')}.gds")
+        res = simulate_photonic_mems_switch(PhotonicMEMSConfig(**kw))
+        return res["metrics"] | {"ms": res["elapsed_ms"]}
+    valid = {f.name for f in fields(OpticalIsolatorConfig)}
+    kw = {k: v for k, v in params.items() if v is not None and k in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"isolator_{kw.get('iso_type', 'magneto_optic_ceyig')}.gds")
+    res = simulate_optical_isolator(OpticalIsolatorConfig(**kw))
+    return res["metrics"] | {"ms": res["elapsed_ms"]}
 
 
 

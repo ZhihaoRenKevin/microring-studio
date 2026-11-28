@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-11-28 14:57:28",
+  "machine": "Kevin",
+  "elapsed_s": 116.4,
+  "comsol_6_4": {
+    "opa_mutual_coupling": {
+      "comsol_kappa_per_cm": 124.017,
+      "microring_kappa_per_cm": 124.428,
+      "rel_err_pct": 0.33
+    },
+    "gesi_fke_eam": {
+      "comsol_alpha_ON_dB_um": 0.00337,
+      "microring_alpha_ON_dB_um": 0.00337,
+      "comsol_alpha_OFF_dB_um": 0.07293,
+      "microring_alpha_OFF_dB_um": 0.07293,
+      "rel_err_OFF_pct": 0.01
+    },
+    "tfln_ppln_qpm": {
+      "comsol_n1550": 1.90626,
+      "microring_n1550": 1.90628,
+      "comsol_n775": 2.10102,
+      "microring_n775": 2.10104,
+      "comsol_Lambda_QPM_um": 3.9793,
+      "microring_Lambda_QPM_um": 3.9791,
+      "rel_err_Lambda_pct": 0.01
+    },
+    "ceyig_gyrotropic_isolator": {
+      "comsol_NRPS_rad_per_cm": 45.985,
+      "microring_NRPS_rad_per_cm": 46.054,
+      "rel_err_pct": 0.15
+    },
+    "photonic_mems_eigenfreq": {
+      "comsol_cantilever_MHz": 0.3959,
+      "microring_cantilever_MHz": 0.386,
+      "cantilever_err_pct": 2.49,
+      "comsol_bridge_MHz": 2.5184,
+      "microring_bridge_MHz": 2.457,
+      "bridge_err_pct": 2.44
+    }
+  },
+  "lumerical_3d_fdtd_gpu": {
+    "synthesized_MMI_length_um": 4.819,
+    "microring_2D_FDFD_IL_dB": 0.2463,
+    "microring_2D_FDFD_XT_dB": -48.91,
+    "lumerical_3D_FDTD_T_pct": 94.88,
+    "lumerical_3D_FDTD_IL_dB": 0.2283,
+    "lumerical_3D_FDTD_XT_dB": -24.01
+  }
+}

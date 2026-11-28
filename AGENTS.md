@@ -40,6 +40,12 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **Native License-Free PIC S-Matrix Circuit Netlist Simulator (+ .sNp)** | `uv run microring agent pic-netlist --preset ramzi_linearized --snp` |
 | **2D-FDFD Exact Maxwell Adjoint-Gradient Inverse Shape Optimizer (+ GDS)** | `uv run microring agent inverse-adjoint --len 2.4 --iters 30 --gds` |
 | **MRR Exceptional Points (Chiral EP2, Fab-Immune ES, EP3/EP4, Anti-PT, Encircling, Petermann K_P)** | `uv run microring agent mrr-ep --regime pt_ep_n --n 3 --fem-gap --gds` |
+| **1D/2D Optical Phased Array & LiDAR (OPA + Minimax-SLSR + GDS)** | `uv run microring agent opa-lidar --n 16 --steer 15 --layout aperiodic --gds` |
+| **On-Chip 2D Slab Rowland FPR & Trainable Diffractive PDDNN (Live ASM Backprop)** | `uv run microring agent slab-diffractive --mode diffractive_pddnn --task beam_router --gds` |
+| **GeSi FKE / InP QCSE EAM & Traveling-Wave SOA / Er-EDWA Amplifier** | `uv run microring agent eam-soa --analysis eam --eam-type gesi_fke --gds` |
+| **Single-Pass GNLSE Supercontinuum & PPLN QPM (SHG/SFG/DFG + Poled GDS)** | `uv run microring agent gnlse-ppln --analysis ppln --process shg --gds` |
+| **2D TE-FDFD MMI Waveguide Crossing, Milton-Burns Taper & PIC Auto-Router** | `uv run microring agent routing-crossings --analysis crossing --gds` |
+| **Ce:YIG / Spatiotemporal Optical Isolator & Photonic MEMS Pull-In Switch** | `uv run microring agent isolator-mems --analysis isolator --iso-type magneto_optic_ceyig --gds` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

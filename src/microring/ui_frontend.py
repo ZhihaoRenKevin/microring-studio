@@ -1955,6 +1955,13 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
                 <option value="pic_netlist">🔌 Native PIC S-Matrix Circuit Netlist (License-Free INTERCONNECT)</option>
                 <option value="inverse_adjoint">🧬 2D-FDFD Exact Adjoint Inverse-Design Y-Branch Optimizer</option>
                 <option value="mrr_ep">🌀 MRR Exceptional Point Suite (Chiral EP2 · Fab-Immune ES · EP3/EP4 · Anti-PT · Encircling)</option>
+                <option value="opa_lidar">📡 Optical Phased Array &amp; 2D Solid-State LiDAR (OPA + SLSR + GDS)</option>
+                <option value="slab_diffractive">🔷 On-Chip 2D Slab Rowland FPR &amp; Trainable Diffractive PDDNN (Live ASM Backprop)</option>
+                <option value="eam_modulator">⚡ Electro-Absorption Modulator (GeSi Airy Franz-Keldysh &amp; InP MQW QCSE)</option>
+                <option value="optical_amplifier">🔊 On-Chip Optical Amplifier (InGaAsP SOA &amp; Er:Si₃N₄ EDWA + ASE NF)</option>
+                <option value="gnlse_ppln">💥 Single-Pass Waveguide Nonlinear: RK4IP GNLSE Supercontinuum &amp; PPLN QPM</option>
+                <option value="routing_crossings">✚ 2D-FDFD MMI Waveguide Crossing, Milton-Burns Taper &amp; PIC Auto-Router</option>
+                <option value="isolator_mems">🧲 Non-Reciprocal Ce:YIG/Spatiotemporal Isolator &amp; Photonic MEMS Pull-In Switch</option>
               </select>
             </div>
             <div class="form-row" style="margin:0;">
@@ -6902,6 +6909,41 @@ function onFrontierModeChange(skipRun) {
     ]);
     lblP1.textContent = 'Coupling J [GHz]'; p1.value = '2.0';
     lblP2.textContent = 'Perturbation ε [GHz]'; p2.value = '0.05';
+  } else if (mode === 'opa_lidar') {
+    lblSub.textContent = 'Emitter Pitch Layout';
+    setOpts([['aperiodic', 'Minimax-SLSR Aperiodic (Grating-Lobe Free)'], ['uniform', 'Uniform Pitch Array'], ['half_lambda', 'λ/2 Aliasing-Free Dense Array']]);
+    lblP1.textContent = 'Antennas N'; p1.value = '16';
+    lblP2.textContent = 'Steer Angle θ [deg]'; p2.value = '15';
+  } else if (mode === 'slab_diffractive') {
+    lblSub.textContent = 'Slab Architecture / Task';
+    setOpts([['pddnn_router', 'Trainable PDDNN: 4×4 Beam Router'], ['pddnn_splitter', 'Trainable PDDNN: 1×4 Power Splitter'], ['pddnn_dft', 'Trainable PDDNN: 4×4 Coherent DFT'], ['rowland_fpr', 'Confocal Rowland-Circle Star Coupler (FPR)']]);
+    lblP1.textContent = 'Slab Length L [µm]'; p1.value = '35';
+    lblP2.textContent = 'Phase Slots / Layer'; p2.value = '16';
+  } else if (mode === 'eam_modulator') {
+    lblSub.textContent = 'EAM Physics Engine';
+    setOpts([['gesi_fke', 'Strained GeSi Airy Franz-Keldysh EAM'], ['inp_qcse', 'InGaAsP/InP MQW QCSE EAM']]);
+    lblP1.textContent = 'Wavelength [nm]'; p1.value = '1610';
+    lblP2.textContent = 'Active Length [µm]'; p2.value = '40';
+  } else if (mode === 'optical_amplifier') {
+    lblSub.textContent = 'Amplifier Platform';
+    setOpts([['soa_ingaasp', 'Heterogeneous InGaAsP/InP Traveling-Wave SOA'], ['edwa_si3n4', 'On-Chip Er³⁺:Si₃N₄ Spiral EDWA (1480 nm Pump)']]);
+    lblP1.textContent = 'Current [mA] / Pump [mW]'; p1.value = '120';
+    lblP2.textContent = 'Input Power [dBm]'; p2.value = '-15';
+  } else if (mode === 'gnlse_ppln') {
+    lblSub.textContent = 'Single-Pass Nonlinear Engine';
+    setOpts([['ppln_shg', 'X-Cut TFLN PPLN QPM SHG (1550→775 nm)'], ['ppln_sfg', 'X-Cut TFLN PPLN QPM SFG'], ['ppln_dfg', 'X-Cut TFLN PPLN QPM DFG'], ['gnlse_si3n4', 'Si₃N₄ RK4IP GNLSE Supercontinuum']]);
+    lblP1.textContent = 'Power (mW PPLN / W GNLSE)'; p1.value = '150';
+    lblP2.textContent = 'Waveguide Length [mm]'; p2.value = '6';
+  } else if (mode === 'routing_crossings') {
+    lblSub.textContent = 'Routing / Crossing Engine';
+    setOpts([['crossing', '2D-FDFD Self-Imaging MMI Waveguide Crossing'], ['taper', 'Milton-Burns CLMT Adiabatic Taper'], ['router', 'Multi-Port Length-Matched PIC Auto-Router']]);
+    lblP1.textContent = 'MMI W / Taper L / Channels'; p1.value = '1.25';
+    lblP2.textContent = 'Wavelength [nm]'; p2.value = '1550';
+  } else if (mode === 'isolator_mems') {
+    lblSub.textContent = 'Isolator / MEMS Engine';
+    setOpts([['magneto_optic_ceyig', 'Ce:YIG-on-Si Magneto-Optic 2D-FEM NRPS Isolator'], ['spatiotemporal_eo', 'Magnet-Free Spatiotemporal EO/AO Isolator'], ['cantilever', 'Photonic MEMS Electrostatic Cantilever Switch'], ['doubly_clamped', 'Photonic MEMS Doubly-Clamped Bridge Switch']]);
+    lblP1.textContent = 'Beam L [µm] / Mod L [mm]'; p1.value = '28';
+    lblP2.textContent = 'Initial Gap g₀ [µm] / f_RF [GHz]'; p2.value = '0.45';
   } else {
     lblSub.textContent = 'Nanoantenna Mode';
     setOpts([['seira_molecular', 'SEIRA Molecular (Au MIM + PMMA 1730 cm⁻¹)'], ['mim_absorber', '1-Port MIM Perfect Absorber'], ['fano_eit_qbic', '2-Mode Fano / EIT / q-BIC Metasurface'], ['metasurface_ep', 'Exceptional Point Coupled Metasurface']]);
@@ -7015,6 +7057,31 @@ async function runFrontierPhysicsUI() {
       body.regime = sub1;
     }
     body.coupling_j_ghz = v1; body.perturbation_ghz = v2;
+  } else if (mode === 'opa_lidar') {
+    body.pitch_layout = sub1; body.num_antennas = Math.max(4, Math.round(v1)); body.steer_theta_deg = v2;
+  } else if (mode === 'slab_diffractive') {
+    if (sub1 === 'rowland_fpr') { body.mode = 'rowland_fpr'; }
+    else {
+      body.mode = 'diffractive_pddnn';
+      body.target_task = sub1 === 'pddnn_splitter' ? 'power_splitter' : (sub1 === 'pddnn_dft' ? 'dft_unitary' : 'beam_router');
+    }
+    body.fpr_length_um = v1; body.num_phase_slots = Math.max(4, Math.round(v2));
+  } else if (mode === 'eam_modulator') {
+    body.eam_type = sub1; body.wavelength_nm = (sub1 === 'inp_qcse' && Math.abs(v1 - 1610) < 5) ? 1550 : v1; body.eam_length_um = v2;
+  } else if (mode === 'optical_amplifier') {
+    body.amp_type = sub1; body.pump_or_current_ma = v1; body.input_power_dbm = v2;
+    if (sub1 === 'edwa_si3n4') { body.length_mm = 100; body.internal_loss_db_per_cm = 0.15; body.active_width_um = 1.6; body.active_height_um = 0.8; body.confinement_gamma = 0.75; }
+  } else if (mode === 'gnlse_ppln') {
+    if (sub1 === 'gnlse_si3n4') { body.sub_mode = 'gnlse'; body.peak_power_w = Math.max(v1, 100); body.waveguide_length_mm = v2; }
+    else { body.sub_mode = 'ppln'; body.process = sub1.split('_')[1] || 'shg'; body.pump_power_mw = v1; body.length_mm = v2; }
+  } else if (mode === 'routing_crossings') {
+    body.sub_mode = sub1;
+    if (sub1 === 'crossing') { body.mmi_width_um = Math.max(0.8, Math.min(3.5, v1)); body.wavelength_nm = v2; }
+    else if (sub1 === 'taper') { body.taper_length_um = Math.max(3.0, v1 > 5 ? v1 : 25.0); body.wavelength_nm = v2; }
+    else { body.num_channels = Math.max(2, Math.min(12, Math.round(v1 >= 2 ? v1 : 4))); }
+  } else if (mode === 'isolator_mems') {
+    if (sub1 === 'cantilever' || sub1 === 'doubly_clamped') { body.sub_mode = sub1; body.beam_length_um = v1; body.initial_gap_um = v2; }
+    else { body.sub_mode = 'isolator'; body.iso_type = sub1; if (sub1 === 'spatiotemporal_eo') { body.mod_length_mm = Math.min(v1, 15); body.mod_freq_ghz = Math.max(v2, 5); } }
   }
 
   try {

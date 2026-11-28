@@ -21,17 +21,21 @@ from .agent_tools import (
     agent_advanced_mrr,
     agent_design_mrr,
     agent_design_mzi,
+    agent_eam_soa,
     agent_eom_multiphysics,
     agent_fab_tolerance,
     agent_fit_spectrum,
+    agent_gnlse_ppln,
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_isolator_mems,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
     agent_mrr_ep,
     agent_nonlinear_lle,
+    agent_opa_lidar,
     agent_pcm_photonics,
     agent_pdk_drc,
     agent_photodetector,
@@ -39,7 +43,9 @@ from .agent_tools import (
     agent_pic_netlist,
     agent_polarization_mdm,
     agent_prism_optimize,
+    agent_routing_crossings,
     agent_saw_sbs,
+    agent_slab_diffractive,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
@@ -415,6 +421,48 @@ def main() -> None:
     p_ep.add_argument("--gds", action="store_true", dest="export_gds")
     p_ep.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_opa = ag_sub.add_parser("opa-lidar", help="Live 1D/2D Optical Phased Array & LiDAR beam-steering engine")
+    p_opa.add_argument("--n", type=int, default=16, dest="num_antennas")
+    p_opa.add_argument("--pitch", type=float, default=2.0, dest="array_pitch_um")
+    p_opa.add_argument("--layout", type=str, default="aperiodic", dest="pitch_layout")
+    p_opa.add_argument("--steer", type=float, default=15.0, dest="steer_theta_deg")
+    p_opa.add_argument("--gds", action="store_true", dest="export_gds")
+    p_opa.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_slb = ag_sub.add_parser("slab-diffractive", help="Live 2D ASM Slab Rowland FPR & trainable PDDNN/EO-DPNN engine")
+    p_slb.add_argument("--mode", type=str, default="diffractive_pddnn")
+    p_slb.add_argument("--task", type=str, default="beam_router", dest="target_task")
+    p_slb.add_argument("--layers", type=int, default=3, dest="num_diffractive_layers")
+    p_slb.add_argument("--slots", type=int, default=16, dest="num_phase_slots")
+    p_slb.add_argument("--gds", action="store_true", dest="export_gds")
+    p_slb.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_eam = ag_sub.add_parser("eam-soa", help="Live GeSi FKE / InP QCSE EAM & Traveling-Wave SOA / EDWA engine")
+    p_eam.add_argument("--analysis", type=str, default="eam", help="eam | soa | edwa")
+    p_eam.add_argument("--eam-type", type=str, default="gesi_fke", dest="eam_type")
+    p_eam.add_argument("--wl", type=float, default=None, dest="wavelength_nm")
+    p_eam.add_argument("--gds", action="store_true", dest="export_gds")
+    p_eam.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_gnl = ag_sub.add_parser("gnlse-ppln", help="Live single-pass GNLSE Supercontinuum & PPLN QPM SHG/SFG/DFG engine")
+    p_gnl.add_argument("--analysis", type=str, default="ppln", help="ppln | gnlse")
+    p_gnl.add_argument("--process", type=str, default="shg")
+    p_gnl.add_argument("--mat", type=str, default=None)
+    p_gnl.add_argument("--gds", action="store_true", dest="export_gds")
+    p_gnl.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_rt = ag_sub.add_parser("routing-crossings", help="Live 2D-FDFD MMI Crossing, Adiabatic Taper & PIC Auto-Router")
+    p_rt.add_argument("--analysis", type=str, default="crossing", help="crossing | taper | router")
+    p_rt.add_argument("--gds", action="store_true", dest="export_gds")
+    p_rt.add_argument("--json", type=str, default=None, dest="raw_json")
+
+    p_iso = ag_sub.add_parser("isolator-mems", help="Live Ce:YIG/Spatiotemporal Optical Isolator & Photonic MEMS Switch")
+    p_iso.add_argument("--analysis", type=str, default="isolator", help="isolator | mems")
+    p_iso.add_argument("--iso-type", type=str, default="magneto_optic_ceyig", dest="iso_type")
+    p_iso.add_argument("--beam", type=str, default="cantilever", dest="beam_type")
+    p_iso.add_argument("--gds", action="store_true", dest="export_gds")
+    p_iso.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -515,6 +563,18 @@ def main() -> None:
             _print_compact(agent_inverse_adjoint(d))
         elif args.agent_cmd == "mrr-ep":
             _print_compact(agent_mrr_ep(d))
+        elif args.agent_cmd == "opa-lidar":
+            _print_compact(agent_opa_lidar(d))
+        elif args.agent_cmd == "slab-diffractive":
+            _print_compact(agent_slab_diffractive(d))
+        elif args.agent_cmd == "eam-soa":
+            _print_compact(agent_eam_soa(d))
+        elif args.agent_cmd == "gnlse-ppln":
+            _print_compact(agent_gnlse_ppln(d))
+        elif args.agent_cmd == "routing-crossings":
+            _print_compact(agent_routing_crossings(d))
+        elif args.agent_cmd == "isolator-mems":
+            _print_compact(agent_isolator_mems(d))
 
 
 if __name__ == "__main__":

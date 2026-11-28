@@ -28,7 +28,7 @@ if str(_SRC_DIR) not in sys.path:
 try:
     from microring import __version__ as APP_VERSION
 except Exception:
-    APP_VERSION = "3.11.0"
+    APP_VERSION = "3.12.0"
 
 
 def generate_app_icons(pkg_dir: Path) -> tuple[Path | None, Path | None]:

@@ -141,6 +141,12 @@ from .ep_microring import (
     MRRExceptionalPointConfig,
     simulate_mrr_exceptional_point,
 )
+from .optical_phased_array import OPALiDARConfig, simulate_optical_phased_array
+from .slab_diffractive_pic import SlabDiffractiveConfig, simulate_slab_diffractive_pic
+from .eam_and_soa import EAMConfig, OpticalAmplifierConfig, simulate_eam_modulator, simulate_optical_amplifier
+from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnlse_supercontinuum, simulate_ppln_qpm
+from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
+from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1669,6 +1675,49 @@ def _advanced_frontier_sync(payload: dict) -> dict:
         elif analysis == "anti_pt" and "regime" not in kw:
             kw["regime"] = "anti_pt_bus"
         return {"analysis": "mrr_ep", **simulate_mrr_exceptional_point(MRRExceptionalPointConfig(**kw))}
+    if analysis in ("opa_lidar", "opa", "lidar"):
+        kw = _filter_dataclass_kwargs(OPALiDARConfig, payload)
+        return {"analysis": "opa_lidar", **simulate_optical_phased_array(OPALiDARConfig(**kw))}
+    if analysis in ("slab_diffractive", "rowland_fpr", "diffractive_pddnn", "pddnn"):
+        kw = _filter_dataclass_kwargs(SlabDiffractiveConfig, payload)
+        if analysis in ("rowland_fpr", "diffractive_pddnn") and "mode" not in kw:
+            kw["mode"] = analysis
+        return {"analysis": "slab_diffractive", **simulate_slab_diffractive_pic(SlabDiffractiveConfig(**kw))}
+    if analysis in ("eam_modulator", "eam", "gesi_fke", "inp_qcse"):
+        kw = _filter_dataclass_kwargs(EAMConfig, payload)
+        if analysis in ("gesi_fke", "inp_qcse") and "eam_type" not in kw:
+            kw["eam_type"] = analysis
+        return {"analysis": "eam_modulator", **simulate_eam_modulator(EAMConfig(**kw))}
+    if analysis in ("optical_amplifier", "soa", "edwa", "soa_ingaasp", "edwa_si3n4"):
+        kw = _filter_dataclass_kwargs(OpticalAmplifierConfig, payload)
+        if analysis in ("edwa", "edwa_si3n4") and "amp_type" not in kw:
+            kw["amp_type"] = "edwa_si3n4"
+        return {"analysis": "optical_amplifier", **simulate_optical_amplifier(OpticalAmplifierConfig(**kw))}
+    if analysis in ("gnlse_ppln", "gnlse", "supercontinuum", "ppln", "ppln_qpm"):
+        if analysis in ("gnlse", "supercontinuum") or str(payload.get("sub_mode", "")).lower() == "gnlse":
+            kw = _filter_dataclass_kwargs(GNLSEConfig, payload)
+            return {"analysis": "gnlse", **simulate_gnlse_supercontinuum(GNLSEConfig(**kw))}
+        kw = _filter_dataclass_kwargs(PPLNQPMConfig, payload)
+        return {"analysis": "ppln_qpm", **simulate_ppln_qpm(PPLNQPMConfig(**kw))}
+    if analysis in ("routing_crossings", "crossing", "taper", "router"):
+        sub = str(payload.get("sub_mode") or analysis).lower()
+        if sub == "taper":
+            kw = _filter_dataclass_kwargs(AdiabaticTaperConfig, payload)
+            return {"analysis": "adiabatic_taper", **simulate_adiabatic_taper(AdiabaticTaperConfig(**kw))}
+        if sub == "router":
+            kw = _filter_dataclass_kwargs(PICAutoRouterConfig, payload)
+            return {"analysis": "pic_router", **route_pic_waveguides(PICAutoRouterConfig(**kw))}
+        kw = _filter_dataclass_kwargs(WaveguideCrossingConfig, payload)
+        return {"analysis": "mmi_crossing", **simulate_waveguide_crossing(WaveguideCrossingConfig(**kw))}
+    if analysis in ("isolator_mems", "isolator", "mems", "mems_switch"):
+        sub = str(payload.get("sub_mode") or analysis).lower()
+        if sub in ("mems", "mems_switch", "cantilever", "doubly_clamped"):
+            kw = _filter_dataclass_kwargs(PhotonicMEMSConfig, payload)
+            if sub in ("cantilever", "doubly_clamped") and "beam_type" not in kw:
+                kw["beam_type"] = sub
+            return {"analysis": "photonic_mems", **simulate_photonic_mems_switch(PhotonicMEMSConfig(**kw))}
+        kw = _filter_dataclass_kwargs(OpticalIsolatorConfig, payload)
+        return {"analysis": "optical_isolator", **simulate_optical_isolator(OpticalIsolatorConfig(**kw))}
     return _nonlinear_lle_sync(payload)
 
 

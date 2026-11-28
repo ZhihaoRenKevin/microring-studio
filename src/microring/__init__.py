@@ -1,7 +1,7 @@
 """MicroRing Studio (`microring`) - License-Free Photonic IC, MZI, Coupler, Eigenmode, CMT & GDSII Suite."""
 from __future__ import annotations
 
-__version__ = "3.11.0"
+__version__ = "3.12.0"
 
 from .active_tuning import (
     HEATER_METAL_CATALOG,
@@ -17,17 +17,21 @@ from .agent_tools import (
     agent_advanced_mrr,
     agent_design_mrr,
     agent_design_mzi,
+    agent_eam_soa,
     agent_eom_multiphysics,
     agent_fab_tolerance,
     agent_fit_spectrum,
+    agent_gnlse_ppln,
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_isolator_mems,
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
     agent_mrr_ep,
     agent_nonlinear_lle,
+    agent_opa_lidar,
     agent_pcm_photonics,
     agent_pdk_drc,
     agent_photodetector,
@@ -35,7 +39,9 @@ from .agent_tools import (
     agent_pic_netlist,
     agent_polarization_mdm,
     agent_prism_optimize,
+    agent_routing_crossings,
     agent_saw_sbs,
+    agent_slab_diffractive,
     agent_status,
     agent_sweep_mrr,
     agent_swg_phc,
@@ -90,6 +96,42 @@ from .ep_microring import (
     MRRExceptionalPointConfig,
     compute_biorthogonal_petermann,
     simulate_mrr_exceptional_point,
+)
+from .optical_phased_array import (
+    OPALiDARConfig,
+    simulate_optical_phased_array,
+)
+from .slab_diffractive_pic import (
+    SlabDiffractiveConfig,
+    simulate_slab_diffractive_pic,
+    solve_1d_slab_neff,
+)
+from .eam_and_soa import (
+    EAMConfig,
+    OpticalAmplifierConfig,
+    franz_keldysh_gesi_alpha_dn,
+    simulate_eam_modulator,
+    simulate_optical_amplifier,
+)
+from .waveguide_nonlinear_gnlse import (
+    GNLSEConfig,
+    PPLNQPMConfig,
+    simulate_gnlse_supercontinuum,
+    simulate_ppln_qpm,
+)
+from .routing_and_crossings import (
+    AdiabaticTaperConfig,
+    PICAutoRouterConfig,
+    WaveguideCrossingConfig,
+    route_pic_waveguides,
+    simulate_adiabatic_taper,
+    simulate_waveguide_crossing,
+)
+from .isolator_and_mems import (
+    OpticalIsolatorConfig,
+    PhotonicMEMSConfig,
+    simulate_optical_isolator,
+    simulate_photonic_mems_switch,
 )
 from .acousto_optic_saw import (
     ELASTIC_MATERIAL_PROPS,
@@ -399,6 +441,36 @@ __all__ = [
     "MRRExceptionalPointConfig",
     "compute_biorthogonal_petermann",
     "simulate_mrr_exceptional_point",
+    "agent_opa_lidar",
+    "agent_slab_diffractive",
+    "agent_eam_soa",
+    "agent_gnlse_ppln",
+    "agent_routing_crossings",
+    "agent_isolator_mems",
+    "OPALiDARConfig",
+    "simulate_optical_phased_array",
+    "SlabDiffractiveConfig",
+    "simulate_slab_diffractive_pic",
+    "solve_1d_slab_neff",
+    "EAMConfig",
+    "OpticalAmplifierConfig",
+    "franz_keldysh_gesi_alpha_dn",
+    "simulate_eam_modulator",
+    "simulate_optical_amplifier",
+    "GNLSEConfig",
+    "PPLNQPMConfig",
+    "simulate_gnlse_supercontinuum",
+    "simulate_ppln_qpm",
+    "WaveguideCrossingConfig",
+    "AdiabaticTaperConfig",
+    "PICAutoRouterConfig",
+    "simulate_waveguide_crossing",
+    "simulate_adiabatic_taper",
+    "route_pic_waveguides",
+    "OpticalIsolatorConfig",
+    "PhotonicMEMSConfig",
+    "simulate_optical_isolator",
+    "simulate_photonic_mems_switch",
     "WaveguidePDConfig",
     "OEONeuronConfig",
     "ge_telecom_complex_index",

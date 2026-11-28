@@ -151,6 +151,12 @@ from .ep_microring import (
     MRRExceptionalPointConfig,
     simulate_mrr_exceptional_point,
 )
+from .optical_phased_array import OPALiDARConfig, simulate_optical_phased_array
+from .slab_diffractive_pic import SlabDiffractiveConfig, simulate_slab_diffractive_pic
+from .eam_and_soa import EAMConfig, OpticalAmplifierConfig, simulate_eam_modulator, simulate_optical_amplifier
+from .waveguide_nonlinear_gnlse import GNLSEConfig, PPLNQPMConfig, simulate_gnlse_supercontinuum, simulate_ppln_qpm
+from .routing_and_crossings import AdiabaticTaperConfig, PICAutoRouterConfig, WaveguideCrossingConfig, route_pic_waveguides, simulate_adiabatic_taper, simulate_waveguide_crossing
+from .isolator_and_mems import OpticalIsolatorConfig, PhotonicMEMSConfig, simulate_optical_isolator, simulate_photonic_mems_switch
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1121,6 +1127,13 @@ def parse_photonics_intent(message: str) -> dict:
     frontier_map = [
         ("inverse_adjoint", r"adjoint|inverse[-_\s]*design|topology[-_\s]*opt|逆向设计|伴随梯度"),
         ("pic_netlist", r"netlist|circuit[-_\s]*sim|s[-_\s]*matrix[-_\s]*circuit|schur|光子网表|光路仿真"),
+        ("opa_lidar", r"\bopa\b|optical[-_\s]*phased[-_\s]*array|\blidar\b|beam[-_\s]*steer|光学相控阵|激光雷达|固态雷达"),
+        ("slab_diffractive", r"\bpddnn\b|eo[-_\s]*dpnn|rowland[-_\s]*fpr|star[-_\s]*coupler|diffractive[-_\s]*(?:pnn|processor|slab)|片上衍射|星形耦合器|平板衍射"),
+        ("eam_modulator", r"\beam\b|franz[-_\s]*keldysh|\bfke\b|\bqcse\b|electro[-_\s]*absorption|电吸收调制"),
+        ("optical_amplifier", r"\bsoa\b|\bedwa\b|optical[-_\s]*amplifier|erbium[-_\s]*waveguide|光放大器|掺铒波导放大"),
+        ("gnlse_ppln", r"\bgnlse\b|supercontinuum|dispersive[-_\s]*wave|single[-_\s]*pass[-_\s]*ppln|periodically[-_\s]*poled|超连续谱|色散波|周期极化"),
+        ("routing_crossings", r"waveguide[-_\s]*crossing|mmi[-_\s]*crossing|adiabatic[-_\s]*taper|milton[-_\s]*burns|auto[-_\s]*rout|length[-_\s]*match|波导交叉|绝热锥形|自动布线|等长延时"),
+        ("isolator_mems", r"optical[-_\s]*isolator|ce:?yig|magneto[-_\s]*optic|\bnrps\b|spatiotemporal[-_\s]*iso|photonic[-_\s]*mems|pull[-_\s]*in|光隔离器|磁光隔离|悬臂开关|微机电"),
         ("mrr_ep", r"exceptional[-_\s]*surface|chiral[-_\s]*ep|anti[-_\s]*pt|\bep2\b|\bep3\b|\bep4\b|ep[-_\s]*encircl|petermann|mrr[-_\s]*ep|ring[-_\s]*ep|奇异面|高阶奇异点|手性奇异点|反pt|环绕奇异点|微环.*ep|微环.*奇异点"),
         ("awg", r"\bawg\b|arrayed[-_\s]*waveguide[-_\s]*grating|阵列波导光栅"),
         ("wbg", r"\bwbg\b|waveguide[-_\s]*bragg|pi[-_\s]*phase[-_\s]*shift|apodized[-_\s]*bragg|波导布拉格光栅"),
@@ -2634,6 +2647,46 @@ def _process_chat_turn_core(
             else:
                 reg_ep, ord_n = "chiral_single_ring", 2
             f_res = {"analysis": "mrr_ep", **simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime=reg_ep, order_n=ord_n))}
+        elif f_kind == "opa_lidar":
+            lay = "uniform" if "uniform" in user_message.lower() else "aperiodic"
+            f_res = {"analysis": "opa_lidar", **simulate_optical_phased_array(OPALiDARConfig(pitch_layout=lay))}
+        elif f_kind == "slab_diffractive":
+            low_m = user_message.lower()
+            sm = "rowland_fpr" if ("rowland" in low_m or "star" in low_m or "星形" in low_m) else "diffractive_pddnn"
+            f_res = {"analysis": "slab_diffractive", **simulate_slab_diffractive_pic(SlabDiffractiveConfig(mode=sm))}
+        elif f_kind == "eam_modulator":
+            low_m = user_message.lower()
+            et = "inp_qcse" if ("qcse" in low_m or "inp" in low_m or "mqw" in low_m) else "gesi_fke"
+            f_res = {"analysis": "eam_modulator", **simulate_eam_modulator(EAMConfig(eam_type=et, wavelength_nm=1550.0 if et == "inp_qcse" else 1610.0))}
+        elif f_kind == "optical_amplifier":
+            low_m = user_message.lower()
+            if "edwa" in low_m or "erbium" in low_m or "掺铒" in low_m:
+                f_res = {"analysis": "optical_amplifier", **simulate_optical_amplifier(OpticalAmplifierConfig(amp_type="edwa_si3n4", length_mm=100.0, pump_or_current_ma=250.0, internal_loss_db_per_cm=0.15, active_width_um=1.6, active_height_um=0.8, confinement_gamma=0.75))}
+            else:
+                f_res = {"analysis": "optical_amplifier", **simulate_optical_amplifier(OpticalAmplifierConfig(amp_type="soa_ingaasp"))}
+        elif f_kind == "gnlse_ppln":
+            low_m = user_message.lower()
+            if "gnlse" in low_m or "supercontinuum" in low_m or "超连续" in low_m:
+                f_res = {"analysis": "gnlse", **simulate_gnlse_supercontinuum(GNLSEConfig())}
+            else:
+                pr = "dfg" if "dfg" in low_m else ("sfg" if "sfg" in low_m else "shg")
+                f_res = {"analysis": "ppln_qpm", **simulate_ppln_qpm(PPLNQPMConfig(process=pr))}
+        elif f_kind == "routing_crossings":
+            low_m = user_message.lower()
+            if "taper" in low_m or "锥形" in low_m:
+                f_res = {"analysis": "adiabatic_taper", **simulate_adiabatic_taper(AdiabaticTaperConfig())}
+            elif "rout" in low_m or "布线" in low_m or "延时" in low_m:
+                f_res = {"analysis": "pic_router", **route_pic_waveguides(PICAutoRouterConfig(reverse_port_order=True))}
+            else:
+                f_res = {"analysis": "mmi_crossing", **simulate_waveguide_crossing(WaveguideCrossingConfig())}
+        elif f_kind == "isolator_mems":
+            low_m = user_message.lower()
+            if "mems" in low_m or "pull" in low_m or "悬臂" in low_m or "微机电" in low_m:
+                bt = "doubly_clamped" if ("bridge" in low_m or "clamped" in low_m) else "cantilever"
+                f_res = {"analysis": "photonic_mems", **simulate_photonic_mems_switch(PhotonicMEMSConfig(beam_type=bt))}
+            else:
+                it = "spatiotemporal_eo" if ("spatiotemporal" in low_m or "时空" in low_m) else "magneto_optic_ceyig"
+                f_res = {"analysis": "optical_isolator", **simulate_optical_isolator(OpticalIsolatorConfig(iso_type=it))}
         else:
             f_res = {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig())}
 

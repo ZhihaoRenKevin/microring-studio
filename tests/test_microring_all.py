@@ -396,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 29
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 35
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -2420,6 +2420,130 @@ def test_mrr_exceptional_point_suite_and_petermann_audit() -> None:
         asyncio.run(_check_ep_http())
 
 
+def test_opa_lidar_and_slab_diffractive_live_physics() -> None:
+    from microring import (
+        OPALiDARConfig,
+        SlabDiffractiveConfig,
+        simulate_optical_phased_array,
+        simulate_slab_diffractive_pic,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        # Live parameter sensitivity: changing steering angle 15 -> -22 deg & N=16 -> 32 must recompute from first principles!
+        opa1 = simulate_optical_phased_array(OPALiDARConfig(num_antennas=16, steer_theta_deg=15.0, export_gds_path=str(tp / "opa.gds")))
+        opa2 = simulate_optical_phased_array(OPALiDARConfig(num_antennas=32, steer_theta_deg=-22.0))
+        assert abs(opa1["metrics"]["steered_peak_theta_deg"] - 15.0) < 0.6
+        assert abs(opa2["metrics"]["steered_peak_theta_deg"] - (-22.0)) < 0.6
+        assert opa2["metrics"]["beam_FWHM_theta_deg"] < 0.7 * opa1["metrics"]["beam_FWHM_theta_deg"]
+        assert opa1["metrics"]["SLSR_sidelobe_suppression_dB"] > 5.0 and (tp / "opa.gds").is_file()
+
+        fpr = simulate_slab_diffractive_pic(SlabDiffractiveConfig(mode="rowland_fpr", export_gds_path=str(tp / "fpr.gds")))
+        pddnn = simulate_slab_diffractive_pic(SlabDiffractiveConfig(mode="diffractive_pddnn", target_task="beam_router", export_gds_path=str(tp / "pddnn.gds")))
+        assert 2.6 < fpr["metrics"]["n_slab_eff"] < 3.0 and (tp / "fpr.gds").is_file()
+        assert pddnn["metrics"]["routing_or_unitary_fidelity"] > 0.90 and (tp / "pddnn.gds").is_file()
+
+
+def test_eam_soa_and_single_pass_gnlse_ppln() -> None:
+    from microring import (
+        EAMConfig,
+        GNLSEConfig,
+        OpticalAmplifierConfig,
+        PPLNQPMConfig,
+        simulate_eam_modulator,
+        simulate_gnlse_supercontinuum,
+        simulate_optical_amplifier,
+        simulate_ppln_qpm,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        eam_fke = simulate_eam_modulator(EAMConfig(eam_type="gesi_fke", wavelength_nm=1610.0, export_gds_path=str(tp / "eam.gds")))
+        eam_fke_long = simulate_eam_modulator(EAMConfig(eam_type="gesi_fke", wavelength_nm=1610.0, eam_length_um=80.0))
+        assert eam_fke["metrics"]["extinction_ratio_dB"] > 1.5 and eam_fke["metrics"]["f_3dB_RC_GHz"] > 50.0
+        assert abs(eam_fke_long["metrics"]["extinction_ratio_dB"] - 2.0 * eam_fke["metrics"]["extinction_ratio_dB"]) < 0.05
+        assert (tp / "eam.gds").is_file()
+
+        soa = simulate_optical_amplifier(OpticalAmplifierConfig(amp_type="soa_ingaasp", export_gds_path=str(tp / "soa.gds")))
+        edwa = simulate_optical_amplifier(OpticalAmplifierConfig(amp_type="edwa_si3n4", length_mm=100.0, pump_or_current_ma=250.0, internal_loss_db_per_cm=0.15, active_width_um=1.6, active_height_um=0.8, confinement_gamma=0.75))
+        assert soa["metrics"]["small_signal_gain_G0_dB"] > 15.0 and soa["metrics"]["noise_figure_NF_dB"] < 10.0 and (tp / "soa.gds").is_file()
+        assert edwa["metrics"]["small_signal_gain_G0_dB"] > 20.0 and edwa["metrics"]["noise_figure_NF_dB"] < 6.0
+
+        gn = simulate_gnlse_supercontinuum(GNLSEConfig(num_grid_pts=512, num_steps=140))
+        assert gn["metrics"]["dispersion_regime"] == "anomalous" and gn["metrics"]["SC_20dB_bandwidth_nm"] > 250.0
+
+        ppln = simulate_ppln_qpm(PPLNQPMConfig(export_gds_path=str(tp / "ppln.gds")))
+        assert 3.0 < ppln["metrics"]["QPM_poling_period_um"] < 5.0
+        assert ppln["metrics"]["normalized_efficiency_pct_per_W_cm2"] > 2000.0 and (tp / "ppln.gds").is_file()
+
+
+def test_crossings_router_isolator_mems_and_v312_fullstack() -> None:
+    from microring import (
+        AdiabaticTaperConfig,
+        OpticalIsolatorConfig,
+        PICAutoRouterConfig,
+        PhotonicMEMSConfig,
+        WaveguideCrossingConfig,
+        route_pic_waveguides,
+        simulate_adiabatic_taper,
+        simulate_optical_isolator,
+        simulate_photonic_mems_switch,
+        simulate_waveguide_crossing,
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        crs = simulate_waveguide_crossing(WaveguideCrossingConfig(export_gds_path=str(tp / "crs.gds")))
+        assert crs["metrics"]["FDFD_insertion_loss_dB"] < 0.35 and crs["metrics"]["FDFD_adjacent_crosstalk_dB"] < -25.0 and (tp / "crs.gds").is_file()
+
+        tap = simulate_adiabatic_taper(AdiabaticTaperConfig(export_gds_path=str(tp / "tap.gds")))
+        assert tap["metrics"]["insertion_loss_dB"] < 0.05 and (tp / "tap.gds").is_file()
+
+        rt = route_pic_waveguides(PICAutoRouterConfig(num_channels=4, reverse_port_order=True, export_gds_path=str(tp / "rt.gds")))
+        assert rt["metrics"]["detected_waveguide_crossings"] == 6 and rt["metrics"]["max_path_length_mismatch_um"] < 1e-3 and (tp / "rt.gds").is_file()
+
+        iso_mo = simulate_optical_isolator(OpticalIsolatorConfig(iso_type="magneto_optic_ceyig", export_gds_path=str(tp / "iso.gds")))
+        iso_st = simulate_optical_isolator(OpticalIsolatorConfig(iso_type="spatiotemporal_eo"))
+        assert iso_mo["metrics"]["NRPS_rad_per_cm"] > 20.0 and iso_mo["metrics"]["peak_isolation_dB"] > 25.0 and (tp / "iso.gds").is_file()
+        assert iso_st["metrics"]["peak_isolation_dB"] > 25.0
+
+        m_c = simulate_photonic_mems_switch(PhotonicMEMSConfig(beam_type="cantilever", export_gds_path=str(tp / "mems.gds")))
+        m_b = simulate_photonic_mems_switch(PhotonicMEMSConfig(beam_type="doubly_clamped"))
+        assert 2.0 < m_c["metrics"]["pull_in_voltage_V"] < 5.0 and (tp / "mems.gds").is_file()
+        assert 6.0 < (m_b["metrics"]["mechanical_resonance_MHz"] / m_c["metrics"]["mechanical_resonance_MHz"]) < 6.8
+
+        # Bilingual Copilot + HTTP /api/frontier_physics + MCP tools #30-#35 (< 620 chars)
+        c_zh = process_chat_turn(create_initial_session(lang="zh"), "仿真光学相控阵 LiDAR 扫描", gds_export_dir=tp, lang="zh")
+        assert c_zh["ui_view"] == "frontier" and c_zh["frontier_result"]["analysis"] == "opa_lidar"
+        c_en = process_chat_turn(create_initial_session(lang="en"), "Simulate photonic MEMS cantilever pull-in switch", gds_export_dir=tp)
+        assert c_en["ui_view"] == "frontier" and c_en["frontier_result"]["analysis"] == "photonic_mems"
+
+        async def _check_v312_http() -> None:
+            for payload in (
+                {"analysis": "opa_lidar", "num_antennas": 12},
+                {"analysis": "slab_diffractive", "mode": "rowland_fpr"},
+                {"analysis": "optical_amplifier", "amp_type": "soa_ingaasp"},
+                {"analysis": "isolator_mems", "sub_mode": "cantilever"},
+            ):
+                st, body = await _asgi_request("POST", "/api/frontier_physics", json_body=payload)
+                assert st == 200 and "metrics" in json.loads(body)
+
+        asyncio.run(_check_v312_http())
+
+    for tool_name, args in [
+        ("microring_opa_lidar", {"num_antennas": 12, "steer_theta_deg": 10.0}),
+        ("microring_slab_diffractive", {"mode": "rowland_fpr"}),
+        ("microring_eam_soa", {"analysis": "soa"}),
+        ("microring_gnlse_ppln", {"analysis": "ppln"}),
+        ("microring_routing_crossings", {"analysis": "router", "num_channels": 4}),
+        ("microring_isolator_mems", {"analysis": "isolator", "iso_type": "spatiotemporal_eo"}),
+    ]:
+        mcp_r = handle_mcp_request({"jsonrpc": "2.0", "id": 601, "method": "tools/call", "params": {"name": tool_name, "arguments": args}})
+        assert mcp_r is not None and not mcp_r["result"]["isError"]
+        txt = mcp_r["result"]["content"][0]["text"]
+        assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -2447,14 +2571,17 @@ def main() -> None:
         ("Ge-on-Si Waveguide Photodetector, O-E-O Neuron, PSR Rotator & PBS/MDM Couplers", test_photodetector_oeo_and_polarization_mdm),
         ("Non-Volatile PCM MRR & SET/RESET Thermal Pulse FEM + PNN Weight Bank & Clements/Reck Mesh", test_pcm_photonics_and_pnn_computing),
         ("Waveguide Bragg Gratings (WBG), Rowland-Circle AWG & Native Schur PIC Circuit Netlist", test_wbg_awg_and_pic_circuit_netlist),
-        ("2D-FDFD Adjoint Inverse Shape Optimizer & v3.11 Full-Stack HTTP/Copilot/29-MCP Integration", test_adjoint_inverse_design_and_v311_fullstack_integration),
+        ("2D-FDFD Adjoint Inverse Shape Optimizer & v3.11 Full-Stack HTTP/Copilot/35-MCP Integration", test_adjoint_inverse_design_and_v311_fullstack_integration),
         ("MRR Exceptional Point Suite (Chiral EP2, Fab-Immune ES, EP3/EP4, Anti-PT, Encircling & Petermann)", test_mrr_exceptional_point_suite_and_petermann_audit),
+        ("Live 1D/2D OPA LiDAR & 2D ASM Slab Rowland FPR / Trainable PDDNN", test_opa_lidar_and_slab_diffractive_live_physics),
+        ("Live GeSi/InP EAM, Traveling-Wave SOA/EDWA & Single-Pass GNLSE/PPLN", test_eam_soa_and_single_pass_gnlse_ppln),
+        ("Live 2D-FDFD MMI Crossing, Taper, Auto-Router, Ce:YIG Isolator, MEMS & 35-MCP Integration", test_crossings_router_isolator_mems_and_v312_fullstack),
     ]
     if len(sys.argv) > 1:
         toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]
         tests = [(lbl, fn) for lbl, fn in tests if any(tk in lbl.lower() or tk in fn.__name__.lower() for tk in toks)]
     print("=" * 72)
-    print("Running MicroRing Studio v3.11.0 Full Verification Suite")
+    print("Running MicroRing Studio v3.12.0 Full Verification Suite")
     print("=" * 72)
     for label, fn in tests:
         print(f"[RUN ] {label} ...", flush=True)

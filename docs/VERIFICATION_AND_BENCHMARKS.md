@@ -361,6 +361,21 @@ All 5 MRR Exceptional Point regimes (`chiral_single_ring`, `exceptional_surface`
 
 ---
 
+## 7E. Independent v3.12.0 Commercial Validation (`OPA`, `GeSi EAM`, `PPLN`, `Ce:YIG` 3×3 Gyrotropic, `MEMS` & Blind `.GDS` `MMI` Crossing)
+
+All six `v3.12.0` live first-principles engines were validated blindly against **COMSOL Multiphysics 6.4** (`ewfd` + 3×3 gyrotropic tensor + `solid` eigenfrequency) and **Ansys Lumerical 2026 R1 3D FDTD** on RTX 5090 GPU via [`benchmarks/run_v312_commercial_validation.py`](../benchmarks/run_v312_commercial_validation.py) $\rightarrow$ [`benchmarks/outputs/v312_commercial_validation.json`](../benchmarks/outputs/v312_commercial_validation.json):
+
+| Benchmark Case | Commercial Reference | `MicroRing Studio v3.12.0` (100% Live Solver) | Independent Agreement |
+| :--- | :--- | :--- | :---: |
+| **COMSOL 6.4 `ewfd`** `OPA` Dense Array Mutual Coupling (`220×450 nm` SOI, `gap = 0.40 µm`) | $\kappa_{\mathrm{mut}} = 124.017\text{ cm}^{-1}$ | $\kappa_{\mathrm{mut}} = 124.428\text{ cm}^{-1}$ | **`0.33%`** |
+| **COMSOL 6.4 `ewfd`** `GeSi` Franz-Keldysh `EAM` (`400×600 nm`, `1610 nm`, `0 V` vs `-3 V`) | $\alpha_{\mathrm{ON}} = 0.00337$, $\alpha_{\mathrm{OFF}} = 0.07293\text{ dB/\mu m}$ | $\alpha_{\mathrm{ON}} = 0.00337$, $\alpha_{\mathrm{OFF}} = 0.07293\text{ dB/\mu m}$ | **`0.01%`** |
+| **COMSOL 6.4 `ewfd`** `X-Cut TFLN` Single-Pass `PPLN` QPM (`1550 -> 775 nm`) | $n_{1550}=1.90626, n_{775}=2.10102$, $\Lambda_{\mathrm{QPM}} = 3.9793\,\mu\text{m}$ | $n_{1550}=1.90628, n_{775}=2.10104$, $\Lambda_{\mathrm{QPM}} = 3.9791\,\mu\text{m}$ | **`0.01%`** |
+| **COMSOL 6.4 `ewfd`** Full 3×3 Gyrotropic Tensor `Ce:YIG`-on-`Si` `TM0` Isolator (`1550 nm`) | $\mathrm{NRPS} = 45.985\text{ rad/cm}$ | $\mathrm{NRPS} = 46.054\text{ rad/cm}$ | **`0.15%`** |
+| **COMSOL 6.4 `solid`** Silicon Photonic `MEMS` Cantilever & Doubly-Clamped Bridge (`28 µm × 220 nm`) | $f_0 = 0.3959\text{ MHz}$ (cant.) / $2.5184\text{ MHz}$ (bridge) | $f_0 = 0.3860\text{ MHz}$ / $2.4570\text{ MHz}$ | **`2.49%` / `2.44%`** *(exact $\sqrt{1-\nu^2}$)* |
+| **Lumerical `3D FDTD` (GPU)** Blind `.GDS` Import of Synthesized `MMI` Crossing (`4.819 µm`) | $T = 94.88\%$, **`IL = 0.2283 dB`**, `XT = -24.01 dB` | `2D-FEM TE0/TE2` + `2D TE-FDFD` `IL = 0.2463 dB` | **`0.018 dB`** (`94.88%`) |
+
+---
+
 ## 8. Physical Scope Boundaries
 
 - **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + EME + 2D Multiphysics FEM)**:

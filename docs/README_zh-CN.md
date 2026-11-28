@@ -6,7 +6,7 @@
 
 [![Run Online in Browser](https://img.shields.io/badge/Run_Online-GitHub_Codespaces-2ea44f?logo=github)](https://codespaces.new/ZhihaoRenKevin/microring-studio?quickstart=1)
 [![Desktop Installers: .dmg & .exe](https://img.shields.io/badge/Desktop_App-macOS_.dmg_%7C_Win_.exe-0284c7)](https://github.com/ZhihaoRenKevin/microring-studio/releases/latest)
-[![Release: v3.11.0](https://img.shields.io/badge/release-v3.11.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.11.0)
+[![Release: v3.12.0](https://img.shields.io/badge/release-v3.12.0-10b981.svg)](https://github.com/ZhihaoRenKevin/microring-studio/releases/tag/v3.12.0)
 [![Wavebands: 400nm–14µm](https://img.shields.io/badge/wavebands-400nm%20Vis%20to%2014%CE%BCm%20Mid--IR-ec4899.svg)](./VERIFICATION_AND_BENCHMARKS.md)
 [![AI Modes: Offline | Claude | Codex | Ollama](https://img.shields.io/badge/AI_Modes-Offline_%7C_Claude_%7C_Codex_%7C_Ollama-8b5cf6.svg)](./tutorials/ai_agents_codex_claude.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
@@ -17,7 +17,19 @@
 
 ---
 
-## 四方独立求解器验证总览（全 13 套件 · `14/14` 物理审计 `PASS`）
+## 100% 独立第一性原理物理引擎：绝非“预制菜”，任意参数实时重算
+
+> **MicroRing Studio（`v3.12.0`：`35` 个 MCP 工具、`39` 个前沿交互模式、`29` 种体材料 + `27` 种二维范德华材料）中的每一个模块都是真正独立运行的底层数值物理求解器——绝非预制演示、绝非查表插值、绝非拟合经验公式。**
+>
+> 只要你修改**任意**物理参数——波导宽/高/侧壁倾角、耦合间距、微环半径、阵列节距、天线阵元数、材料体系、二维材料面内晶轴转角 $\theta$、工作波长（`400 nm – 18 µm`）、偏置电压、泵浦功率、脉冲脉宽或悬臂梁尺寸——软件都会**在你的本机 CPU/GPU 上从零重新求解真实偏微分/常微分控制方程**：
+> - **2D 保形全矢量麦克斯韦有限元（`Nedelec1 + P2`）**：实时求解直波导、弯曲环、双芯超模、应变锗探测器、相变 `PCM` 及 `Ce:YIG` 旋磁波导截面；
+> - **2D 全波 TE 麦克斯韦 FDFD（`UPML` + SuperLU）**：实时求解表面光栅耦合器、`MMI` 波导交叉与精确伴随梯度逆向设计；
+> - **2D 非线性泊松-玻尔兹曼 TCAD、Crank-Nicolson 瞬态热有限元与 Hermite 三次梁 MEMS 有限元**：实时求解硅 `PN/PIN` 结、`PCM` 晶化/熔融脉冲、微加热器与静电拉入失稳；
+> - **相互作用表象 `RK4IP` GNLSE、Strang-SSFM LLE、2D 角谱 (`ASM`) 反向传播与双正交非厄米本征求解**：实时求解超连续谱、孤子微梳、片上可训练衍射网络 `PDDNN` 与高阶奇异点 `EP2/EP3/EP4`。
+
+---
+
+## 四方独立求解器验证总览（全 13 套件 · `14/14` 物理审计 `PASS` + `v3.10–v3.12` 全栈）
 
 **MicroRing Studio (`v3.9.0`)** 全部 13 项物理套件均为纯开源第一性原理独立求解器（`scikit-fem` + `NumPy/SciPy`，无任何商业求解器痕迹或预制查表）。全部基准均从同一份中立物理规格 JSON 出发，独立头对头对标 **Ansys Lumerical 2026 R1**（`MODE`、`3D/2D FDTD` RTX 5090 GPU、`EME`、`CHARGE` 完整 3×3 结+正向 PIN、`HEAT` 稳态+瞬态、`INTERCONNECT`）、**COMSOL Multiphysics 6.4**（`ewfd`、`emw`、`es`、`ht` 2D/3D 严格 BDF 瞬态、`GeneralFormPDE`）与 **Ansys HFSS 2026 R1**（`10–340 GHz` 三维全波驱动模式与 `220 µm` 周期 Bragg 阻带），同时完成 **369 篇独立 DOI 实验论文实算核验（`367/369 PASS`，`99.5%`；其余 2 篇非均匀 Floquet/PSO 逆向优化器件按物理适用边界如实保留，不做人为拟合）**。
 
@@ -40,6 +52,7 @@
 | **F-C** | 压电 SAW/Lamb（`AlN`/`ScAlN`/`X-TFLN`）、2D/3D 硅 SBS 与石墨烯面电流 | **COMSOL 6.4**（`solid`+`es`+`pze`, `ewfd`） | SAW/Lamb 开路相速 $v_{\mathrm{open}}$ 误差 **`0.0003%–0.0005%`**，$K_{\mathrm{eff}}^2$ 三位小数完全一致（`0.547%`/`0.621%`/`1.587%`）；前向/后向 SBS **`8.4886 vs 8.4886 GHz`（`0.0004%`）**与 **`16.7573 vs 16.7580 GHz`（`0.0044%`）**；石墨烯-SOI $\alpha(\mu_c=0)$ `778.82 vs 777.17 dB/cm`（**`0.21%`**） |
 | **F-L** | 3D 亚波长光栅 `SWG`、3D 光子晶体环 `PhCR` 劈裂与中红外 `MIM`/`SEIRA` TCMT | **Lumerical `3D FDTD`**（RTX 5090 GPU） | `SWG` 水相灵敏度 $S_{\mathrm{bulk}}$ `450.7 vs 461.2 nm/RIU`（**`2.27%`**）、`SiO2` $n_g$ 误差 `4.85%`；`PhCR`（`Si3N4 A=40 nm`）模式劈裂 **`103.21 vs 103.71 GHz`（`0.48%`）**，Bragg 中心 `1549.992 nm`；`SEIRA PMMA` 盲测 TCMT 反演拟合 **`R^2 = 0.99896, RMSE = 0.0088`** |
 | **V11** | `Ge`-on-`Si` 探测器、`PSR` 偏振杂化、`Sb2Se3`/`GSST` 相变 (`ewfd`+`ht`)、`MDM` 与伴随逆向 `.GDS` Y分支 | **COMSOL 6.4** & **Lumerical `3D FDTD`**（GPU） | `Ge-Si PD` 吸收 **`2.2484 vs 2.2485 dB/µm`（`0.00%`）**；`PSR` 反交叉间隙误差 **`0.26%`**；`Sb2Se3`/`GSST` 相变 $\Delta n$ 误差 **`0.03%`/`0.00%`**、$\alpha_c$ 误差 **`0.01%`**、`RESET` $\Delta T$ 误差 `4.13%`；3D FDTD `MDM TE0->TE1` 转换 **`99.04%`（插损 `0.04 dB`, 串扰 `-35.7 dB`）**；盲导伴随逆向 `2.4 µm` Y 分支 `.GDS` 实算 **`97.78%`（插损 `0.098 dB`）** |
+| **V12** | `OPA` 互耦、`GeSi` FKE `EAM`、`TFLN PPLN`、`Ce:YIG` 3×3 旋磁 `NRPS`、`MEMS` 谐振、`27` 种 2D vdW、`EP3` 间距与盲导 `MMI` 交叉 `.GDS` | **COMSOL 6.4**（`ewfd`+`solid`）& **Lumerical `3D FDTD`**（GPU） | `OPA` 互耦 **`0.33%`**；`GeSi EAM` 吸收 **`0.01%`**；`PPLN` $\Lambda_{\mathrm{QPM}}$ **`3.9791 vs 3.9793 µm`（`0.01%`）**；`Ce:YIG` 3×3 旋磁 `NRPS` **`46.054 vs 45.985 rad/cm`（`0.15%`）**；`MEMS` 悬臂/双固支 $f_0$ **`2.44%–2.49%`**（精确 $\sqrt{1-\nu^2}$）；2D vdW（`MXene` `0.36%`、`α-MoO₃` `0°/90°` `1.34%/2.14%`）；`EP3` 环间距 **`0.10%`**；3D FDTD 盲导 `MMI` 交叉 `.GDS` **`94.88%`（`0.228 vs 0.246 dB`）** |
 
 <details>
 <summary><b>展开查看 18 子图四方商业软件对比总图（套件 1–13：MicroRing vs. Lumerical / COMSOL / HFSS 3D）</b></summary>
@@ -56,7 +69,14 @@
 
 ## 核心亮点
 
-- **全栈光子集成电路器件、系统、微环奇异点与逆向设计引擎（`v3.11.0`，`29` 个 MCP 工具）**：
+- **全实时独立物理引擎：`OPA` 激光雷达、可训练片上衍射 `PDDNN`/`FPR`、`EAM`/`SOA`·`EDWA`、单程 `GNLSE`/`PPLN`、2D-FDFD `MMI` 交叉与自动布线、非互易隔离器与硅光 `MEMS`（`v3.12.0`，`35` 个 MCP 工具，`39` 个 Stage-12 模式）**：
+  - **1D/2D 光学相控阵与固态 LiDAR（`optical_phased_array.py`）**：实时 2D-FEM 阵元与双芯互耦（与 COMSOL 误差 `0.33%`）+ 矩阵指数耦合串扰 + 极小极大 `SLSR` 非均匀/均匀排布 Fraunhofer 远场扫描（`FoV`、`dψ/dλ`、二维可分辨点数）与 `.GDS`。
+  - **片上二维平板 `Rowland FPR` 与可训练衍射网络 `PDDNN`/`EO-DPNN`（`slab_diffractive_pic.py`）**：精确 1D 平板本征模 + 2D 角谱法 (`ASM`) 衍射传播与相位槽端到端解析反向传播训练（`beam_router` 保真度 `98.6%`、`power_splitter`、`dft_unitary`）与 `.GDS`。
+  - **`GeSi` Franz-Keldysh / `InP` MQW `QCSE` 电吸收调制器与行波 `SOA` / `Er:Si3N4` `EDWA`（`eam_and_soa.py`）**：实时 Airy 函数 Franz-Keldysh + Kramers-Kronig Hilbert 变换（与 COMSOL 误差 `0.01%`，`>110 GHz` RC 带宽）以及行波空间速率方程 `SOA`/`EDWA` 增益饱和、输出饱和功率 `P_sat,out`、`ASE` 噪声系数 `NF`、端面纹波与 `.GDS`。
+  - **单程波导 `GNLSE` 超连续谱与周期极化 `PPLN` QPM（`waveguide_nonlinear_gnlse.py`）**：实时 2D-FEM 宽带色散 + Afshar-Monro Kerr $\gamma$ + `RK4IP` GNLSE（拉曼 + 自陡峭超连续谱）与单程 `PPLN` `SHG/SFG/DFG` 2D 模场重叠 + 泵浦耗尽三波 ODE（$\Lambda_{\mathrm{QPM}}$ 与 COMSOL 误差 `0.01%`）与周期极化电极 `.GDS`。
+  - **2D TE-FDFD `MMI` 波导交叉、`Milton-Burns` 绝热锥形与 `PIC` 等长自动布线（`routing_and_crossings.py`）**：2D-FEM `TE0/TE2` 自成像拍长综合 + 精确 `1/ε` 2D TE-FDFD（`0.246 dB`，盲导 `.GDS` 进 Lumerical 3D FDTD 实算 **`0.228 dB` / `94.88%`**）、局部耦合模 (`CLMT`) 锥形与多通道等光程自动布线（$\Delta L = 0.000\,\mu\text{m}$）与 `.GDS`。
+  - **非互易 `Ce:YIG` / 时空电光隔离器与硅光 `MEMS` 静电拉入开关（`isolator_and_mems.py`）**：2D-FEM 旋磁 `Ce:YIG` Voigt `NRPS`（`46.05 vs 45.99 rad/cm`，与 COMSOL 3×3 旋磁张量误差 **`0.15%`**）、无磁 Floquet-CMT 时空隔离器与 Hermite 三次梁有限元非线性牛顿迭代静电拉入 `MEMS` 开关（与 COMSOL `solid` 误差 `2.44%–2.49%`）与释放刻蚀 `.GDS`。
+- **全栈光子集成电路器件、系统、微环奇异点与逆向设计引擎（`v3.11.0`）**：
   - **片上 `Ge`-on-`Si` 波导光电探测器与 `O-E-O` 光子神经元（`photodetector_oeo.py`）**：2D 矢量 FEM 应变锗复数吸收（与 COMSOL `ewfd` 误差 `0.00%`）、多模 EME 耦合、响应度 $R(\lambda)$、渡越时间与 `RC` 3-dB 带宽、暗电流、`NEP` 及 `PD -> MRM` 可级联非线性激活函数（`fJ/op`）。
   - **偏振分束旋转器 `PSR`、`PBS` 与模式复用器 `MDM`（`polarization_mdm.py`）**：2D-FEM 精确捕获 `TM0 <-> TE1` 杂化反交叉（误差 `0.26%`）与 Landau-Zener 绝热转换（`98.8%`），以及自动相位匹配非对称双芯 `MDM TE0 <-> TE1/TE2`（3D FDTD 验证 `99.04%` / `0.04 dB` / `-35.7 dB` 串扰）。
   - **非易失相变光子 `PCM` 微环与二维瞬态 `SET`/`RESET` 热脉冲 FEM（`pcm_photonics.py`）**：覆盖 `Sb2Se3`/`Sb2S3`/`GSST`/`GST`/`VO2` 多阶 Lorentz-Lorenz 2D-FEM（与 COMSOL 误差 `0.00%–0.03%`）及 Crank-Nicolson 熔融淬火与 JMAK 晶化动力学。

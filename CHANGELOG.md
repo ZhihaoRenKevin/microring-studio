@@ -2,6 +2,17 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.12.0] - 2026-11-28
+
+### Added (6 Live First-Principles PIC Engines: OPA LiDAR, Trainable Slab FPR/PDDNN, EAM/SOA·EDWA, Single-Pass GNLSE/PPLN, 2D TE-FDFD MMI Crossing/Auto-Router & Non-Reciprocal Isolators/Photonic MEMS — Zero Canned Presets)
+- **1D/2D Optical Phased Array & Solid-State LiDAR (`optical_phased_array.py`)**: Live 2D-FEM emitter & twin-core mutual coupling (`0.33%` vs COMSOL 6.4), coupled-array matrix-exp crosstalk, minimax-SLSR aperiodic/uniform Fraunhofer far-field steering (`FoV_x × FoV_y`, `dψ/dλ`, resolvable 2D spots), and `.GDS`.
+- **On-Chip 2D Slab Rowland `FPR` & Trainable Diffractive `PDDNN`/`EO-DPNN` (`slab_diffractive_pic.py`)**: Exact 1D slab eigenmode + 2D Angular Spectrum (`ASM`) diffraction propagator with live exact analytical backpropagation over programmable phase slots (`beam_router` `98.6%` fidelity, `power_splitter`, `dft_unitary`) + `.GDS`.
+- **Franz-Keldysh `GeSi` / `InP` MQW `QCSE` `EAM` & Traveling-Wave `SOA`/`EDWA` (`eam_and_soa.py`)**: Live Airy-function Franz-Keldysh + Kramers-Kronig Hilbert transform (`0.01%` vs COMSOL 6.4) and spatial rate-equation `SOA`/`Er:Si3N4 EDWA` gain saturation, `P_sat,out`, `ASE` `NF`, and facet ripple + `.GDS`.
+- **Single-Pass Waveguide `GNLSE` Supercontinuum & `PPLN` QPM (`waveguide_nonlinear_gnlse.py`)**: Live 2D-FEM broadband dispersion + Afshar-Monro Kerr $\gamma$ + `RK4IP` GNLSE (`640 nm` `-20 dB` SC) and single-pass `PPLN` `SHG/SFG/DFG` 2D overlap + depleted 3-wave ODEs (`0.01%` on $\Lambda_{\mathrm{QPM}}$ vs COMSOL 6.4) + poled `.GDS`.
+- **2D TE-FDFD `MMI` Waveguide Crossing, `Milton-Burns` Adiabatic Taper & `PIC` Auto-Router (`routing_and_crossings.py`)**: Exact 2D-FEM `TE0/TE2` self-imaging synthesis + `1/ε` 2D TE-FDFD (`0.246 dB` vs Lumerical 3D FDTD blind `.GDS` **`0.228 dB` / `94.88%`**!), CLMT taper solver, and path-length-matched multi-port auto-router ($\Delta L = 0.000\,\mu\text{m}$) + `.GDS`.
+- **Non-Reciprocal `Ce:YIG` / Spatiotemporal Optical Isolators & Photonic `MEMS` Switch (`isolator_and_mems.py`)**: Live 2D-FEM gyrotropic `Ce:YIG` Voigt `NRPS` (`0.15%` vs COMSOL 6.4 full 3×3 gyrotropic tensor!), Floquet-CMT magnet-free isolator, and Hermite-cubic FEM nonlinear Newton-Raphson electrostatic pull-in `MEMS` cantilever/bridge switch (`2.44%–2.49%` vs COMSOL 6.4 `solid`) + `.GDS`.
+- **Full-Stack Integration**: Expanded Stage 12 UI (`39` live frontier modes), Bilingual Copilot, CLI (`6` new subcommands), **`35` MCP tools**, **`30/30` automated test suites**, and explicit live-physics documentation in `README.md` & `docs/README_zh-CN.md`.
+
 ## [3.11.0] - 2026-11-28
 
 ### Added (Full-Stack PIC Photodetectors, Polarization/MDM, Non-Volatile PCM, PNN Computing, WBG/AWG, Circuit Netlist & Adjoint Inverse Design)
