@@ -29,6 +29,7 @@ from .agent_tools import (
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
+    agent_mrr_ep,
     agent_nonlinear_lle,
     agent_pcm_photonics,
     agent_pdk_drc,
@@ -554,6 +555,21 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_mrr_ep",
+        "description": "Microring Resonator Exceptional Point (MRR-EP) & Non-Hermitian Photonics Engine: single-ring chiral CW/CCW EP2, fab-immune bus-mirror Exceptional Surface (ES), N-ring higher-order PT EP2/EP3/EP4 (eps^(1/N)), bus-coupled Anti-PT EP, dynamic CW/CCW topological encircling, Petermann K_P noise metrology, 2D-FEM gap synthesis & GDS export.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "regime": {"type": "string", "description": "chiral_single_ring | exceptional_surface | pt_ep_n | anti_pt_bus | ep_encircling"},
+                "order_n": {"type": "integer", "description": "Order N (2, 3, or 4) for pt_ep_n"},
+                "coupling_j_ghz": {"type": "number"},
+                "perturbation_ghz": {"type": "number"},
+                "synthesize_fem_gap": {"type": "boolean"},
+                "export_gds": {"type": "boolean"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -585,6 +601,7 @@ _DISPATCH = {
     "microring_wbg_awg": agent_wbg_awg,
     "microring_pic_netlist": agent_pic_netlist,
     "microring_inverse_adjoint": agent_inverse_adjoint,
+    "microring_mrr_ep": agent_mrr_ep,
 }
 
 

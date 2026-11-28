@@ -46,6 +46,7 @@
 - Waveguide Bragg Grating (WBG) & AWG WDM Demux: `uv run microring agent wbg-awg --analysis awg --ch 8 --gds`
 - Native PIC S-Matrix Circuit Netlist: `uv run microring agent pic-netlist --preset ramzi_linearized --snp`
 - 2D-FDFD Exact Adjoint Inverse Y-Branch: `uv run microring agent inverse-adjoint --len 2.4 --iters 30 --gds`
+- MRR Exceptional Point Suite (Chiral EP2 / Fab-Immune ES / EP3-EP4 / Anti-PT / Encircling / Petermann K_P): `uv run microring agent mrr-ep --regime pt_ep_n --n 3 --fem-gap --gds`
 - Extract `.gds` polygon dimensions: `uv run microring agent inspect-gds path/to/ring.gds`
 - Fit measured lab spectrum CSV: `uv run microring agent fit path/to/spectrum.csv --model auto --regime under`
 

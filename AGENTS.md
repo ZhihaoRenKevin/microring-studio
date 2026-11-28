@@ -39,6 +39,7 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **Waveguide Bragg Grating (WBG) & Rowland-Circle AWG WDM Demux** | `uv run microring agent wbg-awg --analysis awg --ch 8 --gds` |
 | **Native License-Free PIC S-Matrix Circuit Netlist Simulator (+ .sNp)** | `uv run microring agent pic-netlist --preset ramzi_linearized --snp` |
 | **2D-FDFD Exact Maxwell Adjoint-Gradient Inverse Shape Optimizer (+ GDS)** | `uv run microring agent inverse-adjoint --len 2.4 --iters 30 --gds` |
+| **MRR Exceptional Points (Chiral EP2, Fab-Immune ES, EP3/EP4, Anti-PT, Encircling, Petermann K_P)** | `uv run microring agent mrr-ep --regime pt_ep_n --n 3 --fem-gap --gds` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

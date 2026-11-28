@@ -30,6 +30,7 @@ from .agent_tools import (
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
+    agent_mrr_ep,
     agent_nonlinear_lle,
     agent_pcm_photonics,
     agent_pdk_drc,
@@ -405,6 +406,15 @@ def main() -> None:
     p_inv.add_argument("--gds", action="store_true", dest="export_gds")
     p_inv.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_ep = ag_sub.add_parser("mrr-ep", help="MRR Exceptional Point engine: chiral CW/CCW EP2, bus-mirror ES, higher-order PT EP2/EP3/EP4, Anti-PT & dynamic encircling")
+    p_ep.add_argument("--regime", type=str, default="chiral_single_ring", help="chiral_single_ring | exceptional_surface | pt_ep_n | anti_pt_bus | ep_encircling")
+    p_ep.add_argument("--n", type=int, default=3, dest="order_n", help="Order N=2/3/4 for pt_ep_n")
+    p_ep.add_argument("--j", type=float, default=2.0, dest="coupling_j_ghz")
+    p_ep.add_argument("--eps", type=float, default=0.05, dest="perturbation_ghz")
+    p_ep.add_argument("--fem-gap", action="store_true", dest="synthesize_fem_gap")
+    p_ep.add_argument("--gds", action="store_true", dest="export_gds")
+    p_ep.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -503,6 +513,8 @@ def main() -> None:
             _print_compact(agent_pic_netlist(d))
         elif args.agent_cmd == "inverse-adjoint":
             _print_compact(agent_inverse_adjoint(d))
+        elif args.agent_cmd == "mrr-ep":
+            _print_compact(agent_mrr_ep(d))
 
 
 if __name__ == "__main__":

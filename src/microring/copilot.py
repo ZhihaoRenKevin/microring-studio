@@ -147,6 +147,10 @@ from .twod_materials_mrr import (
     TwoDMaterialMRRConfig,
     simulate_2d_material_mrr,
 )
+from .ep_microring import (
+    MRRExceptionalPointConfig,
+    simulate_mrr_exceptional_point,
+)
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1117,6 +1121,7 @@ def parse_photonics_intent(message: str) -> dict:
     frontier_map = [
         ("inverse_adjoint", r"adjoint|inverse[-_\s]*design|topology[-_\s]*opt|逆向设计|伴随梯度"),
         ("pic_netlist", r"netlist|circuit[-_\s]*sim|s[-_\s]*matrix[-_\s]*circuit|schur|光子网表|光路仿真"),
+        ("mrr_ep", r"exceptional[-_\s]*surface|chiral[-_\s]*ep|anti[-_\s]*pt|\bep2\b|\bep3\b|\bep4\b|ep[-_\s]*encircl|petermann|mrr[-_\s]*ep|ring[-_\s]*ep|奇异面|高阶奇异点|手性奇异点|反pt|环绕奇异点|微环.*ep|微环.*奇异点"),
         ("awg", r"\bawg\b|arrayed[-_\s]*waveguide[-_\s]*grating|阵列波导光栅"),
         ("wbg", r"\bwbg\b|waveguide[-_\s]*bragg|pi[-_\s]*phase[-_\s]*shift|apodized[-_\s]*bragg|波导布拉格光栅"),
         ("mzi_mesh", r"clements|\breck\b|unitary[-_\s]*mesh|mzi[-_\s]*mesh|幺正网格"),
@@ -2614,6 +2619,21 @@ def _process_chat_turn_core(
             f_res = {"analysis": "pic_netlist", **simulate_pic_circuit_netlist(PICNetlistConfig())}
         elif f_kind == "inverse_adjoint":
             f_res = {"analysis": "inverse_adjoint", **optimize_inverse_photonic_device(AdjointInverseConfig())}
+        elif f_kind == "mrr_ep":
+            low_m = user_message.lower()
+            if "surface" in low_m or "奇异面" in low_m or "mirror" in low_m:
+                reg_ep, ord_n = "exceptional_surface", 2
+            elif "encircl" in low_m or "环绕" in low_m:
+                reg_ep, ord_n = "ep_encircling", 2
+            elif "anti" in low_m or "反pt" in low_m or "gyro" in low_m:
+                reg_ep, ord_n = "anti_pt_bus", 2
+            elif "ep4" in low_m or "四阶" in low_m:
+                reg_ep, ord_n = "pt_ep_n", 4
+            elif "ep3" in low_m or "三阶" in low_m or "higher" in low_m or "高阶" in low_m:
+                reg_ep, ord_n = "pt_ep_n", 3
+            else:
+                reg_ep, ord_n = "chiral_single_ring", 2
+            f_res = {"analysis": "mrr_ep", **simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime=reg_ep, order_n=ord_n))}
         else:
             f_res = {"analysis": "nanoantenna_tcmt", **simulate_nanoantenna_tcmt(NanoantennaTCMTConfig())}
 

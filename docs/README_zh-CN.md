@@ -56,12 +56,13 @@
 
 ## 核心亮点
 
-- **全栈光子集成电路器件、系统与逆向设计引擎（`v3.11.0`，`28` 个 MCP 工具）**：
+- **全栈光子集成电路器件、系统、微环奇异点与逆向设计引擎（`v3.11.0`，`29` 个 MCP 工具）**：
   - **片上 `Ge`-on-`Si` 波导光电探测器与 `O-E-O` 光子神经元（`photodetector_oeo.py`）**：2D 矢量 FEM 应变锗复数吸收（与 COMSOL `ewfd` 误差 `0.00%`）、多模 EME 耦合、响应度 $R(\lambda)$、渡越时间与 `RC` 3-dB 带宽、暗电流、`NEP` 及 `PD -> MRM` 可级联非线性激活函数（`fJ/op`）。
   - **偏振分束旋转器 `PSR`、`PBS` 与模式复用器 `MDM`（`polarization_mdm.py`）**：2D-FEM 精确捕获 `TM0 <-> TE1` 杂化反交叉（误差 `0.26%`）与 Landau-Zener 绝热转换（`98.8%`），以及自动相位匹配非对称双芯 `MDM TE0 <-> TE1/TE2`（3D FDTD 验证 `99.04%` / `0.04 dB` / `-35.7 dB` 串扰）。
   - **非易失相变光子 `PCM` 微环与二维瞬态 `SET`/`RESET` 热脉冲 FEM（`pcm_photonics.py`）**：覆盖 `Sb2Se3`/`Sb2S3`/`GSST`/`GST`/`VO2` 多阶 Lorentz-Lorenz 2D-FEM（与 COMSOL 误差 `0.00%–0.03%`）及 Crank-Nicolson 熔融淬火与 JMAK 晶化动力学。
   - **光子神经网络（`PNN`）矩阵计算引擎（`photonic_computing.py`）**：`N×M` 广播加权微环权重阵列（含 2D 热串扰矩阵 $\mathbf{H}_{\mathrm{th}}$ 与 $\mathbf{H}_{\mathrm{th}}^{-1}$ 预补偿，`ENOB: 0.14 -> 8.06 bits`）及机器精度 `1e-15` 的 `N×N` **Clements (2016) / Reck (1994)** 幺正 MZI 网格分解与 `.GDS` 导出。
   - **波导布拉格光栅 `WBG`、阵列波导光栅 `AWG`、原生 `S` 矩阵光子网表与 2D-FDFD 伴随逆向优化（`wbg_and_awg.py`, `pic_circuit_netlist.py`, `inverse_design_adjoint.py`）**：$\pi$ 相移/切趾/啁啾 `WBG`、Rowland 圆 `1×8/1×16` `AWG`、Schur 补任意拓扑免商业许可光路网表（导出 `.sNp`）以及 2 次稀疏求解/迭代精确伴随梯度 `2.4 µm` 超紧凑 Y 分支（盲导 `.GDS` 进 Lumerical 3D FDTD 插损低至 **`0.098 dB`**）。
+  - **微环奇异点与非厄米光子学全栈套件（`ep_microring.py`）**：完整覆盖 5 大微环 EP 体系（双纳米散射体单环手性 `CW/CCW EP2` `108.7 dB` 单向反射非对称、单环端面镜抗工艺漂移奇异面 `ES`、N 环高阶 PT `EP2/EP3/EP4` $\varepsilon^{1/N}$ 劈裂、总线耗散无增益反 PT `Anti-PT` 频率锁定、RK4 动态顺/逆时针拓扑环绕 `99.6%` 手性模式切换），内置双正交 Petermann 噪声因子 $K_P$ 与 SNR 审计、2D-FEM 物理耦合间距综合（与 COMSOL 6.4 误差 `0.10%`）及 `.GDS` 导出。
 0. **前沿光子与多物理场全景引擎（`🔬 Frontier` Stage 12，6 大独立第一性原理模块，`21` 个 MCP 工具）**：
    - **高阶 `CROW`/`SCISSOR` 滤波器、Euler 缓变弯曲、生物/气体传感与 `TiO2` 无热化、大信号 `TD-CMT`、`MZI-MRR` 与光子分子/`PT-EP`（`advanced_mrr.py`）**：严格 4-入口幺正 Redheffer 级联综合、`Euler` 缓变跑道弯接头损耗抑制与 `.GDS`、水相/气体传感与负热光 `TiO2` 无热化包层厚度综合、RK4 大信号失谐/无啁啾耦合调制器、`MZI` 可调耦合微环与双环光子分子/奇异点 $\sqrt{\varepsilon}$ 增强。
    - **量子 `SFWM` 纠缠光子对与有源微环激光器（`quantum_and_laser_mrr.py`）**：自发四波混频产率、CAR、$g_H^{(2)}(0)$、双 Q 耦合 JSA 施密特纯度提升（`0.856 -> 0.976`）与片上压缩光（`dB`），以及稀土掺杂（`Er:TFLN`, `Er:Si3N4`）和异质集成 `InGaAsP` MQW 微环激光器。

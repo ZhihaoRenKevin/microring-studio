@@ -1954,6 +1954,7 @@ table.clean-tbl tr:hover { background: rgba(56,189,248,0.08); }
                 <option value="awg">🌈 Arrayed Waveguide Grating (AWG 1×8 / 1×16 WDM Demux)</option>
                 <option value="pic_netlist">🔌 Native PIC S-Matrix Circuit Netlist (License-Free INTERCONNECT)</option>
                 <option value="inverse_adjoint">🧬 2D-FDFD Exact Adjoint Inverse-Design Y-Branch Optimizer</option>
+                <option value="mrr_ep">🌀 MRR Exceptional Point Suite (Chiral EP2 · Fab-Immune ES · EP3/EP4 · Anti-PT · Encircling)</option>
               </select>
             </div>
             <div class="form-row" style="margin:0;">
@@ -6888,6 +6889,19 @@ function onFrontierModeChange(skipRun) {
     setOpts([['compact_y_branch', 'Ultra-Compact 1×2 Y-Branch (2D-FDFD Adjoint)']]);
     lblP1.textContent = 'Footprint L [µm]'; p1.value = '2.4';
     lblP2.textContent = 'Max Iters'; p2.value = '24';
+  } else if (mode === 'mrr_ep') {
+    lblSub.textContent = 'MRR Exceptional Point Regime';
+    setOpts([
+      ['chiral_single_ring', 'Single-Ring Chiral CW/CCW EP2 (Dual Scatterers)'],
+      ['exceptional_surface', 'Single-Ring Bus-Mirror Exceptional Surface (Fab-Immune ES)'],
+      ['pt_ep_3', '3-Ring Higher-Order PT EP3 (ε¹/³ Splitting)'],
+      ['pt_ep_2', '2-Ring PT-Symmetric EP2 (ε¹/² Splitting)'],
+      ['pt_ep_4', '4-Ring Higher-Order PT EP4 (ε¹/⁴ Splitting)'],
+      ['anti_pt_bus', 'Bus-Coupled Anti-PT EP (Zero-Gain Locking / Gyro)'],
+      ['ep_encircling', 'Dynamic CW vs CCW Topological EP Encircling']
+    ]);
+    lblP1.textContent = 'Coupling J [GHz]'; p1.value = '2.0';
+    lblP2.textContent = 'Perturbation ε [GHz]'; p2.value = '0.05';
   } else {
     lblSub.textContent = 'Nanoantenna Mode';
     setOpts([['seira_molecular', 'SEIRA Molecular (Au MIM + PMMA 1730 cm⁻¹)'], ['mim_absorber', '1-Port MIM Perfect Absorber'], ['fano_eit_qbic', '2-Mode Fano / EIT / q-BIC Metasurface'], ['metasurface_ep', 'Exceptional Point Coupled Metasurface']]);
@@ -6994,6 +7008,13 @@ async function runFrontierPhysicsUI() {
     body.preset = sub1; body.wavelength_start_nm = v1; body.wavelength_stop_nm = v2;
   } else if (mode === 'inverse_adjoint') {
     body.device_type = sub1; body.design_length_um = v1; body.max_iterations = Math.max(6, Math.round(v2));
+  } else if (mode === 'mrr_ep') {
+    if (sub1.startsWith('pt_ep_')) {
+      body.regime = 'pt_ep_n'; body.order_n = parseInt(sub1.split('_')[2], 10) || 3;
+    } else {
+      body.regime = sub1;
+    }
+    body.coupling_j_ghz = v1; body.perturbation_ghz = v2;
   }
 
   try {

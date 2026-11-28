@@ -26,6 +26,7 @@ from .agent_tools import (
     agent_nanoantenna_tcmt,
     agent_2d_material_mrr,
     agent_inverse_adjoint,
+    agent_mrr_ep,
     agent_nonlinear_lle,
     agent_pcm_photonics,
     agent_pdk_drc,
@@ -83,6 +84,12 @@ from .pic_circuit_netlist import (
 from .inverse_design_adjoint import (
     AdjointInverseConfig,
     optimize_inverse_photonic_device,
+)
+from .ep_microring import (
+    EP_REGIME_CATALOG,
+    MRRExceptionalPointConfig,
+    compute_biorthogonal_petermann,
+    simulate_mrr_exceptional_point,
 )
 from .acousto_optic_saw import (
     ELASTIC_MATERIAL_PROPS,
@@ -387,6 +394,11 @@ __all__ = [
     "agent_wbg_awg",
     "agent_pic_netlist",
     "agent_inverse_adjoint",
+    "agent_mrr_ep",
+    "EP_REGIME_CATALOG",
+    "MRRExceptionalPointConfig",
+    "compute_biorthogonal_petermann",
+    "simulate_mrr_exceptional_point",
     "WaveguidePDConfig",
     "OEONeuronConfig",
     "ge_telecom_complex_index",

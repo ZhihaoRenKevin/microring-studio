@@ -396,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 28
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 29
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -2370,11 +2370,54 @@ def test_adjoint_inverse_design_and_v311_fullstack_integration() -> None:
         ("microring_wbg_awg", {"analysis": "wbg", "grating_type": "uniform", "num_periods": 60}),
         ("microring_pic_netlist", {"preset": "mzi_filter"}),
         ("microring_inverse_adjoint", {"max_iterations": 10}),
+        ("microring_mrr_ep", {"regime": "exceptional_surface"}),
     ]:
         mcp_r = handle_mcp_request({"jsonrpc": "2.0", "id": 501, "method": "tools/call", "params": {"name": tool_name, "arguments": args}})
         assert mcp_r is not None and not mcp_r["result"]["isError"]
         txt = mcp_r["result"]["content"][0]["text"]
         assert len(txt) < 620, f"MCP {tool_name} too verbose ({len(txt)} chars): {txt}"
+
+
+def test_mrr_exceptional_point_suite_and_petermann_audit() -> None:
+    from microring import (
+        EP_REGIME_CATALOG,
+        MRRExceptionalPointConfig,
+        simulate_mrr_exceptional_point,
+    )
+
+    assert len(EP_REGIME_CATALOG) == 5
+    with tempfile.TemporaryDirectory() as td:
+        tp = Path(td)
+        chiral = simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime="chiral_single_ring", export_gds_path=str(tp / "chiral.gds")))
+        assert abs(chiral["metrics"]["fitted_power_law_exponent"] - 0.5) < 0.02
+        assert chiral["metrics"]["reflection_asymmetry_dB"] > 80.0 and (tp / "chiral.gds").is_file()
+
+        es = simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime="exceptional_surface", export_gds_path=str(tp / "es.gds")))
+        assert es["metrics"]["fab_drift_immune_ES"] is True and es["metrics"]["max_R_bwd_on_ES"] < 1e-6 and (tp / "es.gds").is_file()
+
+        ep3 = simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime="pt_ep_n", order_n=3, synthesize_fem_gap=True, export_gds_path=str(tp / "ep3.gds")))
+        ep4 = simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime="pt_ep_n", order_n=4))
+        assert abs(ep3["metrics"]["fitted_power_law_exponent"] - 1.0 / 3.0) < 0.02
+        assert abs(ep4["metrics"]["fitted_power_law_exponent"] - 0.25) < 0.02
+        assert 0.10 < ep3["metrics"]["synthesized_gap_EP_um"] < 0.65 and (tp / "ep3.gds").is_file()
+
+        apt = simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime="anti_pt_bus"))
+        assert apt["metrics"]["locked_freq_split_at_0p5_EP_GHz"] < 1e-4
+
+        enc = simulate_mrr_exceptional_point(MRRExceptionalPointConfig(regime="ep_encircling"))
+        assert enc["metrics"]["asymmetric_mode_switch_pass"] is True and enc["metrics"]["chiral_switching_contrast"] > 0.85
+
+        # Copilot EN/ZH + HTTP /api/frontier_physics
+        c_zh = process_chat_turn(create_initial_session(lang="zh"), "仿真微环三阶奇异点 EP3", gds_export_dir=tp, lang="zh")
+        assert c_zh["ui_view"] == "frontier" and c_zh["frontier_result"]["analysis"] == "mrr_ep"
+        c_en = process_chat_turn(create_initial_session(lang="en"), "Simulate bus-mirror exceptional surface MRR", gds_export_dir=tp)
+        assert c_en["ui_view"] == "frontier" and c_en["frontier_result"]["analysis"] == "mrr_ep"
+
+        async def _check_ep_http() -> None:
+            st, body = await _asgi_request("POST", "/api/frontier_physics", json_body={"analysis": "mrr_ep", "regime": "pt_ep_n", "order_n": 3})
+            assert st == 200 and json.loads(body)["metrics"]["order_N"] == 3
+
+        asyncio.run(_check_ep_http())
 
 
 def main() -> None:
@@ -2404,7 +2447,8 @@ def main() -> None:
         ("Ge-on-Si Waveguide Photodetector, O-E-O Neuron, PSR Rotator & PBS/MDM Couplers", test_photodetector_oeo_and_polarization_mdm),
         ("Non-Volatile PCM MRR & SET/RESET Thermal Pulse FEM + PNN Weight Bank & Clements/Reck Mesh", test_pcm_photonics_and_pnn_computing),
         ("Waveguide Bragg Gratings (WBG), Rowland-Circle AWG & Native Schur PIC Circuit Netlist", test_wbg_awg_and_pic_circuit_netlist),
-        ("2D-FDFD Adjoint Inverse Shape Optimizer & v3.11 Full-Stack HTTP/Copilot/28-MCP Integration", test_adjoint_inverse_design_and_v311_fullstack_integration),
+        ("2D-FDFD Adjoint Inverse Shape Optimizer & v3.11 Full-Stack HTTP/Copilot/29-MCP Integration", test_adjoint_inverse_design_and_v311_fullstack_integration),
+        ("MRR Exceptional Point Suite (Chiral EP2, Fab-Immune ES, EP3/EP4, Anti-PT, Encircling & Petermann)", test_mrr_exceptional_point_suite_and_petermann_audit),
     ]
     if len(sys.argv) > 1:
         toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]

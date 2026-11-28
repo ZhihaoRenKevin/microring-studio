@@ -167,6 +167,7 @@ from .nonlinear_lle import (
 )
 from .wdm_link import WDMLinkConfig, simulate_wdm_microring_link
 from .twod_materials_mrr import TWOD_MATERIAL_CATALOG, TwoDMaterialMRRConfig, list_2d_materials, simulate_2d_material_mrr
+from .ep_microring import MRRExceptionalPointConfig, simulate_mrr_exceptional_point
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
 
@@ -1653,6 +1654,28 @@ def agent_inverse_adjoint(params: dict) -> dict:
     res = optimize_inverse_photonic_device(AdjointInverseConfig(**kw))
     m = res["metrics"]
     return {"device": m["device_type"], "T_init_pct": m["initial_transmission_pct"], "IL_init_dB": m["initial_IL_dB"], "T_opt_pct": m["optimized_transmission_pct"], "IL_opt_dB": m["optimized_IL_dB"], "gain_dB": m["IL_improvement_dB"], "evals": m["adjoint_evaluations"], "gds": m["gds_path"], "ms": res["elapsed_ms"]}
+
+
+def agent_mrr_ep(params: dict) -> dict:
+    """First-principles Microring Resonator Exceptional Point (MRR-EP) solver (<150 tokens): Chiral CW/CCW EP2, Bus-Mirror Exceptional Surface (ES), Higher-Order PT EP2/EP3/EP4, Anti-PT Bus EP, Dynamic Encircling & Petermann K_P audit."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    aliases = {"n": "order_n", "mat": "core_material", "wl_nm": "wavelength_nm", "r_um": "ring_radius_um", "j_ghz": "coupling_j_ghz", "eps_ghz": "perturbation_ghz"}
+    valid = {f.name for f in fields(MRRExceptionalPointConfig)}
+    kw = {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+    if params.get("export_gds") and not kw.get("export_gds_path"):
+        kw["export_gds_path"] = str(AGENT_OUT_DIR / f"mrr_ep_{kw.get('regime', 'chiral_single_ring')}.gds")
+    res = simulate_mrr_exceptional_point(MRRExceptionalPointConfig(**kw))
+    m = res["metrics"]
+    out = {"regime": m["regime"], "N": m["order_N"], "ms": res["elapsed_ms"]}
+    for k in (
+        "fitted_power_law_exponent", "EP_vs_DP_signal_gain", "Petermann_K_P_at_perturbation",
+        "SNR_ratio_vs_DP_at_perturbation", "eigenvector_chirality", "reflection_asymmetry_dB",
+        "fab_drift_immune_ES", "exact_AntiPT_EP_detuning_GHz", "chiral_switching_contrast",
+        "synthesized_gap_EP_um", "gds_path",
+    ):
+        if k in m:
+            out[k] = m[k]
+    return out
 
 
 

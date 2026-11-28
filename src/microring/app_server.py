@@ -137,6 +137,10 @@ from .twod_materials_mrr import (
     TwoDMaterialMRRConfig,
     simulate_2d_material_mrr,
 )
+from .ep_microring import (
+    MRRExceptionalPointConfig,
+    simulate_mrr_exceptional_point,
+)
 from .photodetector_oeo import (
     OEONeuronConfig,
     WaveguidePDConfig,
@@ -1655,6 +1659,16 @@ def _advanced_frontier_sync(payload: dict) -> dict:
     if analysis in ("inverse_adjoint", "adjoint_y_branch", "inverse_design"):
         kw = _filter_dataclass_kwargs(AdjointInverseConfig, payload)
         return {"analysis": "inverse_adjoint", **optimize_inverse_photonic_device(AdjointInverseConfig(**kw))}
+    if analysis in ("mrr_ep", "ep", "exceptional_point", "exceptional_surface", "ep3", "anti_pt", "chiral_ep", "ep_encircling"):
+        kw = _filter_dataclass_kwargs(MRRExceptionalPointConfig, payload)
+        if analysis in ("exceptional_surface", "ep_encircling") and "regime" not in kw:
+            kw["regime"] = analysis
+        elif analysis == "ep3" and "regime" not in kw:
+            kw["regime"] = "pt_ep_n"
+            kw.setdefault("order_n", 3)
+        elif analysis == "anti_pt" and "regime" not in kw:
+            kw["regime"] = "anti_pt_bus"
+        return {"analysis": "mrr_ep", **simulate_mrr_exceptional_point(MRRExceptionalPointConfig(**kw))}
     return _nonlinear_lle_sync(payload)
 
 

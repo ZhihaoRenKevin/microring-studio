@@ -1,0 +1,144 @@
+{
+  "timestamp": "2026-11-28 14:09:46",
+  "machine": "Kevin",
+  "elapsed_s": 108.9,
+  "regimes": {
+    "chiral_single_ring": {
+      "regime": "chiral_single_ring",
+      "order_N": 2,
+      "A_CW_to_CCW_GHz": 4.0,
+      "A_CCW_to_CW_GHz": 0.0,
+      "chiral_asymmetry_ratio": 4000000.0,
+      "eigenvector_chirality": -1.0,
+      "min_eigenvector_angle_deg": 0.0,
+      "splitting_at_perturbation_GHz": 0.89839,
+      "EP_vs_DP_signal_gain": 17.97,
+      "fitted_power_law_exponent": 0.5,
+      "Petermann_K_P_at_perturbation": 20.68,
+      "SNR_ratio_vs_DP_at_perturbation": 3.951,
+      "max_R_fwd": 0.0745,
+      "max_R_bwd": 0.0,
+      "reflection_asymmetry_dB": 108.72
+    },
+    "exceptional_surface": {
+      "regime": "exceptional_surface",
+      "order_N": 2,
+      "unidirectional_coupling_GHz": 0.922,
+      "mirror_reflectivity_R": 0.85,
+      "eigenvector_chirality": -1.0,
+      "min_eigenvector_angle_deg": 0.0,
+      "fab_drift_5GHz_angle_deg": 0.0,
+      "fab_drift_immune_ES": true,
+      "splitting_at_perturbation_GHz": 0.42972,
+      "EP_vs_DP_signal_gain": 8.59,
+      "fitted_power_law_exponent": 0.5,
+      "Petermann_K_P_at_perturbation": 5.13,
+      "SNR_ratio_vs_DP_at_perturbation": 3.795,
+      "max_R_bwd_on_ES": 0.0
+    },
+    "pt_ep_2": {
+      "regime": "pt_ep_n",
+      "order_N": 2,
+      "ring_loss_rates_GHz": [
+        2.0,
+        10.0
+      ],
+      "inter_ring_couplings_GHz": [
+        2.0
+      ],
+      "exact_EP_loss_span_GHz": 8.0,
+      "theoretical_exponent_1_over_N": 0.5,
+      "fitted_power_law_exponent": 0.5,
+      "min_eigenvector_angle_deg": 0.0,
+      "splitting_at_perturbation_GHz": 0.63246,
+      "EP_vs_DP_signal_gain": 12.65,
+      "Petermann_K_P_at_perturbation": 40.5,
+      "SNR_ratio_vs_DP_at_perturbation": 1.988
+    },
+    "pt_ep_3": {
+      "regime": "pt_ep_n",
+      "order_N": 3,
+      "ring_loss_rates_GHz": [
+        2.0,
+        7.657,
+        13.314
+      ],
+      "inter_ring_couplings_GHz": [
+        2.0,
+        2.0
+      ],
+      "exact_EP_loss_span_GHz": 11.314,
+      "theoretical_exponent_1_over_N": 0.3333,
+      "fitted_power_law_exponent": 0.344,
+      "min_eigenvector_angle_deg": 0.0007,
+      "splitting_at_perturbation_GHz": 1.13596,
+      "EP_vs_DP_signal_gain": 22.72,
+      "Petermann_K_P_at_perturbation": 316.39,
+      "SNR_ratio_vs_DP_at_perturbation": 1.277,
+      "neff_bare": 2.41383,
+      "ng_bare": 4.2316,
+      "FSR_GHz": 563.78,
+      "kappa_EP_amplitude": 0.02229,
+      "coupler_decay_gamma_per_um": 8.583,
+      "effective_coupling_length_um": 2.71,
+      "synthesized_gap_EP_um": 0.4082
+    },
+    "pt_ep_4": {
+      "regime": "pt_ep_n",
+      "order_N": 4,
+      "ring_loss_rates_GHz": [
+        2.0,
+        6.619,
+        11.238,
+        15.856
+      ],
+      "inter_ring_couplings_GHz": [
+        2.0,
+        2.309,
+        2.0
+      ],
+      "exact_EP_loss_span_GHz": 13.856,
+      "theoretical_exponent_1_over_N": 0.25,
+      "fitted_power_law_exponent": 0.252,
+      "min_eigenvector_angle_deg": 0.0095,
+      "splitting_at_perturbation_GHz": 1.70542,
+      "EP_vs_DP_signal_gain": 34.11,
+      "Petermann_K_P_at_perturbation": 2112.17,
+      "SNR_ratio_vs_DP_at_perturbation": 0.742
+    },
+    "anti_pt_bus": {
+      "regime": "anti_pt_bus",
+      "order_N": 2,
+      "exact_AntiPT_EP_detuning_GHz": 2.0,
+      "dissipative_coupling_Gamma_c_GHz": 1.0,
+      "locked_freq_split_at_0p5_EP_GHz": 0.0,
+      "min_eigenvector_angle_deg": 0.0,
+      "splitting_at_perturbation_GHz": 0.45,
+      "EP_vs_DP_signal_gain": 9.0,
+      "fitted_power_law_exponent": 0.5,
+      "Petermann_K_P_at_perturbation": 20.75,
+      "SNR_ratio_vs_DP_at_perturbation": 1.976
+    },
+    "ep_encircling": {
+      "regime": "ep_encircling",
+      "order_N": 2,
+      "CW_from_plus_final_Pplus": 0.002,
+      "CW_from_minus_final_Pplus": 0.002,
+      "CCW_from_plus_final_Pplus": 0.998,
+      "CCW_from_minus_final_Pplus": 0.998,
+      "chiral_switching_contrast": 0.996,
+      "asymmetric_mode_switch_pass": true,
+      "Petermann_K_P_at_perturbation": 40.5
+    }
+  },
+  "comsol_ep3_gap_validation": {
+    "synthesized_gap_EP_um": 0.4082,
+    "comsol_n_sym": 2.415766,
+    "comsol_n_anti": 2.411681,
+    "comsol_delta_n": 0.00408511,
+    "microring_n_sym": 2.4158,
+    "microring_n_anti": 2.411711,
+    "microring_delta_n": 0.004089238,
+    "delta_n_rel_err_pct": 0.1
+  }
+}
