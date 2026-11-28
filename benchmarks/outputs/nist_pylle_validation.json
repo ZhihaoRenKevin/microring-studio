@@ -1,0 +1,83 @@
+{
+  "nist_solver": "usnistgov/pyLLE/pyLLE/ComputeLLE.jl",
+  "julia_runtime": "Julia 1.13.4 (HDF5 + FFTW)",
+  "cases": [
+    {
+      "name": "Brasch_2016_Si3N4_800x1600",
+      "mr_peak_W": 188.4988,
+      "nist_peak_W": 191.7165,
+      "peak_diff_pct": 1.678,
+      "mr_fwhm_fs": 33.46,
+      "nist_fwhm_fs": 33.3,
+      "fwhm_diff_pct": 0.466,
+      "mr_pavg_mW": 7211.718,
+      "nist_pavg_mW": 7309.951,
+      "pavg_diff_pct": 1.344,
+      "mr_conv_pct": 6.994,
+      "nist_conv_pct": 7.014,
+      "spectrum_parity": {
+        "n_lines": 81,
+        "rmse_dB": 0.359,
+        "median_abs_dB": 0.3092,
+        "max_abs_dB": 0.7465,
+        "corr": 0.999992
+      },
+      "mr_ms": 109.7,
+      "nist_julia_ms": 8483.8
+    },
+    {
+      "name": "Guidry_2020_4HSiC_500x1850",
+      "mr_peak_W": 12.6768,
+      "nist_peak_W": 12.5914,
+      "peak_diff_pct": 0.679,
+      "mr_fwhm_fs": 41.26,
+      "nist_fwhm_fs": 41.29,
+      "fwhm_diff_pct": 0.078,
+      "mr_pavg_mW": 685.245,
+      "nist_pavg_mW": 682.494,
+      "pavg_diff_pct": 0.403,
+      "mr_conv_pct": 3.711,
+      "nist_conv_pct": 3.738,
+      "spectrum_parity": {
+        "n_lines": 155,
+        "rmse_dB": 0.123,
+        "median_abs_dB": 0.1076,
+        "max_abs_dB": 0.1929,
+        "corr": 1.0
+      },
+      "mr_ms": 105.9,
+      "nist_julia_ms": 7715.0
+    },
+    {
+      "name": "NIST_Official_RW1000_H430_Octave_DualDW",
+      "disp_fem_vs_nist_comsol": {
+        "FSR_MR_GHz": 952.701,
+        "FSR_NIST_GHz": 982.26,
+        "ng_MR": 2.17749,
+        "ng_NIST": 2.112,
+        "D2_MR_MHz": 41.62122,
+        "D2_NIST_MHz": 30.28
+      },
+      "mr_peak_W": 133.2815,
+      "nist_peak_W": 132.5131,
+      "peak_diff_pct": 0.58,
+      "mr_fwhm_fs": 13.83,
+      "nist_fwhm_fs": 13.69,
+      "fwhm_diff_pct": 1.004,
+      "mr_pavg_mW": 2466.279,
+      "nist_pavg_mW": 2455.939,
+      "pavg_diff_pct": 0.421,
+      "dw_blue_mode_MR": 119,
+      "dw_blue_mode_NIST": 119,
+      "spectrum_parity": {
+        "n_lines": 215,
+        "rmse_dB": 1.4052,
+        "median_abs_dB": 0.1707,
+        "max_abs_dB": 12.3972,
+        "corr": 0.995365
+      },
+      "mr_ms": 167.4,
+      "nist_julia_ms": 8656.4
+    }
+  ]
+}

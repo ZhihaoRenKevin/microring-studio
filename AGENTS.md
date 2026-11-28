@@ -26,6 +26,7 @@ When helping users design, sweep, fit, or lay out Photonic IC microring resonato
 | **Foundry PDK DRC (`.lyrdb`) + 3D LVS + Cutline 2D-FEM** | `uv run microring agent pdk-drc --mode build_pn_heater_ring --pdk gsip_soi220 --r 12 --gap 0.20 --cutline` |
 | **PRISM Physics-Closure Audit & Closed-Loop 2D-FEM Optimizer** | `uv run microring agent prism-optimize --mode optimize --problem pn_ring_modulator --iters 8` |
 | **Multi-Ch WDM Ring Link, NRZ/PAM4 Eye & PI Heater Relocking** | `uv run microring agent wdm-link --scenario heater_relocked --n-ch 4 --rate 25 --format nrz` |
+| **Nonlinear Photonics (2D-FEM D_int, LLE Microcomb, FWM-BS, SHG, Bistability)** | `uv run microring agent nonlinear --analysis lle --mat Si3N4 --h 0.80 --w-ring 1.60 --r 23 --p-mw 80 --raman` |
 
 ## Valid Keys Quick Reference
 - **7 Topologies (`--top`)**: `point_circular_ap`, `point_circular_ad`, `racetrack_ap`, `racetrack_ad`, `pulley_ap`, `pulley_ad`, `vernier_crow_ad`

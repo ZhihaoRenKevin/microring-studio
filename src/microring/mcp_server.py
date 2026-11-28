@@ -25,6 +25,7 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_nonlinear_lle,
     agent_pdk_drc,
     agent_prism_optimize,
     agent_status,
@@ -343,6 +344,27 @@ MCP_TOOLS = [
             },
         },
     },
+    {
+        "name": "microring_nonlinear_lle",
+        "description": "First-principles Nonlinear Photonics & LLE Microcomb Engine: broadband 2D-FEM D_int(mu) + vector gamma_NL/P_th, GPU/CPU Split-Step Fourier LLE (solitons, dispersive waves, Raman, thermal, Si TPA/FCA), cross-band FWM-BS, Chi(2) SHG, and photothermal-Kerr bistability.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "analysis": {"type": "string", "description": "lle | dispersion | fwm_bs | shg | bistability"},
+                "mat": {"type": "string", "description": "Core material (Si3N4, 4H-SiC, LN_Xcut, Si, AlN, ScAlN_20, Hydex)"},
+                "h_um": {"type": "number"},
+                "slab_um": {"type": "number"},
+                "w_ring_um": {"type": "number"},
+                "r_um": {"type": "number"},
+                "wl_nm": {"type": "number"},
+                "mode": {"type": "string", "description": "single_soliton | soliton_sweep | dark_pulse"},
+                "p_mw": {"type": "number", "description": "Pump power [mW]"},
+                "include_raman": {"type": "boolean"},
+                "include_thermal": {"type": "boolean"},
+                "include_tpa_fca": {"type": "boolean"},
+            },
+        },
+    },
 ]
 
 _DISPATCH = {
@@ -361,6 +383,7 @@ _DISPATCH = {
     "microring_pdk_drc": agent_pdk_drc,
     "microring_prism_optimize": agent_prism_optimize,
     "microring_wdm_link": agent_wdm_link,
+    "microring_nonlinear_lle": agent_nonlinear_lle,
 }
 
 

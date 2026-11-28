@@ -26,6 +26,7 @@ from .agent_tools import (
     agent_high_q_fdtd,
     agent_inspect_gds,
     agent_io_coupler,
+    agent_nonlinear_lle,
     agent_pdk_drc,
     agent_prism_optimize,
     agent_status,
@@ -294,6 +295,21 @@ def main() -> None:
     p_wdm.add_argument("--vpp", type=float, default=2.0, dest="vpp")
     p_wdm.add_argument("--json", type=str, default=None, dest="raw_json")
 
+    p_nl = ag_sub.add_parser("nonlinear", help="First-Principles Nonlinear Photonics & LLE Microcomb Engine (dispersion, LLE, FWM-BS, SHG, bistability) (<150 tokens)")
+    p_nl.add_argument("--analysis", type=str, default="lle", help="lle | dispersion | fwm_bs | shg | bistability")
+    p_nl.add_argument("--mat", type=str, default="Si3N4")
+    p_nl.add_argument("--h", type=float, default=None, dest="h_um")
+    p_nl.add_argument("--slab", type=float, default=None, dest="slab_um")
+    p_nl.add_argument("--w-ring", type=float, default=None, dest="w_ring_um")
+    p_nl.add_argument("--r", type=float, default=None, dest="r_um")
+    p_nl.add_argument("--wl", type=float, default=None, dest="wl_nm")
+    p_nl.add_argument("--mode", type=str, default=None, help="single_soliton | soliton_sweep | dark_pulse")
+    p_nl.add_argument("--p-mw", type=float, default=None, dest="p_mw")
+    p_nl.add_argument("--raman", action="store_true", dest="include_raman")
+    p_nl.add_argument("--thermal", action="store_true", dest="include_thermal")
+    p_nl.add_argument("--tpa", action="store_true", dest="include_tpa_fca")
+    p_nl.add_argument("--json", type=str, default=None, dest="raw_json")
+
     args = parser.parse_args()
 
     if args.cmd in (None, "app"):
@@ -366,6 +382,8 @@ def main() -> None:
             _print_compact(agent_prism_optimize(d))
         elif args.agent_cmd == "wdm-link":
             _print_compact(agent_wdm_link(d))
+        elif args.agent_cmd == "nonlinear":
+            _print_compact(agent_nonlinear_lle(d))
 
 
 if __name__ == "__main__":

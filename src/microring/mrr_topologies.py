@@ -147,6 +147,9 @@ class MRRDesignConfig:
     num_spectrum_points: int = 2000
     polarization: str = "TE0"               # 'TE0' or 'TM0'
     alpha_loss_db_per_cm: float | None = None  # defaults to material typical_loss_db_cm
+    sidewall_rms_roughness_nm: float = 0.0  # optional Payne-Lacey sidewall roughness sigma_rms [nm] (0 = off)
+    sidewall_corr_length_nm: float = 50.0   # exponential roughness correlation length L_c [nm]
+    broadband_coupler_dispersion: bool = False  # True (or span_nm >= 80 nm) evaluates dispersive kappa(lambda)
     # Active tuning inputs
     delta_temp_k: float = 0.0               # unit: K (thermo-optic shift relative to 300 K)
     voltage_v: float = 0.0                  # unit: V (electro-optic bias)
@@ -1036,6 +1039,107 @@ def _estimate_cylindrical_bend_radiation_loss(
     }
 
 
+def estimate_sidewall_scattering_payne_lacey(
+    mode: EigenmodeResult,
+    *,
+    w_bottom_um: float,
+    h_film_um: float,
+    h_slab_um: float,
+    sidewall_deg: float,
+    n_core: float,
+    n_clad_side: float,
+    sigma_rms_nm: float,
+    corr_length_nm: float = 50.0,
+    roundtrip_length_um: float = 100.0,
+    ng_ring: float = 2.1,
+) -> dict[str, float]:
+    """First-principles 3D Volume-Current Payne-Lacey / Barwicz-Haus sidewall scattering & backscattering.
+
+    Computes sidewall roughness scattering attenuation `alpha_scattering_db_per_cm` and Lorentz-reciprocity
+    RMS CW/CCW doublet splitting `backscatter_split_rms_mhz` directly from the 2D vector FEM sidewall
+    electric field `(Ex, Ey, Ez)` for exponential autocorrelation `R(z) = sigma^2 * exp(-|z|/L_c)`
+    (Payne & Lacey 1994; Barwicz & Haus JLT 2005; Morichetti et al. PRL 2010).
+    """
+    sig_m = max(float(sigma_rms_nm), 0.0) * 1e-9
+    lc_m = max(float(corr_length_nm), 1.0) * 1e-9
+    if sig_m <= 1e-13 or len(mode.x_m) < 8 or len(mode.y_m) < 8:
+        return {"alpha_scattering_db_per_cm": 0.0, "backscatter_split_rms_mhz": 0.0}
+
+    k0 = 2.0 * math.pi / mode.wavelength_m
+    om = k0 * C0_M_PER_S
+    beta = k0 * float(np.real(mode.n_eff))
+    kc = k0 * n_clad_side
+    deps = max(n_core * n_core - n_clad_side * n_clad_side, 0.0)
+    if deps <= 1e-6:
+        return {"alpha_scattering_db_per_cm": 0.0, "backscatter_split_rms_mhz": 0.0}
+
+    x_m, y_m = mode.x_m, mode.y_m
+    dy = float(np.mean(np.diff(y_m)))
+    ymask = (y_m >= h_slab_um * 1e-6) & (y_m <= h_film_um * 1e-6)
+    if int(np.count_nonzero(ymask)) < 2:
+        return {"alpha_scattering_db_per_cm": 0.0, "backscatter_split_rms_mhz": 0.0}
+    y_sub = y_m[ymask]
+
+    inv_tan = 0.0 if abs(sidewall_deg - 90.0) < 1e-3 else 1.0 / math.tan(math.radians(sidewall_deg))
+    # Average ridge half-width along the etched sidewall height
+    half_w_mid_m = max(0.5 * (w_bottom_um - (h_film_um - h_slab_um) * inv_tan), 0.05) * 1e-6
+    dx_sample = max(float(np.mean(np.diff(x_m))) * 1.2, 0.025e-6)
+
+    # Exact Barwicz-Haus (2005) sidewall dielectric-interface Fresnel image screening:
+    # tangential dipoles (py, pz) next to high-index core carry negative image r_s = (n_c - n_core)/(n_c + n_core),
+    # giving 1 + r_s = 2*n_clad/(n_core + n_clad), while normal px uses core-screened E_{x,in} directly.
+    t_par_img = (2.0 * n_clad_side) / max(n_core + n_clad_side, 1e-6)
+
+    u_kz = np.linspace(-0.995, 0.995, 65)
+    du = float(u_kz[1] - u_kz[0])
+    kz = kc * u_kz
+    krho = kc * np.sqrt(1.0 - u_kz ** 2)
+    phi = np.linspace(0.0, 2.0 * math.pi, 16, endpoint=False)
+    r_psd = (2.0 * sig_m * sig_m * lc_m) / (1.0 + ((beta - kz) * lc_m) ** 2)
+    ky_grid = krho[:, None] * np.sin(phi[None, :])
+    phase_y = np.exp(-1j * ky_grid[:, :, None] * y_sub[None, None, :])
+
+    dp_dz = 0.0
+    back_sq_sum = 0.0
+    for sgn in (-1.0, +1.0):
+        xw = sgn * half_w_mid_m
+        i_in = int(np.argmin(np.abs(x_m - (xw - sgn * dx_sample))))
+        i_out = int(np.argmin(np.abs(x_m - (xw + sgn * dx_sample))))
+        ex_in = mode.Ex[ymask, i_in]
+        ex_out = mode.Ex[ymask, i_out]
+        ey_w = 0.5 * (mode.Ey[ymask, i_in] + mode.Ey[ymask, i_out])
+        ez_w = 0.5 * (mode.Ez[ymask, i_in] + mode.Ez[ymask, i_out])
+
+        # Barwicz-Haus (2005) volume current radiating into cladding:
+        # normal dipole uses core-screened E_{x,in}; tangential (py, pz) carry Fresnel image factor 1 + r_s = t_par_img
+        px = EPS0_F_PER_M * deps * np.einsum("kpy,y->kp", phase_y, ex_in) * dy
+        py = t_par_img * EPS0_F_PER_M * deps * np.einsum("kpy,y->kp", phase_y, ey_w) * dy
+        pz = t_par_img * EPS0_F_PER_M * deps * np.einsum("kpy,y->kp", phase_y, ez_w) * dy
+        p_perp_sq = np.mean(np.abs(px) ** 2 + np.abs(py) ** 2, axis=1)
+        p_z_sq = np.mean(np.abs(pz) ** 2, axis=1)
+        integrand = r_psd * (0.5 * (1.0 + u_kz ** 2) * p_perp_sq + (1.0 - u_kz ** 2) * p_z_sq)
+        dp_dz += (om ** 4 * n_clad_side / (16.0 * math.pi * EPS0_F_PER_M * (C0_M_PER_S ** 3))) * float(np.sum(integrand) * du)
+
+        # Lorentz-reciprocity CW<->CCW backscattering coupling (Johnson 2002; Ez flips sign on reversal)
+        chi_b = (om * EPS0_F_PER_M * deps / (4.0 * max(mode.power_w, 1e-30))) * float(
+            abs(np.sum((np.abs(ex_in * ex_out) + np.abs(ey_w) ** 2 - np.abs(ez_w) ** 2) * dy))
+        )
+        back_sq_sum += chi_b * chi_b
+
+    alpha_p = dp_dz / max(mode.power_w, 1e-30)
+    alpha_db_cm = alpha_p * 1e-2 * (10.0 / math.log(10.0))
+
+    r_2b = (2.0 * sig_m * sig_m * lc_m) / (1.0 + ((2.0 * beta) * lc_m) ** 2)
+    l_rt_m = max(roundtrip_length_um, 1.0) * 1e-6
+    r_rt_rms = math.sqrt(max(l_rt_m * r_2b * back_sq_sum, 0.0))
+    t_rt_s = max(ng_ring, 1.0) * l_rt_m / C0_M_PER_S
+    split_mhz = (r_rt_rms / (math.pi * max(t_rt_s, 1e-18))) * 1e-6
+    return {
+        "alpha_scattering_db_per_cm": float(alpha_db_cm),
+        "backscatter_split_rms_mhz": float(split_mhz),
+    }
+
+
 def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
     """End-to-end Maxwell Eigenmode -> Spatial/Temporal CMT -> Broadband Spectrum synthesis."""
     t_sim_start = time.perf_counter()
@@ -1244,8 +1348,29 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             f"increase ring_radius_um to raise radiation-limited Q_rad."
         )
 
+    # Optional first-principles Payne-Lacey / Barwicz-Haus sidewall roughness scattering loss
+    if float(cfg.sidewall_rms_roughness_nm) > 0.0:
+        scat_res = estimate_sidewall_scattering_payne_lacey(
+            ring_bent_mode,
+            w_bottom_um=cfg.ring_width_um,
+            h_film_um=cfg.film_height_um,
+            h_slab_um=cfg.slab_height_um,
+            sidewall_deg=cfg.sidewall_deg,
+            n_core=float(mat_core_val.nx if cfg.polarization.upper().startswith("TE") else mat_core_val.ny),
+            n_clad_side=float(mat_top_val.nx),
+            sigma_rms_nm=cfg.sidewall_rms_roughness_nm,
+            corr_length_nm=cfg.sidewall_corr_length_nm,
+            roundtrip_length_um=l_rt_um,
+            ng_ring=ng_rt,
+        )
+        alpha_scat_db_cm = float(scat_res["alpha_scattering_db_per_cm"])
+        backscatter_split_mhz = float(scat_res["backscatter_split_rms_mhz"])
+    else:
+        alpha_scat_db_cm = 0.0
+        backscatter_split_mhz = 0.0
+
     alpha_power_per_m = (
-        alpha_db_cm * 100.0 * (math.log(10.0) / 10.0)
+        (alpha_db_cm + alpha_scat_db_cm) * 100.0 * (math.log(10.0) / 10.0)
         + (4.0 * math.pi * k_eff_mat / wl_m)
         + alpha_bend_rt_per_m
     )
@@ -1853,6 +1978,65 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             dense_clusters.append(np.append(cluster, lam_res))
     wl_vec = np.unique(np.concatenate(dense_clusters))
 
+    # Optional broadband coupler dispersion kappa(lambda) across wide spectral scans (>= 80 nm or explicit flag)
+    kp_thru_spec: float | np.ndarray = kp_thru
+    kp_drop_spec: float | np.ndarray = kp_drop
+    use_bb_coupler = (
+        (bool(cfg.broadband_coupler_dispersion) or float(cfg.span_nm) >= 80.0)
+        and cfg.topology != "vernier_crow_ad"
+        and kp_thru > 1e-7
+    )
+    if use_bb_coupler:
+        wl_anc = np.array([wl_min_nm, cfg.wavelength_nm, wl_max_nm], dtype=float)
+        kp1_anc = []
+        kp2_anc = []
+        for wa in wl_anc:
+            if abs(wa - cfg.wavelength_nm) < 1e-4:
+                kp1_anc.append(kp_thru)
+                kp2_anc.append(kp_drop)
+            else:
+                try:
+                    sub_cfg = MRRDesignConfig(
+                        topology=cfg.topology,
+                        core_material=cfg.core_material,
+                        clad_material=cfg.clad_material,
+                        top_clad_material=cfg.top_clad_material,
+                        sc_fraction=cfg.sc_fraction,
+                        custom_n=cfg.custom_n,
+                        custom_k=cfg.custom_k,
+                        custom_clad_n=cfg.custom_clad_n,
+                        custom_top_clad_n=cfg.custom_top_clad_n,
+                        ring_width_um=cfg.ring_width_um,
+                        bus_width_um=cfg.bus_width_um,
+                        film_height_um=cfg.film_height_um,
+                        slab_height_um=cfg.slab_height_um,
+                        sidewall_deg=cfg.sidewall_deg,
+                        ring_radius_um=cfg.ring_radius_um,
+                        gap_thru_um=cfg.gap_thru_um,
+                        gap_drop_um=cfg.gap_drop_um,
+                        straight_length_um=cfg.straight_length_um,
+                        pulley_angle_thru_deg=cfg.pulley_angle_thru_deg,
+                        pulley_angle_drop_deg=cfg.pulley_angle_drop_deg,
+                        wavelength_nm=float(wa),
+                        span_nm=4.0,
+                        num_spectrum_points=80,
+                        polarization=cfg.polarization,
+                        alpha_loss_db_per_cm=alpha_db_cm,
+                        solver_backend=cfg.solver_backend,
+                        core_mesh_res_um=cfg.core_mesh_res_um,
+                        broadband_coupler_dispersion=False,
+                    )
+                    sub_m = simulate_mrr_topology(sub_cfg)["metrics"]
+                    kp1_anc.append(max(float(sub_m["kappa_power_thru"]), 1e-9))
+                    kp2_anc.append(max(float(sub_m["kappa_power_drop"]), 0.0))
+                except Exception:
+                    kp1_anc.append(kp_thru)
+                    kp2_anc.append(kp_drop)
+        # Log-linear interpolation captures exact evanescent coupling dispersion exp(-gamma(wl)*gap)
+        kp_thru_spec = np.clip(np.exp(np.interp(wl_vec, wl_anc, np.log(np.maximum(kp1_anc, 1e-9)))), 1e-9, 0.9999)
+        if is_4port and kp_drop > 1e-7:
+            kp_drop_spec = np.clip(np.exp(np.interp(wl_vec, wl_anc, np.log(np.maximum(kp2_anc, 1e-9)))), 1e-9, 0.9999)
+
     alpha_eff_db_cm = alpha_power_per_m / (100.0 * math.log(10.0) / 10.0)
     if cfg.topology == "vernier_crow_ad" and vernier_summary is not None:
         spec_out = _vernier_crow_spectra(
@@ -1879,8 +2063,8 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             ng_at_ref=ng_rt,
             lambda_ref_nm=cfg.wavelength_nm,
             alpha_loss_db_per_cm=alpha_eff_db_cm,
-            kappa_power_thru=kp_thru,
-            kappa_power_drop=kp_drop,
+            kappa_power_thru=kp_thru_spec,
+            kappa_power_drop=kp_drop_spec,
             delta_neff_tuning=dneff_complex,
         )
         comp_backend = str(spec_out["compute_backend"])
@@ -1948,6 +2132,9 @@ def simulate_mrr_topology(cfg: MRRDesignConfig) -> dict:
             "alpha_bend_db_per_cm": round(alpha_bend_db_cm, 6),
             "bend_loss_db_per_90deg": round(bend_loss_db_90, 6),
             "Q_rad_bend": bend_rad["Q_rad_bend"],
+            "alpha_scattering_db_per_cm": round(alpha_scat_db_cm, 5),
+            "backscatter_split_rms_mhz": round(backscatter_split_mhz, 2),
+            "broadband_coupler_dispersive": bool(use_bb_coupler),
             "tuning_shift_pm": tuning_info["resonance_shift_pm"],
             "eo_tunability_pm_per_v": tuning_info["electro_optic_pm_per_v"],
             "photon_lifetime_ps": round(tau_ph_ps, 3),

@@ -2,6 +2,20 @@
 
 All notable changes to **MicroRing Studio** are documented in this file.
 
+## [3.9.1] - 2026-11-28
+
+### Added (First-Principles Nonlinear Photonics, Generalized LLE & Sidewall Scattering)
+- **Nonlinear Photonics & Generalized Split-Step Fourier LLE Microcomb Engine (`nonlinear_lle.py`)**:
+  - `compute_resonator_dispersion_and_nl` & `compute_vector_kerr_gamma`: Broadband 2D curved-FEM integrated dispersion $D_{\mathrm{int}}(\mu)$ ($D_1, D_2, D_3, D_4$, $\beta_2(\lambda)$, zero-dispersion wavelengths ZDW, optional avoided mode crossings AMX), full-vector Afshar-Monro (2009) Kerr $\gamma_{\mathrm{NL}} / A_{\mathrm{eff,NL}} / g_0 / P_{\mathrm{th}}$, and 3-anchor broadband coupler dispersion $\kappa_{\mathrm{ext}}(\mu)$.
+  - `simulate_lle_microcomb`: FP64 Strang Split-Step Fourier (SSFM) LLE solver (automatic PyTorch CUDA GPU / NumPy CPU dispatch) covering `single_soliton`, blue-to-red `soliton_sweep` from vacuum noise, and normal-dispersion `dark_pulse`, with exact upper-branch DKS phase locking, sub-bin interpolated FWHM, causal damped-oscillator Raman self-frequency red-shift, coupled photothermal detuning, and Silicon/a-Si TPA + free-carrier FCD/FCA (`2.2 µm` cutoff).
+  - `simulate_fwm_bragg_scattering`: 4-wave cross-band 2D curved-FEM FWM Bragg scattering / quantum frequency conversion solver extracting full-vector $\gamma_{\mathrm{BS}}$, cooperativity $C_{\mathrm{BS}}$, quantum conversion efficiency $\eta_{\mathrm{CE}}$, optimal pump power, and spurious sideband suppression ratio.
+  - `simulate_chi2_shg_resonator`: FH/SH 2D curved-FEM $\chi^{(2)}$ SHG resonator solver extracting crystal-tensor vector overlap $g_2$, QPM poling period $\Lambda_{\mathrm{QPM}}$ and azimuthal order $M_{\mathrm{QPM}}$, undepleted $\eta_{\mathrm{SHG}}$ (`%/W`), and exact depressed-cubic pump-depleted transfer curve $P_{\mathrm{SH}}(P_{\mathrm{FH}})$.
+  - `simulate_thermal_kerr_bistability`: Exact analytical multi-valued photothermal + Kerr S-curve and dynamic blue-to-red / red-to-blue shark-fin laser scan hysteresis ODE.
+- **First-Principles Sidewall Roughness Scattering & Broadband Coupler Dispersion (`mrr_topologies.py`)**:
+  - Added `estimate_sidewall_scattering_payne_lacey` implementing Barwicz-Haus (2005) 3D volume-current radiation with exact tangential Fresnel image screening ($1 + r_s = 2 n_{\mathrm{clad}} / (n_{\mathrm{core}} + n_{\mathrm{clad}})$) and Lorentz-reciprocity RMS CW/CCW doublet splitting (`MHz`), plus backward-compatible 3-anchor dispersive $\kappa(\lambda)$ in `simulate_mrr_topology` (`sidewall_rms_roughness_nm`, `broadband_coupler_dispersion`).
+- **Full API / CLI / MCP / HTTP & Verification Wiring**:
+  - Wired `agent_nonlinear_lle` (`<150 tokens`), 16th MCP tool `microring_nonlinear_lle`, CLI `microring agent nonlinear`, ASGI `POST /api/nonlinear_lle`, and Suite #18 in `tests/test_microring_all.py` (`18/18 PASS`).
+
 ## [3.9.0] - 2026-11-15
 
 ### Added (100% Native Python Solvers, Zero Commercial Solver Dependency)

@@ -36,6 +36,7 @@ Every solver engine in **MicroRing Studio (`v3.9.0`)** is a standalone first-pri
 | **11** | Lithography CD & Gap Bias Drift (`±20 nm`, Pos/Neg PR) | Lumerical `MODE`+`3D FDTD`, COMSOL `ewfd` | $\mathrm{d}\lambda/\mathrm{dCD} = 775.79 / 775.97 / 776.36\text{ pm/nm}$ (`0.07%` 3-way spread); $\kappa^2$ within `0.3%–4.8%` of 3D FDTD |
 | **12** | Low-$Q$ Full-Ring `3D FDTD` (`7` topologies), `.GDS` & Auto-BIC | Lumerical `3D FDTD` (GPU) | Racetrack $Q_L$ `1413 vs 1405` (`0.58%`); Lossy CC $Q_{\mathrm{ext}}$ `8348 vs 8156` (`2.3%`); Gap ratio `1.1%`; CROW split `1.109 vs 1.052 nm` (`5.4%`); `GSST` $\Delta\lambda = +2.93 vs +2.75 nm` (`6.0%`); `.GDS` `gdsimport` & blind Auto-BIC `split_doublet` (`R^2 = 0.99997`) verified |
 | **13** | Optimal `2x2 MMI`, S-Bend `DC`, `RAMZI`, `3D` GC & Butt Taper | Lumerical `3D FDTD` (GPU) | Optimal `2x2 MMI` IL `0.367 vs 0.393 dB` (`0.026 dB`); S-Bend `DC` `2.2%`; `RAMZI` `ER_bar 14.85 vs 14.94 dB` (`0.09 dB`); `3D` Focusing GC peak `1555.3 vs 1554.0 nm`, peak IL `3.490 vs 3.522 dB` (`0.032 dB`); `3D` Butt total IL `0.588 vs 0.777 dB` |
+| **LLE** | Generalized SSFM LLE Microcombs (Brasch `Si3N4`, Guidry `4H-SiC`, NIST `RW1000_H430` Dual-DW) | **NIST `usnistgov/pyLLE`** (`ComputeLLE.jl`) | Peak power within `0.58%–1.68%`, FWHM within `0.08%–1.00%`, `81–215` comb lines median `0.11–0.31 dB` (`r = 0.9954–1.0000`), exact Cherenkov DW mode `+119 vs +119` (`50–77x` faster) |
 
 <details>
 <summary><b>View 18-Panel Commercial Validation Figures (Suites 1–13: MicroRing vs. Lumerical, COMSOL & HFSS 3D)</b></summary>
@@ -58,6 +59,10 @@ Photonic IC (`PIC`) and optical module interconnect engineers routinely hit thre
 3. **Layout-to-circuit disconnect**: A `.gds` mask drawn in KLayout or `gdsfactory` has to be manually re-measured for simulation, while device sweeps rarely export directly into `127 um` fiber-array test loops or `Ansys Lumerical INTERCONNECT` circuit compact models.
 
 **MicroRing Studio (`v3.9.0`)** solves all three problems in a single 100% permissive (`MIT`/`BSD`) Python package and native desktop app, **validated head-to-head across all 13 physical suites against [Ansys Lumerical 2026 R1 (`MODE`/`FDTD`/`EME`/`CHARGE`/`HEAT`/`INTERCONNECT`), COMSOL Multiphysics 6.4 (`ewfd`/`emw`/`es`/`ht`/3D), and Ansys HFSS 2026 R1 (`10–340 GHz` 3D RF) (`14/14` physics audits `PASS`)](./docs/COMMERCIAL_SOLVER_VALIDATION_REPORT.md) and [369 unique 1-to-1 DOI peer-reviewed experimental publications (`367/369 PASS`, `99.5%`)](./docs/PUBLICATION_VALIDATION_LEDGER.md)** across 8 physical domains from `450 nm` Visible to `4200 nm` Mid-IR (see also [Verification & Benchmarks](./docs/VERIFICATION_AND_BENCHMARKS.md)):
+- **Nonlinear Photonics, Generalized LLE Soliton Microcombs, FWM-BS, $\chi^{(2)}$ SHG, Bistability & Payne-Lacey Scattering (`nonlinear_lle.py` & `mrr_topologies.py`)**:
+  - **2D Bent-FEM Dispersion & Generalized SSFM LLE Microcomb Solver (`simulate_lle_microcomb`)**: Extracts broadband curved-waveguide integrated dispersion $D_{\mathrm{int}}(\mu)$ ($D_1, D_2, D_3, D_4$, $\beta_2(\lambda)$, ZDW, optional AMX), full-vector Afshar-Monro (2009) Kerr $\gamma_{\mathrm{NL}} / A_{\mathrm{eff,NL}} / P_{\mathrm{th}}$, and broadband coupler dispersion $\kappa_{\mathrm{ext}}(\mu)$ directly from 2D curved FEM, feeding a Strang Split-Step Fourier (`SSFM`) LLE solver (FP64 CUDA/NumPy) with dissipative Kerr solitons (`single_soliton`, blue-to-red `soliton_sweep`, normal-dispersion `dark_pulse`), causal damped-oscillator Raman self-frequency shift, photothermal detuning, and Silicon/a-Si TPA + free-carrier FCD/FCA (`2.2 µm` cutoff).
+  - **Cross-Band FWM Bragg Scattering (`simulate_fwm_bragg_scattering`), $\chi^{(2)}$ SHG (`simulate_chi2_shg_resonator`) & Shark-Fin Bistability (`simulate_thermal_kerr_bistability`)**: Solves 4-wave 2D curved-FEM vector tensor overlaps for quantum frequency conversion ($\gamma_{\mathrm{BS}}, C_{\mathrm{BS}}, \eta_{\mathrm{CE}}$, spurious suppression), FH/SH crystal-tensor $\chi^{(2)}$ overlap ($g_2, \Lambda_{\mathrm{QPM}}, \eta_{\mathrm{SHG}}$, exact pump-depleted cubic curve), and steady S-curve + dynamic blue/red shark-fin laser scan hysteresis.
+  - **First-Principles Sidewall Roughness Scattering & Broadband $\kappa(\lambda)$ (`estimate_sidewall_scattering_payne_lacey`)**: Computes Barwicz-Haus 3D volume-current scattering attenuation ($\alpha_{\mathrm{scat}}$ in `dB/cm` with Fresnel tangential image screening), Lorentz-reciprocity RMS CW/CCW doublet splitting (`MHz`), and 3-anchor dispersive $\kappa(\lambda)$ across ultra-wideband (`>= 80 nm`) spectra.
 - **Foundry PDK Profiles, Polygon DRC (`.lyrdb`), 3D Multi-Metal LVS, `PRISM` Closed-Loop 2D-FEM Optimizer & WDM Optical Link (`🏭 PDK · PRISM · WDM`, 100% Native Solvers, Zero Lumerical)**:
   - **Switchable Provenance-Tagged Foundry PDKs, Polygon DRC & 3D Union-Find LVS (`foundry_pdk.py`)**: Ships 6 PDK profiles (`gsip_soi220`, `cornerstone_soi220`, `siepic_ebeam_soi220`, `tfln_xcut_600`, `scaln_soi_bilayer`, `microring_generic` + NDA-safe CSV import/export), morphological polygon DRC (`MIN_WIDTH`, `MIN_SPACE`, acute concave notches, `MIN_ENCLOSURE`, `COPLANAR_CLEARANCE`, `FORBIDDEN_OVERLAP`, `OPTICAL_KEEPOUT`) exporting KLayout `.lyrdb` markers, acute rib-slab wedge fillets, 3D Union-Find netlist extraction (`G1/S/G2` North + `H1/H2` South pads, floating-via & short checks), Co-Integrated `PN + TiN Heater` Ring Modulators (with `M1/VIAC` PN contact parasitic heat-stealing & Galerkin thermal flux conservation), and a Native GDS Cutline Layer Builder (`solve_gds_cutline_multiphysics`: 10-point refractive-index stack probe + 2D Maxwell + 2D PB PN + 2D Thermal FEM directly from `.gds`).
   - **`PRISM`-Style Physics Closure Gates & Prediction-Gated Real-2D-FEM Optimizer (`prism_optimizer.py`)**: Verifies cavity $Q$-budget closure ($1/Q_L = \sum_i 1/Q_i$), broadband unitary passivity, and core-vs-slab carrier perturbation additivity, and executes closed-loop Bayesian quadratic surrogate optimization with pre-simulation prediction locking, `>2*sigma` understanding-gate recalibrations, and auditable `journal.jsonl` logs on real 2D-FEM solvers.
@@ -275,7 +280,7 @@ python examples/02_gds_roundtrip/02_upload_and_simulate_gds.py
 # 6. Fit CW/CCW split-doublet & multi-FSR experimental spectra via CMT:
 python examples/03_lab_spectrum_fitting/01_fit_doublet_and_multifsr.py
 
-# Run all 17 automated verification suites + 369-paper experimental publication validation:
+# Run all 18 automated verification suites + 369-paper experimental publication validation:
 python tests/test_microring_all.py
 python benchmarks/run_publication_validation.py
 ```
@@ -358,6 +363,9 @@ uv run microring agent prism-optimize --mode optimize --problem pn_ring_modulato
 
 # Multi-Channel WDM Ring Link, NRZ/PAM4 Eye Diagram & Closed-Loop PI Heater Relocking (<140 tokens):
 uv run microring agent wdm-link --scenario heater_relocked --n-ch 4 --rate 25 --format nrz
+
+# Nonlinear Photonics: 2D-FEM D_int(mu), LLE Soliton Microcomb, FWM-BS, Chi(2) SHG & Bistability (<145 tokens):
+uv run microring agent nonlinear --analysis lle --mat Si3N4 --h 0.80 --w-ring 1.60 --r 23 --p-mw 80 --raman
 ```
 
 ---
@@ -375,7 +383,8 @@ microring-studio/
 │   ├── conformal_mesher.py                Pure-BSD constrained Delaunay waveguide mesher (zero GPL)
 │   ├── eigenmode_solver.py                2D full-vector Nedelec1/Lagrange FEM (bent + straight) & FDE
 │   ├── mrr_cmt_spatial.py                 Cylindrical vector overlap & pulley spatial CMT integrator
-│   ├── mrr_topologies.py                  7 MRR topologies, High-Q convergence, coupler cutout & GDS
+│   ├── mrr_topologies.py                  7 MRR topologies, Payne-Lacey scattering, broadband kappa(λ) & High-Q
+│   ├── nonlinear_lle.py                   2D-FEM D_int(μ), SSFM LLE microcombs, FWM-BS, χ(2) SHG & bistability
 │   ├── mzi_interferometer.py              2D-FEM/EME MZI splitters (DC/MMI/Y-Branch), modulators & GDS/IC
 │   ├── eom_electrode.py                   Sub-THz 300+ GHz T-Rail / CPW EOM electrode, Wafer Cut, .S2P & GDS
 │   ├── multiphysics_tcad.py               2D Poisson-Boltzmann Si PN TCAD, PN Heat-Sinking & Thermal FEM
@@ -397,7 +406,7 @@ microring-studio/
 ├── examples/                              13 self-contained cookbook scripts (Visible -> 1310/1550 -> Mid-IR)
 ├── benchmarks/                            FEM vs Yee-FDE audit, 369-paper corpus & hero figure generator
 ├── docs/                                  Chinese README, tutorials, benchmarks, contributing & llms.txt
-└── tests/                                 17-suite automated verification tests
+└── tests/                                 18-suite automated verification tests
 ```
 
 ---

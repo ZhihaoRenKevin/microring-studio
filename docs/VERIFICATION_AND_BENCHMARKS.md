@@ -275,6 +275,25 @@ Every metric is solved organically from the published cross-sectional device geo
 
 ---
 
+## 7B. Independent Head-to-Head LLE Microcomb Validation vs. Official NIST `pyLLE` (`ComputeLLE.jl`)
+
+Because commercial photonic solvers (`Lumerical`, `COMSOL`, `RSoft`, `Tidy3D`) do not ship a native microresonator Lugiato-Lefever Equation (`LLE`) solver, `src/microring/nonlinear_lle.py` was benchmarked head-to-head against the unmodified official NIST **`usnistgov/pyLLE`** Julia iterative half-step Fourier backend (**`ComputeLLE.jl`**, G. Moille *et al.*, *J. Res. NIST* **124**, 124012, 2019; executed locally with `Julia 1.13.4` + `FFTW` + `HDF5`) on identical neutral dispersion and cavity parameters via [`benchmarks/run_nist_pylle_validation.py`](../benchmarks/run_nist_pylle_validation.py):
+
+| Microcomb Benchmark | Soliton Peak Power (`MR` vs `NIST pyLLE`) | Temporal FWHM (`MR` vs `NIST pyLLE`) | Intracavity Avg Power (`MR` vs `NIST pyLLE`) | Comb-Line Parity (`>-60 dBm`) | Runtime (`MR` vs `NIST Julia`) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Brasch *Science* 2016** (`Si3N4 800×1600 nm`, `R=23 µm`, `1550 nm`, `80 mW`) | `188.50` vs `191.72 W` (`1.68%`) | `33.46` vs `33.30 fs` (`0.47%`) | `7211.7` vs `7310.0 mW` (`1.34%`) | `81` lines: median `0.309 dB`, RMSE `0.359 dB`, `r = 0.999992` | `110 ms` vs `8484 ms` |
+| **Guidry *Optica* 2020** (`4H-SiC 500×1850 nm`, `R=55 µm`, `1550 nm`, `20 mW`) | `12.68` vs `12.59 W` (`0.68%`) | `41.26` vs `41.29 fs` (`0.08%`) | `685.2` vs `682.5 mW` (`0.40%`) | `155` lines: median `0.108 dB`, RMSE `0.123 dB`, `r = 1.000000` | `106 ms` vs `7715 ms` |
+| **NIST Official `RW1000_H430.csv`** (`Si3N4 1000×430 nm`, `R=23 µm`, `283 THz`, `140 mW`, Dual-DW) | `133.28` vs `132.51 W` (`0.58%`) | `13.83` vs `13.69 fs` (`1.00%`) | `2466.3` vs `2455.9 mW` (`0.42%`) | `215` lines: median `0.171 dB`, `r = 0.9954`; blue DW exact `mu = +119 vs +119` | `167 ms` vs `8656 ms` |
+
+Additional nonlinear & scattering literature cross-checks verified in Suite #18 (`tests/test_microring_all.py`):
+- **Causal Raman self-frequency shift** (`Si3N4 800×1600 nm`): strictly red-shifted centroid `-0.948 THz` (Karpov *et al.*, *PRL* **116**, 103902, 2016).
+- **Silicon TPA + Free-Carrier cutoff**: strong `N_fc > 10^16 cm^-3` carrier suppression at `1550 nm` vs `N_fc = 0` TPA-free anomalous dispersion (`beta2 = -110.6 ps^2/km`, `FSR = 130.8 GHz`) at `2600 nm` (Griffith *et al.*, *Nat. Commun.* **6**, 6299, 2015).
+- **X-cut TFLN $\chi^{(2)}$ SHG** (`600/300 nm`, `R = 50 µm`): $\Lambda_{\mathrm{QPM}} = 3.865\,\mu\text{m}$, $g_2 / 2\pi = 2.397\text{ MHz}$, pump-depleted ceiling `21.2%` approaching the `25.0%` critical-coupling limit (Lu *et al.*, *Optica* **6**, 1455, 2019).
+- **4H-SiC FWM-BS QFC** (`500×1150 nm`, `R = 35 µm`, `1550/1510/750 nm`): $\gamma_{\mathrm{BS}} = 22.19\text{ W}^{-1}\text{m}^{-1}$, $C_{\mathrm{BS}} = 2.29$, $\eta_{\mathrm{CE,PM}} = 37.6\%$, spurious suppression `16.1 dB`.
+- **Barwicz-Haus 3D Volume-Current Sidewall Roughness Scattering** ($\sigma = 2\text{ nm}, L_c = 50\text{ nm}$): `SOI 220×450 nm` `2.14 dB/cm`, `SOI 220×500 nm` `1.59 dB/cm`, `SOI 220×1000 nm` `0.205 dB/cm`, `Si3N4 800×1600 nm` ($\sigma = 1\text{ nm}$) `0.013 dB/cm` (Barwicz & Haus, *JLT* **23**, 2719, 2005).
+
+---
+
 ## 8. Physical Scope Boundaries
 
 - **High-Confidence Regime (`MicroRing Studio` 2D Bent FEM + Spatial CMT + 2D FDFD + EME + 2D Multiphysics FEM)**:

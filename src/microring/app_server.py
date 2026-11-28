@@ -97,6 +97,17 @@ from .mrr_topologies import (
     get_default_output_root,
     simulate_mrr_topology,
 )
+from .nonlinear_lle import (
+    FWMBSConfig,
+    LLEConfig,
+    SHGConfig,
+    ThermalKerrBistabilityConfig,
+    compute_resonator_dispersion_and_nl,
+    simulate_chi2_shg_resonator,
+    simulate_fwm_bragg_scattering,
+    simulate_lle_microcomb,
+    simulate_thermal_kerr_bistability,
+)
 from .mzi_interferometer import (
     MZI_SPLITTER_CATALOG,
     MZIDesignConfig,
@@ -1447,6 +1458,42 @@ async def api_process_corners(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
 
+def _nonlinear_lle_sync(payload: dict) -> dict:
+    analysis = str(payload.get("analysis") or "lle").lower().strip()
+    if analysis == "dispersion":
+        kw = _filter_dataclass_kwargs(LLEConfig, payload)
+        res = compute_resonator_dispersion_and_nl(LLEConfig(**kw))
+        return {"analysis": "dispersion", "elapsed_ms": res["elapsed_ms"], "metrics": res["metrics"]}
+    if analysis in ("fwm_bs", "fwm", "qfc"):
+        kw = _filter_dataclass_kwargs(FWMBSConfig, payload)
+        res = simulate_fwm_bragg_scattering(FWMBSConfig(**kw))
+        res["analysis"] = "fwm_bs"
+        return res
+    if analysis in ("shg", "chi2"):
+        kw = _filter_dataclass_kwargs(SHGConfig, payload)
+        res = simulate_chi2_shg_resonator(SHGConfig(**kw))
+        res["analysis"] = "shg"
+        return res
+    if analysis in ("bistability", "shark_fin", "thermal_kerr"):
+        kw = _filter_dataclass_kwargs(ThermalKerrBistabilityConfig, payload)
+        res = simulate_thermal_kerr_bistability(ThermalKerrBistabilityConfig(**kw))
+        res["analysis"] = "bistability"
+        return res
+    kw = _filter_dataclass_kwargs(LLEConfig, payload)
+    res = simulate_lle_microcomb(LLEConfig(**kw))
+    res["analysis"] = "lle"
+    return res
+
+
+async def api_nonlinear_lle(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        res = await anyio.to_thread.run_sync(_nonlinear_lle_sync, payload)
+        return JSONResponse(res)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
 def create_app() -> Starlette:
     routes = [
         Route("/", homepage, methods=["GET"]),
@@ -1482,6 +1529,7 @@ def create_app() -> Starlette:
         Route("/api/pdk_drc_lvs", api_pdk_drc_lvs, methods=["POST"]),
         Route("/api/prism_optimize", api_prism_optimize, methods=["POST"]),
         Route("/api/wdm_link", api_wdm_link, methods=["POST"]),
+        Route("/api/nonlinear_lle", api_nonlinear_lle, methods=["POST"]),
         Route("/api/download_file", api_download_file, methods=["GET"]),
         Route("/api/demo_spectrum", api_demo_spectrum, methods=["GET"]),
         Route("/api/fit_spectrum", api_fit_spectrum, methods=["POST"]),

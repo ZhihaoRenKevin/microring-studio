@@ -36,6 +36,7 @@
 | **11** | 洁净室光刻 CD 与间距反相关工艺漂移（`±20 nm`，正/负胶） | Lumerical `MODE`+`3D FDTD`, COMSOL `ewfd` | $\mathrm{d}\lambda/\mathrm{dCD} = 775.79 / 775.97 / 776.36\text{ pm/nm}$（三方离散仅 `0.07%`）；耦合比 $\kappa^2$ 相对 3D FDTD 误差 `0.3%–4.8%` |
 | **12** | 低 Q 整环 `3D FDTD`（7 种拓扑）、`.GDS` 闭环与双峰 Auto-BIC | Lumerical `3D FDTD`（RTX 5090 GPU） | 跑道环 $Q_L$ `1413 vs 1405`（`0.58%`）；高损临界耦合 $Q_{\mathrm{ext}}$ `8348 vs 8156`（`2.3%`）；间距缩放 `1.1%`；双环 CROW 劈裂 `1.109 vs 1.052 nm`（`5.4%`）；`GSST` 相变漂移 `+2.93 vs +2.75 nm`（`6.0%`）；`.GDS` 直导 `gdsimport` 与盲测 Auto-BIC 判别 `split_doublet`（`R^2 = 0.99997`）通过 |
 | **13** | 最优长 `2x2 MMI`、全 S 弯 `DC`、`RAMZI`、全 3D 聚焦光栅与端面锥 | Lumerical `3D FDTD`（RTX 5090 GPU） | 最优 `2x2 MMI` 插损 `0.367 vs 0.393 dB`（`0.026 dB`）；全 S 弯 `DC` 误差 `2.2%`；`RAMZI` 消光比 `14.85 vs 14.94 dB`（`0.09 dB`）；全 3D 聚焦光栅峰值 `1555.3 vs 1554.0 nm`，峰值插损 `3.490 vs 3.522 dB`（`0.032 dB`）；3D 端面锥总插损 `0.588 vs 0.777 dB` |
+| **LLE** | 广义 SSFM LLE 孤子微梳（Brasch `Si3N4`、Guidry `4H-SiC`、NIST `RW1000_H430` 双色散波） | **NIST `usnistgov/pyLLE`**（`ComputeLLE.jl`） | 孤子峰功率误差 `0.58%–1.68%`、脉宽 FWHM 误差 `0.08%–1.00%`、`81–215` 根梳齿中位误差 `0.11–0.31 dB`（`r = 0.9954–1.0000`），蓝移色散波模序完全一致（`+119 vs +119`），速度提升 `50–77x` |
 
 <details>
 <summary><b>展开查看 18 子图四方商业软件对比总图（套件 1–13：MicroRing vs. Lumerical / COMSOL / HFSS 3D）</b></summary>
@@ -52,7 +53,11 @@
 
 ## 核心亮点
 
-1. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（对标 [Ansys Lumerical 2026 R1、COMSOL 6.4 与 Ansys HFSS 2026 R1 全 13 套件四方独立验证报告 `14/14 PASS`](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) 及 [369 篇独立 DOI 同行评审实验论文 `367/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
+1. **零商业许可非线性光子学、广义 LLE 孤子微梳、FWM-BS、$\chi^{(2)}$ SHG、热光双稳态与 Payne-Lacey 侧壁散射（`nonlinear_lle.py` & `mrr_topologies.py`）**：
+   - **2D 弯曲 FEM 色散提取 + 广义分步傅里叶（SSFM）LLE 微梳求解器（`simulate_lle_microcomb`）**：直接从 2D 弯曲矢量 FEM 提取宽带积分色散 $D_{\mathrm{int}}(\mu)$（$D_1, D_2, D_3, D_4$、$\beta_2(\lambda)$、零色散波长 ZDW 与可选 AMX）、Afshar-Monro (2009) 全矢量 Kerr 非线性系数 $\gamma_{\mathrm{NL}} / A_{\mathrm{eff,NL}} / P_{\mathrm{th}}$ 与宽带耦合器色散 $\kappa_{\mathrm{ext}}(\mu)$，无缝送入 FP64 CUDA/NumPy Strang SSFM 求解器，支持稳态耗散 Kerr 孤子（`single_soliton`）、冷腔蓝-红扫频孤子成核（`soliton_sweep`）、正常色散暗脉冲（`dark_pulse`）、因果阻尼振子 Raman 自频红移、光热失谐耦合及硅/非晶硅 TPA + 自由载流子 FCD/FCA（含 `2.2 µm` 截止波长）。
+   - **跨波段四波混频布拉格散射（`simulate_fwm_bragg_scattering`）、$\chi^{(2)}$ 倍频（`simulate_chi2_shg_resonator`）与鲨鱼鳍光热+Kerr 双稳态（`simulate_thermal_kerr_bistability`）**：完整求解四波 2D 弯曲矢量模场张量重叠（$\gamma_{\mathrm{BS}}, C_{\mathrm{BS}}, \eta_{\mathrm{CE}}$ 与寄生边带抑制）、晶体 $\chi^{(2)}$ 张量重叠（$g_2, \Lambda_{\mathrm{QPM}}, \eta_{\mathrm{SHG}}$ 与精确泵浦耗尽三次方程曲线）以及静态 S 曲线与动态蓝/红扫频迟滞。
+   - **第一性原理侧壁粗糙度散射与宽带 $\kappa(\lambda)$ 色散（`estimate_sidewall_scattering_payne_lacey`）**：基于 Barwicz-Haus 3D 体积电流模型（含高折射率核界面切向偶极子 Fresnel 镜像屏蔽）和 Lorentz 互易定理，直接从 2D 矢量模场给出侧壁散射损耗 $\alpha_{\mathrm{scat}}$（`dB/cm`）与顺/逆时针背向散射均方根劈裂（`MHz`），并在超宽带（`>= 80 nm`）扫描中启用 3 锚点色散耦合比 $\kappa(\lambda)$。
+2. **亚太赫兹（`100–300+ GHz`）电光调制器射频电极、三维晶圆切向寻优、硅 `PN` 掺杂 `TCAD` 与稳态/瞬态热有限元（对标 [Ansys Lumerical 2026 R1、COMSOL 6.4 与 Ansys HFSS 2026 R1 全 13 套件四方独立验证报告 `14/14 PASS`](./COMMERCIAL_SOLVER_VALIDATION_REPORT.md) 及 [369 篇独立 DOI 同行评审实验论文 `367/369 PASS`](./PUBLICATION_VALIDATION_LEDGER.md)）**：
    - **行波与慢波 `T-Rail` 电极自动综合（`design_eom_electrode`）**：二维各向异性 Laplace 有限元 + Ghione/Heinrich 保角趋肤损耗 + Hammerstad-Jensen 粗糙度 + 对称 ABCD Bloch-Floquet 周期单元色散（`f_Bragg`）+ Frankel-Rutledge Cherenkov 衬底辐射诊断，连续二维反解 `50 Ω` 线宽 $W_S$ 与速度匹配悬臂 $L_{\mathrm{rail}}$（石英衬底 `X切 TFLN` 达 **`f_3dBe > 300 GHz`**，`S21_EO(300 GHz) = -2.30 dBe`），一键导出零短路双层金属跨桥（`METAL_2 13/0 + VIA 12/0`）`.GDS` 掩膜、IEEE Touchstone `.s2p` 与 INTERCONNECT `TWMOD` 模型包。
    - **三维晶体张量晶圆切向与 `0°–360°` 方位角寻优 + 5 种新铁电材料（`LT` / `BTO` / `PZT`）**：精确计算 `TFLN`、`超低双折射钽酸锂 TFLT`、`硅基外延钛酸钡 BTO`（$r_{42}^S = 360\text{ pm/V}$）、`面内自极化 PZT`（$r_{\mathrm{eff}} = 67\text{ pm/V}$）、`ScAlN` 与 `3C/4H-SiC` 的最佳传输角、SEMI 参考边对准及圆环微环劈裂推挽效率。
    - **二维非线性泊松-玻尔兹曼硅 `PN/PIN` 掺杂 `TCAD` 与稳态 + Crank-Nicolson 瞬态热有限元**：自研阻尼牛顿迭代提取 `横向 / L型 / U型 / PIN` 结二维载流子分布、$C_j(V)$、$R_s$、$V_\pi L(V)$ 与多层离子注入 `.GDS`；热有限元完整求解 `顶层 TiN`、`深空气隔离槽`、`XeF2 掏空悬臂`（$P_\pi < 1\text{ mW}$）与 `重掺杂硅脊` 的瞬态升降温波形 $t_{10\text{--}90\%}$ 与邻臂热串扰。

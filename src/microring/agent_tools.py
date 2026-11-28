@@ -85,6 +85,17 @@ from .prism_optimizer import (
     run_prism_closed_loop_optimizer,
 )
 from .sweeps import run_mrr_parameter_sweep, run_waveguide_width_sweep
+from .nonlinear_lle import (
+    FWMBSConfig,
+    LLEConfig,
+    SHGConfig,
+    ThermalKerrBistabilityConfig,
+    compute_resonator_dispersion_and_nl,
+    simulate_chi2_shg_resonator,
+    simulate_fwm_bragg_scattering,
+    simulate_lle_microcomb,
+    simulate_thermal_kerr_bistability,
+)
 from .wdm_link import WDMLinkConfig, simulate_wdm_microring_link
 
 AGENT_OUT_DIR = Path(os.environ.get("MICRORING_AGENT_OUT", str(get_default_output_root() / "agent_runs")))
@@ -1164,6 +1175,126 @@ def agent_wdm_link(params: dict) -> dict:
         "E_pJ_bit": m["E_total_pJ_per_bit"],
         "pass": m["link_open_pass"],
         "csv": res.get("eye_csv_path"),
+        "ms": res["elapsed_ms"],
+    }
+
+
+def agent_nonlinear_lle(params: dict) -> dict:
+    """First-principles Nonlinear Photonics & LLE Microcomb Engine (<150 tokens): dispersion, LLE, FWM-BS, SHG, bistability."""
+    AGENT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    analysis = str(params.get("analysis") or params.get("kind") or "lle").lower().strip()
+    aliases = {
+        "mat": "core_material",
+        "h_um": "film_height_um",
+        "slab_um": "slab_height_um",
+        "w_ring_um": "ring_width_um",
+        "w_bus_um": "bus_width_um",
+        "r_um": "ring_radius_um",
+        "gap_um": "gap_thru_um",
+        "wl_nm": "wavelength_nm",
+        "pol": "polarization",
+        "p_mw": "pump_power_mw",
+    }
+
+    def _kw_for(cls):
+        valid = {f.name for f in fields(cls)}
+        return {aliases.get(k, k): v for k, v in params.items() if v is not None and aliases.get(k, k) in valid}
+
+    if analysis == "dispersion":
+        cfg = LLEConfig(**_kw_for(LLEConfig))
+        res = compute_resonator_dispersion_and_nl(cfg)
+        m = res["metrics"]
+        return {
+            "analysis": "dispersion",
+            "mat": cfg.core_material,
+            "FSR_GHz": m["FSR_GHz"],
+            "D2_kHz": m["D2_2pi_kHz"],
+            "regime": m["dispersion_regime"],
+            "beta2_ps2_km": m["beta2_ps2_per_km"],
+            "gamma_W_m": m["gamma_NL_per_W_m"],
+            "A_eff_um2": m["A_eff_NL_um2"],
+            "g0_Hz": m["g0_2pi_Hz"],
+            "P_th_mW": m["P_th_OPO_mW"],
+            "ZDW_nm": m["zero_dispersion_wls_nm"][:3],
+            "ms": res["elapsed_ms"],
+        }
+
+    if analysis in ("fwm_bs", "fwm", "qfc"):
+        cfg = FWMBSConfig(**_kw_for(FWMBSConfig))
+        res = simulate_fwm_bragg_scattering(cfg)
+        m = res["metrics"]
+        return {
+            "analysis": "fwm_bs",
+            "mat": cfg.core_material,
+            "wl_i_nm": res["wavelengths_nm"]["idler"],
+            "gamma_BS": m["gamma_BS_per_W_m"],
+            "C_BS": m["cooperativity_C_BS"],
+            "eff_pm_pct": m["conversion_eff_phase_matched_pct"],
+            "P_opt_mW": m["optimal_pump_geom_mean_mW"],
+            "spur_dB": m["spurious_suppression_dB"],
+            "ms": res["elapsed_ms"],
+        }
+
+    if analysis in ("shg", "chi2"):
+        kw = _kw_for(SHGConfig)
+        if "wl_nm" in params and "fundamental_wl_nm" not in kw:
+            kw["fundamental_wl_nm"] = float(params["wl_nm"])
+        cfg = SHGConfig(**kw)
+        res = simulate_chi2_shg_resonator(cfg)
+        m = res["metrics"]
+        return {
+            "analysis": "shg",
+            "mat": cfg.core_material,
+            "QPM_um": m["QPM_period_um"],
+            "d_eff_pmV": m["d_eff_pm_per_V"],
+            "g2_MHz": m["g2_2pi_MHz"],
+            "eta_pct_W": m["eta_SHG_undepleted_pct_per_W"],
+            "max_eff_pct": m["max_depleted_eff_pct"],
+            "ms": res["elapsed_ms"],
+        }
+
+    if analysis in ("bistability", "shark_fin", "thermal_kerr"):
+        kw = _kw_for(ThermalKerrBistabilityConfig)
+        if "p_mw" in params and "input_power_mw" not in kw:
+            kw["input_power_mw"] = float(params["p_mw"])
+        cfg = ThermalKerrBistabilityConfig(**kw)
+        res = simulate_thermal_kerr_bistability(cfg)
+        m = res["metrics"]
+        return {
+            "analysis": "bistability",
+            "bistable": m["is_bistable"],
+            "P_bist_mW": m["bistability_threshold_mW"],
+            "broaden_x": m["thermal_broadening_factor"],
+            "hyst_GHz": m["scan_hysteresis_GHz"],
+            "dT_pk_K": m["peak_delta_T_K"],
+            "ms": res["elapsed_ms"],
+        }
+
+    # Default: Generalized LLE microcomb simulation
+    cfg = LLEConfig(**_kw_for(LLEConfig))
+    res = simulate_lle_microcomb(cfg)
+    m = res["metrics"]
+    dm = res["dispersion"]
+    csv_path = AGENT_OUT_DIR / f"lle_comb_{cfg.core_material}_R{cfg.ring_radius_um:.1f}um.csv"
+    sp = res["spectrum"]
+    with csv_path.open("w", encoding="utf-8") as fh:
+        fh.write("mu,wavelength_nm,D_int_2pi_GHz,comb_power_dBm,intracavity_power_dBm\n")
+        for mu_v, wl_v, di_v, pc_v, pi_v in zip(
+            sp["mu"], sp["wavelength_nm"], sp["D_int_2pi_GHz"], sp["comb_power_dBm"], sp["intracavity_power_dBm"]
+        ):
+            fh.write(f"{mu_v},{wl_v},{di_v},{pc_v},{pi_v}\n")
+    return {
+        "analysis": "lle",
+        "state": m["comb_state"],
+        "backend": res["compute_backend"],
+        "D2_kHz": dm["D2_2pi_kHz"],
+        "P_th_mW": m["P_th_OPO_mW"],
+        "pk_W": m["soliton_peak_power_W"],
+        "fwhm_fs": m["pulse_fwhm_fs"],
+        "bw3dB_THz": m["comb_3db_bandwidth_THz"],
+        "eff_pct": m["comb_conversion_eff_pct"],
+        "raman_THz": m["raman_shift_THz"],
+        "csv": str(csv_path),
         "ms": res["elapsed_ms"],
     }
 

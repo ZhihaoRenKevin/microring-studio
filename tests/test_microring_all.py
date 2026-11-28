@@ -396,7 +396,7 @@ def test_agent_tools_and_mcp_minimal_tokens() -> None:
     init_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert init_resp is not None and init_resp["result"]["serverInfo"]["name"] == "microring-studio"
     list_resp = handle_mcp_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert list_resp is not None and len(list_resp["result"]["tools"]) == 15
+    assert list_resp is not None and len(list_resp["result"]["tools"]) == 16
 
     # 2. Compact MCP design + critical coupling + GDS export (< 550 chars => < ~140 tokens!)
     call_resp = handle_mcp_request({
@@ -1859,6 +1859,125 @@ def test_wdm_link_eye_thermal_locking_and_foundry_corners() -> None:
         assert len(json.dumps(f_crn)) < 620 and "yield_ER15_pct" in f_crn
 
 
+def test_nonlinear_lle_fwm_shg_bistability_and_scattering() -> None:
+    from microring import (
+        FWMBSConfig,
+        LLEConfig,
+        SHGConfig,
+        ThermalKerrBistabilityConfig,
+        agent_nonlinear_lle,
+        compute_resonator_dispersion_and_nl,
+        simulate_chi2_shg_resonator,
+        simulate_fwm_bragg_scattering,
+        simulate_lle_microcomb,
+        simulate_thermal_kerr_bistability,
+    )
+
+    # 1. Broadband 2D curved-FEM D_int(mu) + vector gamma_NL + analytical DKS + causal Raman red-shift
+    cfg_sin = LLEConfig(
+        core_material="Si3N4",
+        film_height_um=0.80,
+        ring_width_um=1.60,
+        ring_radius_um=23.0,
+        gap_thru_um=0.45,
+        q_int_override=1.5e6,
+        q_ext_override=1.5e6,
+        pump_power_mw=80.0,
+        detuning_end_kappa=17.0,
+        mode="single_soliton",
+        num_comb_modes=256,
+        num_steps=2500,
+    )
+    disp = compute_resonator_dispersion_and_nl(cfg_sin)
+    dm = disp["metrics"]
+    assert dm["dispersion_regime"] == "anomalous" and dm["D2_2pi_kHz"] > 5000.0
+    assert 0.5 < dm["gamma_NL_per_W_m"] < 2.5 and 0.5 < dm["P_th_OPO_mW"] < 15.0
+
+    r_dks = simulate_lle_microcomb(cfg_sin, disp_cache=disp)
+    md = r_dks["metrics"]
+    assert md["comb_state"] == "dissipative_kerr_soliton"
+    # Verify numerical SSFM soliton peak power & FWHM agree with exact analytical DKS laws within 6%
+    assert abs(md["soliton_peak_power_W"] - md["analytic_soliton_peak_W"]) / md["analytic_soliton_peak_W"] < 0.06
+    assert abs(md["pulse_fwhm_fs"] - md["analytic_pulse_fwhm_fs"]) / md["analytic_pulse_fwhm_fs"] < 0.08
+    assert md["peak_to_bg_ratio"] > 50.0 and md["comb_3db_bandwidth_THz"] > 2.5
+
+    # Causal Raman self-frequency shift must shift soliton centroid strictly toward RED (mu < 0, THz < 0)
+    r_ram = simulate_lle_microcomb(LLEConfig(**{**asdict(cfg_sin), "include_raman": True}), disp_cache=disp)
+    assert r_ram["metrics"]["comb_state"] == "dissipative_kerr_soliton"
+    assert r_ram["metrics"]["spectral_centroid_mu"] < -0.2 and r_ram["metrics"]["raman_shift_THz"] < -0.1
+
+    # Silicon 1550 nm TPA + free-carrier generation vs Mid-IR 2600 nm TPA-free cutoff
+    r_si_tpa = simulate_lle_microcomb(LLEConfig(
+        core_material="Si", film_height_um=0.22, ring_width_um=0.55, ring_radius_um=15.0,
+        wavelength_nm=1550.0, q_int_override=1e5, q_ext_override=1e5, pump_power_mw=40.0,
+        detuning_end_kappa=6.0, mode="single_soliton", include_tpa_fca=True,
+        num_comb_modes=128, num_steps=1000, include_coupler_dispersion=False,
+    ))
+    assert r_si_tpa["metrics"]["final_free_carrier_cm3"] > 1e15
+
+    # 2. Cross-band 4H-SiC Four-Wave Mixing Bragg Scattering (FWM-BS / QFC)
+    r_fwm = simulate_fwm_bragg_scattering(FWMBSConfig(
+        core_material="4H-SiC", film_height_um=0.50, ring_width_um=1.15, ring_radius_um=35.0,
+        pump1_wl_nm=1550.0, pump2_wl_nm=1510.0, signal_wl_nm=750.0, pump1_power_mw=20.0, pump2_power_mw=20.0,
+    ))
+    mf = r_fwm["metrics"]
+    assert 5.0 < mf["gamma_BS_per_W_m"] < 60.0 and mf["cooperativity_C_BS"] > 0.2
+    assert mf["conversion_eff_phase_matched_pct"] > 10.0 and mf["spurious_suppression_dB"] > 5.0
+
+    # 3. X-cut TFLN Chi(2) SHG with exact 2D vector overlap & pump depletion
+    r_shg = simulate_chi2_shg_resonator(SHGConfig(
+        core_material="LN_Xcut", film_height_um=0.60, slab_height_um=0.30, ring_width_um=1.40,
+        ring_radius_um=50.0, fundamental_wl_nm=1550.0, q_int_fh=1e6, q_ext_fh=1e6, q_int_sh=5e5, q_ext_sh=5e5,
+    ))
+    ms = r_shg["metrics"]
+    assert 2.0 < ms["QPM_period_um"] < 10.0 and ms["g2_2pi_MHz"] > 0.1 and ms["eta_SHG_undepleted_pct_per_W"] > 1e4
+    assert r_shg["power_curve"][-1]["P_SH_mW"] > r_shg["power_curve"][0]["P_SH_mW"]
+    assert r_shg["power_curve"][-1]["abs_efficiency_pct"] < 100.0
+
+    # 4. High-power Photothermal + Kerr Bistability (Shark-Fin Broadening & Hysteresis)
+    r_bis = simulate_thermal_kerr_bistability(ThermalKerrBistabilityConfig(
+        core_material="Si3N4", ring_radius_um=40.0, q_int=1e6, q_ext=1e6, input_power_mw=25.0,
+    ))
+    mb = r_bis["metrics"]
+    assert mb["is_bistable"] is True and mb["thermal_broadening_factor"] > 1.3 and mb["scan_hysteresis_GHz"] > 0.05
+
+    # 5. Payne-Lacey Sidewall Roughness Scattering + Broadband Coupler Dispersion kappa(lambda)
+    r_scat = simulate_mrr_topology(MRRDesignConfig(
+        core_material="Si", film_height_um=0.22, ring_width_um=0.45, bus_width_um=0.45,
+        ring_radius_um=15.0, gap_thru_um=0.18, alpha_loss_db_per_cm=0.2,
+        sidewall_rms_roughness_nm=2.0, sidewall_corr_length_nm=50.0, span_nm=4.0,
+    ))
+    assert 0.8 < r_scat["metrics"]["alpha_scattering_db_per_cm"] < 3.5
+    assert 500.0 < r_scat["metrics"]["backscatter_split_rms_mhz"] < 8000.0
+
+    r_bb = simulate_mrr_topology(MRRDesignConfig(
+        core_material="Si3N4", film_height_um=0.40, ring_width_um=1.00, bus_width_um=1.00,
+        ring_radius_um=30.0, gap_thru_um=0.25, span_nm=100.0, num_spectrum_points=400,
+        broadband_coupler_dispersion=True,
+    ))
+    assert r_bb["metrics"]["broadband_coupler_dispersive"] is True
+
+    # 6. HTTP ASGI /api/nonlinear_lle & Token-Minimal MCP tool (<620 chars)
+    async def _check_nl_http() -> None:
+        st, body = await _asgi_request("POST", "/api/nonlinear_lle", json_body={
+            "analysis": "bistability", "core_material": "Si3N4", "ring_radius_um": 40.0, "input_power_mw": 25.0,
+        })
+        d = json.loads(body)
+        assert st == 200 and d["metrics"]["is_bistable"] is True
+
+    asyncio.run(_check_nl_http())
+
+    mcp_nl = handle_mcp_request({
+        "jsonrpc": "2.0", "id": 301, "method": "tools/call",
+        "params": {"name": "microring_nonlinear_lle", "arguments": {"analysis": "dispersion", "mat": "Si3N4", "h_um": 0.80, "w_ring_um": 1.60, "r_um": 23.0}},
+    })
+    assert mcp_nl is not None and not mcp_nl["result"]["isError"]
+    txt = mcp_nl["result"]["content"][0]["text"]
+    assert len(txt) < 620 and "D2_kHz" in txt
+    ag_b = agent_nonlinear_lle({"analysis": "bistability", "mat": "Si3N4", "r_um": 40.0, "p_mw": 25.0})
+    assert ag_b["bistable"] is True
+
+
 def main() -> None:
     tests = [
         ("Materials & Hardware Probe", test_materials_and_hardware),
@@ -1878,6 +1997,7 @@ def main() -> None:
         ("Foundry PDK Profiles, Polygon DRC (.lyrdb), 3D LVS & Native Cutline 2D-FEM", test_foundry_pdk_drc_lvs_and_cutline_solver),
         ("PRISM Physics-Closure Audit & Prediction-Gated Real-2D-FEM Optimizer", test_prism_closure_audit_and_real_fem_optimizer),
         ("Multi-Channel WDM Ring Link, Eye Diagram, PI Heater Locking & Process Corners", test_wdm_link_eye_thermal_locking_and_foundry_corners),
+        ("Nonlinear Photonics & LLE Microcombs (D_int, DKS/Raman/TPA, FWM-BS, SHG, Bistability, Payne-Lacey)", test_nonlinear_lle_fwm_shg_bistability_and_scattering),
     ]
     if len(sys.argv) > 1:
         toks = [t.strip().lower() for t in sys.argv[1].split(",") if t.strip()]
